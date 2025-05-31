@@ -40,6 +40,8 @@ enum class TokenKind(val text:String, val lineContinues:Boolean) {
     QMARK      ("?", true),
     COMMA      (",", true),
     COLON      (":", true),
+    DOTDOT     ("..", true),
+    IN         ("in",true),
     OPENB      ("(", true),
     OPENSQ     ("[", true),
     OPENCL     ("{", true),

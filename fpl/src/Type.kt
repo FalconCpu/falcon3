@@ -1,0 +1,59 @@
+sealed class Type(val name:String) {
+    override fun toString() = name
+}
+
+object TypeUnit : Type("Unit")
+object TypeNull : Type("Null")
+object TypeBool : Type("Bool")
+object TypeChar : Type("Char")
+object TypeInt : Type("Int")
+object TypeReal : Type("Real")
+object TypeString : Type("String")
+object TypeAny : Type("Any")
+object TypeNothing : Type("Nothing")
+object TypeError : Type("Error")
+
+class TypeArray private constructor(name:String, val elementType: Type) : Type(name) {
+    companion object {
+        val allArrayTypes = mutableMapOf<Type, TypeArray>()
+        fun create(elementType: Type) = allArrayTypes.getOrPut(elementType) {
+            val name = "Array<$elementType}>"
+            TypeArray(name, elementType)
+        }
+    }
+}
+
+class TypeNullable private constructor(name:String, val elementType: Type) : Type(name) {
+    companion object {
+        val allNullableTypes = mutableMapOf<Type, TypeNullable>()
+        fun create(elementType: Type) = allNullableTypes.getOrPut(elementType) {
+            val name = "$elementType?"
+            TypeNullable(name, elementType)
+        }
+    }
+}
+
+class TypeFunction private constructor(name:String, val parameters: List<Type>, val returnType: Type) : Type(name) {
+    companion object {
+        val allFunctionTypes = mutableListOf<TypeFunction>()
+        fun create(parameters: List<Type>, returnType: Type) : TypeFunction {
+            val existing = allFunctionTypes.find { it.parameters == parameters && it.returnType == returnType }
+            if (existing != null)
+                return existing
+            val name = "(${parameters.joinToString(",")})->$returnType"
+            val new = TypeFunction(name, parameters, returnType)
+            allFunctionTypes.add(new)
+            return new
+        }
+    }
+}
+
+fun Type.isAssignableFrom(other:Type) : Boolean {
+    if (this == other || this is TypeError || other is TypeError || this is TypeAny || other is TypeNothing)
+        return true
+
+    if (this is TypeNullable && this.elementType.isAssignableFrom(other))
+        return true
+
+    return false
+}

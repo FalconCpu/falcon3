@@ -102,11 +102,11 @@ class ParserTest {
     @Test
     fun malformedRealNumbers() {
         val prog = """
-            val x = 123.c
+            val x = 123.4c
         """.trimIndent()
 
         val expected = """
-            test.fpl:1.9-1.13: Malformed real literal '123.c'
+            test.fpl:1.9-1.14: Malformed real literal '123.4c'
         """.trimIndent()
 
         runTest(prog, expected)
@@ -550,6 +550,60 @@ class ParserTest {
                 Binop PLUS
                  Id x
                  Intlit 1
+
+        """.trimIndent()
+
+        runTest(prog, expected)
+    }
+
+    @Test
+    fun ifExpression() {
+        val prog = """
+            fun fred(a:Int) -> String
+                return if a=0 then "hello" else "goodbye"
+        """.trimIndent()
+
+        val expected = """
+            File test
+             Function fred
+              Parameter a
+               Type Int
+              Type String
+              ExprStmt
+               Return
+                IfExpr
+                 Binop EQ
+                  Id a
+                  Intlit 0
+                 Stringlit hello
+                 Stringlit goodbye
+
+        """.trimIndent()
+
+        runTest(prog, expected)
+    }
+
+    @Test
+    fun forStatement() {
+        val prog = """
+            fun fred(a:Int)
+                for x in 1..a
+                    println(x)
+        """.trimIndent()
+
+        val expected = """
+            File test
+             Function fred
+              Parameter a
+               Type Int
+              For x
+               Range LTE
+                Intlit 1
+                Id a
+               ExprStmt
+                Call
+                 Id println
+                 Id x
 
         """.trimIndent()
 

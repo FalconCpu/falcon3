@@ -19,6 +19,8 @@ class AstBreak(location: Location) : AstExpr(location)
 class AstContinue(location: Location) : AstExpr(location)
 class AstNot(location: Location, val expr: AstExpr) : AstExpr(location)
 class AstMinus(location: Location, val expr: AstExpr) : AstExpr(location)
+class AstIfExpr(location: Location, val cond: AstExpr, val thenExpr: AstExpr, val elseExpr: AstExpr) : AstExpr(location)
+class AstRange(location: Location, val start: AstExpr, val end: AstExpr, val op:TokenKind) : AstExpr(location)
 
 class AstCall(location: Location, val expr: AstExpr, val args: List<AstExpr>) : AstExpr(location)
 
@@ -203,6 +205,19 @@ fun Ast.prettyPrint(sb: StringBuilder, indent:Int) {
             sb.append("Assign\n")
             left.prettyPrint(sb, indent+1)
             right.prettyPrint(sb, indent+1)
+        }
+
+        is AstIfExpr -> {
+            sb.append("IfExpr\n")
+            cond.prettyPrint(sb, indent+1)
+            thenExpr.prettyPrint(sb, indent+1)
+            elseExpr.prettyPrint(sb, indent+1)
+        }
+
+        is AstRange -> {
+            sb.append("Range $op\n")
+            start.prettyPrint(sb, indent+1)
+            end.prettyPrint(sb, indent+1)
         }
     }
 }

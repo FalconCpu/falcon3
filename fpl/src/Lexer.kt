@@ -4,7 +4,9 @@ class Lexer (val fileName:String, val fileHandle: Reader) {
     private var lineNumber = 1
     private var columnNumber = 1
     private var atEof = false
+    private var nextEof = false
     private var currentChar = readChar()
+    private var nextChar = readChar()
     private var startLine = 1
     private var startColumn = 1
     private var lastLine = 1
@@ -16,7 +18,7 @@ class Lexer (val fileName:String, val fileHandle: Reader) {
     private fun readChar():Char {
         val c = fileHandle.read()
         if (c == -1) {
-            atEof = true
+            nextEof = true
             return '\n'
         }
         return c.toChar()
@@ -24,9 +26,11 @@ class Lexer (val fileName:String, val fileHandle: Reader) {
 
     private fun nextChar() : Char {
         val ret = currentChar
+        currentChar = nextChar
+        atEof = nextEof
         lastLine = lineNumber
         lastColumn = columnNumber
-        currentChar = readChar()
+        nextChar = readChar()
 
         if (ret=='\n') {
             lineNumber++
@@ -74,7 +78,7 @@ class Lexer (val fileName:String, val fileHandle: Reader) {
         val sb = StringBuilder()
         while (currentChar.isLetterOrDigit())
             sb.append(nextChar())
-        if (currentChar=='.') {
+        if (currentChar=='.' && nextChar.isDigit()) {
             sb.append(nextChar())
             while (currentChar.isLetterOrDigit())
                 sb.append(nextChar())

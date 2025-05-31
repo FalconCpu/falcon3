@@ -179,11 +179,21 @@ class Parser(val lexer: Lexer) {
         return ret
     }
 
+    private fun parseRange() : AstExpr {
+        val ret = parseAdd()
+        if (currentToken.kind == DOTDOT) {
+            val loc = match(DOTDOT)
+            val op = if (currentToken.kind in listOf(LT, LTE, GT, GTE)) nextToken().kind else LTE
+            return AstRange(loc.location, ret, parseAdd(), op)
+        }
+        return ret
+    }
+
     private fun parseComp() : AstExpr {
-        var ret = parseAdd()
+        var ret = parseRange()
         while(currentToken.kind in listOf(LT, GT, LTE, GTE, EQ, NEQ)) {
             val op = match(currentToken.kind)
-            ret = AstBinop(op.location, op.kind, ret, parseAdd())
+            ret = AstBinop(op.location, op.kind, ret, parseRange())
         }
         return ret
     }
@@ -207,7 +217,15 @@ class Parser(val lexer: Lexer) {
     }
 
     private fun parseExpression() : AstExpr {
-        return parseOr()
+        if (canTake(IF)) {
+            val cond = parseOr()
+            match(THEN)
+            val thenExpr = parseExpression()
+            match(ELSE)
+            val elseExpr = parseExpression()
+            return AstIfExpr(cond.location, cond, thenExpr, elseExpr)
+        } else
+            return parseOr()
     }
 
     private fun parseExpressionList() : List<AstExpr> {
@@ -378,6 +396,16 @@ class Parser(val lexer: Lexer) {
         return AstWhile(loc, expr, body)
     }
 
+    private fun parseFor() : AstFor {
+        val loc = match(FOR).location
+        val name = match(ID)
+        match(IN)
+        val expr = parseExpression()
+        val body = parseThenOrIndentedBlock()
+        checkEnd(FOR)
+        return AstFor(loc, name.text, expr, body)
+    }
+
     private fun parseRepeat() : AstRepeat {
         val loc = match(REPEAT).location
         expectEol()
@@ -396,6 +424,7 @@ class Parser(val lexer: Lexer) {
                 IF -> parseIf()
                 WHILE -> parseWhile()
                 REPEAT -> parseRepeat()
+                FOR -> parseFor()
                 FUN -> parseFunction()
                 else -> parseExpressionStatement()
             }
