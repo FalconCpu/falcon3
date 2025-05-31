@@ -1,0 +1,72 @@
+class Token (
+    val location: Location,
+    val kind : TokenKind,
+    val text: String
+) {
+    override fun toString() = text
+}
+
+enum class TokenKind(val text:String, val lineContinues:Boolean) {
+    EOF        ("<end of file>", false),
+    EOL        ("<end of line>", true),
+    INDENT     ("<indent>", false),
+    DEDENT     ("<dedent>", false),
+    ID         ("<identifier>", false),
+    INTLIT     ("<integer literal>", false),
+    STRINGLIT  ("<string literal>", false),
+    CHARLIT    ("<character literal>", false),
+    REALLIT    ("<real literal>", false),
+    PLUS       ("+", true),
+    MINUS      ("-", true),
+    STAR       ("*", true),
+    SLASH      ("/", true),
+    PERCENT    ("%", true),
+    CARET      ("^", true),
+    AMP        ("&", true),
+    BAR        ("|", true),
+    EQ         ("=", true),
+    NEQ        ("!=", true),
+    LT         ("<", true),
+    GT         (">", true),
+    LTE        ("<=", true),
+    GTE        (">=", true),
+    OR         ("or", true),
+    AND        ("and", true),
+    NOT        ("not", true),
+    DOT        (".", true),
+    LEFT       ("<<", true),
+    RIGHT      (">>", true),
+    ARROW      ("->", true),
+    QMARK      ("?", true),
+    COMMA      (",", true),
+    COLON      (":", true),
+    OPENB      ("(", true),
+    OPENSQ     ("[", true),
+    OPENCL     ("{", true),
+    CLOSEB     (")", false),
+    CLOSESQ    ("]", false),
+    CLOSECL    ("}", false),
+    ARRAY      ("Array", false),
+    THEN       ("then", true),
+
+    VAL        ("val", false),
+    VAR        ("var", false),
+    IF         ("if", false),
+    ELSE       ("else", false),
+    ELSIF      ("elsif", false),
+    END        ("end", false),
+    WHILE      ("while", false),
+    FOR        ("for", false),
+    REPEAT     ("repeat", false),
+    UNTIL      ("until", false),
+    RETURN     ("return", false),
+    BREAK      ("break", false),
+    CONTINUE   ("continue", false),
+    FUN        ("fun", false),
+    CLASS      ("class", false),
+    ERROR      ("<error>", false);
+
+    companion object {
+        val textToKind = entries.associateBy { it.text }
+    }
+}

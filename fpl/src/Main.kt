@@ -12,3 +12,15 @@ fun main() {
         println("i = $i")
     }
 }
+
+enum class StopAt{PARSE, TYPECHECK, CODEGEN, REG_ALLOC, ASSEMBLY}
+
+fun compile(lexers:List<Lexer>, stopAt: StopAt) : String {
+    Log.clear()
+
+    val astTop = Parser.parse(lexers)
+    if (Log.hasErrors())   return Log.getErrors()
+    if (stopAt == StopAt.PARSE) return astTop.prettyPrint()
+
+    TODO("Typecheck")
+}
