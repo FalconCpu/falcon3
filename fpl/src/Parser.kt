@@ -202,7 +202,7 @@ class Parser(val lexer: Lexer) {
         var ret = parseComp()
         while(currentToken.kind == AND) {
             val op = match(AND)
-            ret = AstBinop(op.location, op.kind, ret, parseComp())
+            ret = AstAnd(op.location, ret, parseComp())
         }
         return ret
     }
@@ -211,7 +211,7 @@ class Parser(val lexer: Lexer) {
         var ret = parseAnd()
         while (currentToken.kind == OR) {
             val op = match(OR)
-            ret = AstBinop(op.location, op.kind, ret, parseAnd())
+            ret = AstOr(op.location, ret, parseAnd())
         }
         return ret
     }

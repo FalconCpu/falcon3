@@ -13,6 +13,11 @@ object TypeAny : Type("Any")
 object TypeNothing : Type("Nothing")
 object TypeError : Type("Error")
 
+fun makeTypeError(location: Location, message:String) : Type {
+    Log.error(location, message)
+    return TypeError
+}
+
 class TypeArray private constructor(name:String, val elementType: Type) : Type(name) {
     companion object {
         val allArrayTypes = mutableMapOf<Type, TypeArray>()
@@ -52,8 +57,21 @@ fun Type.isAssignableFrom(other:Type) : Boolean {
     if (this == other || this is TypeError || other is TypeError || this is TypeAny || other is TypeNothing)
         return true
 
-    if (this is TypeNullable && this.elementType.isAssignableFrom(other))
+    if (this is TypeNullable && (other is TypeNull || this.elementType.isAssignableFrom(other)))
         return true
 
+    // Todo - should we allow for covariance on arrays and functions. For now, no. but maybe consider later.
+
     return false
+}
+
+fun Type.checkCompatibleWith(expr:TstExpr) {
+    if (!isAssignableFrom(expr.type))
+        Log.error(expr.location, "Got type '${expr.type}' when expecting '$this'")
+}
+
+fun Type.defaultPromotions() : Type {
+    if (this == TypeChar)
+        return TypeInt
+    return this
 }

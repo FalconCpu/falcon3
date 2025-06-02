@@ -11,7 +11,9 @@ class AstReallit(location: Location, val value: Double) : AstExpr(location)
 class AstStringlit(location: Location, val value: String) : AstExpr(location)
 class AstCharlit(location: Location, val value: Char) : AstExpr(location)
 class AstId(location: Location, val name:String) : AstExpr(location)
-class AstBinop(location: Location, val op: TokenKind, val left: AstExpr, val right: AstExpr) : AstExpr(location)
+class AstBinop(location: Location, val op: TokenKind, val lhs: AstExpr, val rhs: AstExpr) : AstExpr(location)
+class AstAnd(location: Location, val lhs: AstExpr, val rhs: AstExpr) : AstExpr(location)
+class AstOr(location: Location, val lhs: AstExpr, val rhs: AstExpr) : AstExpr(location)
 class AstIndex(location: Location, val expr: AstExpr, val index: AstExpr) : AstExpr(location)
 class AstMember(location: Location, val expr: AstExpr, val name: String) : AstExpr(location)
 class AstReturn(location: Location, val expr: AstExpr?) : AstExpr(location)
@@ -79,8 +81,8 @@ fun Ast.prettyPrint(sb: StringBuilder, indent:Int) {
         is AstCharlit -> sb.append("Charlit $value\n")
         is AstBinop -> {
             sb.append("Binop $op\n")
-            left.prettyPrint(sb, indent+1)
-            right.prettyPrint(sb, indent+1)
+            lhs.prettyPrint(sb, indent+1)
+            rhs.prettyPrint(sb, indent+1)
         }
         is AstId ->
             sb.append("Id $name\n")
@@ -218,6 +220,18 @@ fun Ast.prettyPrint(sb: StringBuilder, indent:Int) {
             sb.append("Range $op\n")
             start.prettyPrint(sb, indent+1)
             end.prettyPrint(sb, indent+1)
+        }
+
+        is AstAnd -> {
+            sb.append("And\n")
+            lhs.prettyPrint(sb, indent+1)
+            rhs.prettyPrint(sb, indent+1)
+        }
+
+        is AstOr -> {
+            sb.append("Or\n")
+            lhs.prettyPrint(sb, indent+1)
+            rhs.prettyPrint(sb, indent+1)
         }
     }
 }

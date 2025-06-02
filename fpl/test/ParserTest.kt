@@ -57,7 +57,7 @@ class ParserTest {
                 Intlit 2
                Intlit 3
              Decl VAL a
-              Binop OR
+              Or
                Binop EQ
                 Id y
                 Intlit 2
@@ -462,7 +462,7 @@ class ParserTest {
               Type String
               If
                IfClause
-                Binop AND
+                And
                  Binop GT
                   Id a
                   Intlit 0
@@ -473,7 +473,7 @@ class ParserTest {
                  Return
                   Stringlit both positive
                IfClause
-                Binop OR
+                Or
                  Binop LT
                   Id a
                   Intlit 0
