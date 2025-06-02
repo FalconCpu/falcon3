@@ -1,6 +1,8 @@
 // Type checking phase of the compiler. This phase takes the AST built in the parser phase and
 // converts it to a TypeChecked AST (Tst).
 
+private var currentFunction: Function? = null
+
 // ================================================================
 //                            Rvalues
 // ================================================================
@@ -25,6 +27,7 @@ fun AstExpr.typeCheckRvalue(context:AstBlock) : TstExpr {
                 is SymbolVar -> TstVariable(location, symbol, symbol.type)
                 is SymbolGlobal -> TstGlobalVar(location, symbol, symbol.type)
                 is SymbolFunction -> TstFunctionName(location, symbol, symbol.type)
+                is SymbolTypeName -> TstError(location, "Cannot use type name '$name' as an expression")
             }
         }
 
@@ -45,7 +48,19 @@ fun AstExpr.typeCheckRvalue(context:AstBlock) : TstExpr {
         is AstBreak ->
             TstBreak(location)
 
-        is AstCall -> TODO()
+        is AstCall -> {
+            val tcArgs = args.map{it.typeCheckRvalue(context)}
+            val tcExpr = expr.typeCheckRvalue(context)
+            if (tcExpr.type == TypeError) return tcExpr
+            if (tcExpr.type !is TypeFunction)
+                return TstError(location, "Cannot call expression of type ${tcExpr.type}")
+            val paramTypes = tcExpr.type.parameters
+            if (paramTypes.size != tcArgs.size)
+                return TstError(location, "Invalid number of arguments for function call")
+            for (index in tcArgs.indices)
+                paramTypes[index].checkCompatibleWith(tcArgs[index])
+            TstCall(location, tcExpr, tcArgs, tcExpr.type.returnType)
+        }
 
         is AstAnd -> {
             val tcLhs = lhs.typeCheckRvalue(context)
@@ -76,7 +91,24 @@ fun AstExpr.typeCheckRvalue(context:AstBlock) : TstExpr {
         is AstMember -> TODO()
         is AstMinus -> TODO()
         is AstRange -> TODO()
-        is AstReturn -> TODO()
+
+        is AstReturn -> {
+            val tc = expr?.typeCheckRvalue(context)
+            val cf = currentFunction
+            if (cf == null)
+                makeTypeError(location, "Return statement outside of a function")
+            else if (cf.returnType != TypeUnit) {
+                val returnType = cf.returnType
+                if (tc == null)
+                    makeTypeError(location, "Return statement with no value in function returning $returnType")
+                else if (!returnType.isAssignableFrom(tc.type))
+                    makeTypeError(location, "Return value of type ${tc.type} when expecting $returnType")
+            } else {
+                if (tc != null)
+                    makeTypeError(location, "Return statement with value in function returning Unit")
+            }
+            TstReturn(location, tc)
+        }
     }
 }
 
@@ -151,8 +183,16 @@ fun AstExpr.typeCheckBool(context:AstBlock) {
 // ================================================================
 
 fun AstTypeExpr.resolveType(context:AstBlock) : Type = when(this) {
+    is AstTypeId -> {
+        val sym = context.lookupSymbol(name)
+        when (sym) {
+            null -> makeTypeError(location, "Unknown type '$name'")
+            is SymbolTypeName -> sym.type
+            else -> makeTypeError(location, "'$name' is not a type")
+        }
+    }
+
     is AstTypeArray -> TODO()
-    is AstTypeId -> TODO()
     is AstTypeNullable -> TODO()
 }
 
@@ -174,7 +214,14 @@ fun AstStmt.typeCheck(context:AstBlock) : TstStmt = when(this) {
         TstDecl(location, symbol, tcExpr)
     }
 
-    is AstFunction -> TODO()
+    is AstFunction -> {
+        val oldFunction = currentFunction
+        currentFunction = this.function
+        val tcBody = body.map{it.typeCheck(this)}
+        currentFunction = oldFunction
+        TstFunction(location, function, tcBody)
+    }
+
     is AstAssign -> TODO()
     is AstClass -> TODO()
 
@@ -193,14 +240,60 @@ fun AstStmt.typeCheck(context:AstBlock) : TstStmt = when(this) {
     is AstIf -> TODO()
     is AstIfClause -> TODO()
     is AstRepeat -> TODO()
+
     is AstTop -> error("AstTop should not appear on internals of AST")
-    is AstExprStmt -> TODO()
+
+    is AstExprStmt -> {
+        TstExprStmt(location, expr.typeCheckRvalue(context))
+    }
+
     is AstNullStmt -> TstNullStmt(location)
+
+    is AstPrint -> {
+        val tcExprs = exprs.map{it.typeCheckRvalue(context)}
+        for (tcExpr in tcExprs)
+            if (tcExpr.type != TypeInt && tcExpr.type != TypeString && tcExpr.type!=TypeChar)
+                Log.error(tcExpr.location, "Got type ${tcExpr.type} but print only supports Int / Char/ String")
+        TstPrint(location, tcExprs)
+    }
+}
+
+private fun AstParameter.typeCheckParameter(context:AstBlock) : SymbolVar {
+    val type = this.type.resolveType(context)
+    val symbol = SymbolVar(location, name, type, false)
+    return symbol
+}
+
+private fun AstFunction.createFunctionSymbol(context:AstBlock) {
+    // Generate symbols for parameters and add them to the functions symbol table
+    val paramSymbols = params.map{it.typeCheckParameter(context)}
+    val retType = this.retType?.resolveType(context) ?: TypeUnit
+    for (param in paramSymbols)
+        addSymbol(param)
+
+    // Create the Function object to represent this function in the back end
+    function = Function(name, paramSymbols, retType)
+    allFunctions += function
+
+    // Create a symbol for this function and add it to the current scope
+    val funcType = TypeFunction.create(paramSymbols.map{it.type}, retType)
+    val symbol = SymbolFunction(location, name, funcType, function)
+    context.addSymbol(symbol)
+}
+
+private fun AstBlock.identifyFunctions() {
+    // Recursively scan the AST for functions and create symbols for them
+    for (stmt in body.filterIsInstance<AstBlock>())
+        if (stmt is AstFunction)
+            stmt.createFunctionSymbol(this)
+        else
+            stmt.identifyFunctions()
 }
 
 fun AstTop.typeCheck() : TstTop {
     for (stmt in body.filterIsInstance<AstBlock>())
         stmt.setParent(this)
+    identifyFunctions()
 
     val tcBody = body.map{it.typeCheck(this)}
     return TstTop(location, tcBody)

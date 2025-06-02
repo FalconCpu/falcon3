@@ -416,6 +416,13 @@ class Parser(val lexer: Lexer) {
         return AstRepeat(loc, expr, body)
     }
 
+    private fun parsePrint() : AstStmt {
+        val loc = match(PRINT).location
+        val args = parseExpressionList()
+        expectEol()
+        return AstPrint(loc, args)
+    }
+
     private fun parseStatement() : AstStmt {
         val loc = currentToken.location
         try {
@@ -426,6 +433,7 @@ class Parser(val lexer: Lexer) {
                 REPEAT -> parseRepeat()
                 FOR -> parseFor()
                 FUN -> parseFunction()
+                PRINT -> parsePrint()
                 else -> parseExpressionStatement()
             }
         } catch (e: ParseError) {

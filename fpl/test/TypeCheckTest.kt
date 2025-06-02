@@ -82,4 +82,36 @@ class TypeCheckTest {
         runTest(prog, expected)
     }
 
+    @Test
+    fun functionCalls() {
+        val prog = """
+            fun add(x:Int, y:Int) -> Int
+                return x + y
+            
+            fun main() -> Int
+                return add(10, 20)
+        """.trimIndent()
+
+        val expected = """
+            top
+              file: test
+                function: add
+                  expr-stmt
+                    return (Nothing)
+                      ADD_I (Int)
+                        var: x (Int)
+                        var: y (Int)
+                function: main
+                  expr-stmt
+                    return (Nothing)
+                      call (Int)
+                        function: add ((Int,Int)->Int)
+                        int: 10 (Int)
+                        int: 20 (Int)
+
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
+
 }

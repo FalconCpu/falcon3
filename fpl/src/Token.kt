@@ -66,6 +66,7 @@ enum class TokenKind(val text:String, val lineContinues:Boolean) {
     CONTINUE   ("continue", false),
     FUN        ("fun", false),
     CLASS      ("class", false),
+    PRINT      ("print", false),
     ERROR      ("<error>", false);
 
     companion object {

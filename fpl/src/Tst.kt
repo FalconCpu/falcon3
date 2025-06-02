@@ -14,7 +14,7 @@ class TstStringlit(location: Location, val value: String, type:Type) : TstExpr(l
 class TstVariable(location: Location, val symbol:SymbolVar, type:Type) : TstExpr(location, type)
 class TstGlobalVar(location: Location, val symbol:SymbolGlobal, type:Type) : TstExpr(location, type)
 class TstFunctionName(location: Location, val symbol:SymbolFunction, type:Type) : TstExpr(location, type)
-class TstBinop(location: Location, val op: AluOp, val left: TstExpr, val right: TstExpr, type:Type) : TstExpr(location, type)
+class TstBinop(location: Location, val op: AluOp, val lhs: TstExpr, val rhs: TstExpr, type:Type) : TstExpr(location, type)
 class TstAnd(location: Location, val left: TstExpr, val right: TstExpr) : TstExpr(location, TypeBool)
 class TstOr(location: Location, val left: TstExpr, val right: TstExpr) : TstExpr(location, TypeBool)
 class TstNot(location: Location, val expr: TstExpr) : TstExpr(location, TypeBool)
@@ -39,9 +39,10 @@ class TstError(location: Location, val message: String) : TstExpr(location, Type
 // ================================================
 sealed class TstStmt(location: Location) : Tst(location)
 class TstExprStmt(location: Location, val expr: TstExpr) : TstStmt(location)
-class TstAssign(location: Location, val left: TstExpr, val right: TstExpr) : TstStmt(location)
+class TstAssign(location: Location, val lhs: TstExpr, val rhs: TstExpr) : TstStmt(location)
 class TstNullStmt(location: Location) : TstStmt(location)
 class TstDecl(location: Location, val symbol: Symbol, val expr: TstExpr?) : TstStmt(location)
+class TstPrint(location: Location, val exprs: List<TstExpr>) : TstStmt(location)
 
 // ================================================
 //                  Blocks
@@ -72,8 +73,8 @@ fun Tst.prettyPrint(sb: StringBuilder, indent:Int) {
 
         is TstBinop -> {
             sb.append("$op ($type)\n")
-            left.prettyPrint(sb, indent+1)
-            right.prettyPrint(sb, indent+1)
+            lhs.prettyPrint(sb, indent+1)
+            rhs.prettyPrint(sb, indent+1)
         }
 
         is TstBreak -> {
@@ -165,8 +166,8 @@ fun Tst.prettyPrint(sb: StringBuilder, indent:Int) {
 
         is TstAssign -> {
             sb.append("assign\n")
-            left.prettyPrint(sb, indent+1)
-            right.prettyPrint(sb, indent+1)
+            lhs.prettyPrint(sb, indent+1)
+            rhs.prettyPrint(sb, indent+1)
         }
 
         is TstClass -> {
@@ -230,6 +231,12 @@ fun Tst.prettyPrint(sb: StringBuilder, indent:Int) {
 
         is TstNullStmt -> {
             sb.append("null-stmt\n")
+        }
+
+        is TstPrint -> {
+            sb.append("print\n")
+            for(expr in exprs)
+                expr.prettyPrint(sb, indent+1)
         }
     }
 }

@@ -43,6 +43,7 @@ class AstExprStmt(location: Location, val expr: AstExpr) : AstStmt(location)
 class AstAssign(location: Location, val left: AstExpr, val right: AstExpr) : AstStmt(location)
 class AstNullStmt(location: Location) : AstStmt(location)
 class AstDecl(location: Location, val kind:TokenKind, val name: String, val typeExpr: AstTypeExpr?, val expr: AstExpr?) : AstStmt(location)
+class AstPrint(location: Location, val exprs: List<AstExpr>) : AstStmt(location)
 
 // ================================================
 //                  Blocks
@@ -57,8 +58,13 @@ class AstIf(location: Location, body:List<AstIfClause>) : AstBlock(location, bod
 class AstWhile(location: Location, val cond: AstExpr, body:List<AstStmt>) : AstBlock(location, body)
 class AstRepeat(location: Location, val cond: AstExpr, body:List<AstStmt>) : AstBlock(location, body)
 class AstFor(location: Location, val name: String, val expr: AstExpr, body:List<AstStmt>) : AstBlock(location, body)
-class AstFunction(location: Location, val name: String, val args: List<AstParameter>, val retType:AstTypeExpr?, body:List<AstStmt>) : AstBlock(location, body)
 class AstClass(location: Location, val name: String, val args:List<AstParameter>, body:List<AstStmt>) : AstBlock(location, body)
+
+class AstFunction(location: Location, val name: String, val params: List<AstParameter>, val retType:AstTypeExpr?, body:List<AstStmt>)
+    : AstBlock(location, body) {
+    lateinit var function : Function
+}
+
 class AstFile(location: Location, val name:String, body:List<AstStmt>) : AstBlock(location, body)
 class AstTop(location: Location, body:List<AstStmt>) : AstBlock(location, body)
 
@@ -121,7 +127,7 @@ fun Ast.prettyPrint(sb: StringBuilder, indent:Int) {
         }
         is AstFunction -> {
             sb.append("Function $name\n")
-            for (arg in args)
+            for (arg in params)
                 arg.prettyPrint(sb, indent+1)
             retType?.prettyPrint(sb, indent+1)
             for (stmt in body)
@@ -232,6 +238,12 @@ fun Ast.prettyPrint(sb: StringBuilder, indent:Int) {
             sb.append("Or\n")
             lhs.prettyPrint(sb, indent+1)
             rhs.prettyPrint(sb, indent+1)
+        }
+
+        is AstPrint -> {
+            sb.append("Print\n")
+            for (expr in exprs)
+                expr.prettyPrint(sb, indent+1)
         }
     }
 }
