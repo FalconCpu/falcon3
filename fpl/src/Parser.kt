@@ -94,12 +94,18 @@ class Parser(val lexer: Lexer) {
         return AstContinue(ret.location)
     }
 
-
     private fun parseBracketedExpression() : AstExpr {
         match(OPENB)
         val expr = parseExpression()
         match(CLOSEB)
         return expr
+    }
+
+    private fun parseNew() : AstExpr {
+        val tok = nextToken()  // LOCAL or NEW
+        val typeExpr = parseTypeExpr()
+        val args = parseExpressionList()
+        return AstNew(tok.location, typeExpr, args, tok.kind==LOCAL)
     }
 
     private fun parsePrimaryExpression() : AstExpr {
@@ -113,6 +119,8 @@ class Parser(val lexer: Lexer) {
             RETURN -> parseReturn()
             BREAK -> parseBreak()
             CONTINUE -> parseContinue()
+            NEW -> parseNew()
+            LOCAL -> parseNew()
             else -> throw ParseError(currentToken.location, "Got '$currentToken' when expecting primary expression")
         }
     }

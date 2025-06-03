@@ -86,8 +86,17 @@ fun AstExpr.typeCheckRvalue(context:AstBlock) : TstExpr {
         is AstContinue ->
             TstContinue(location)
 
+        is AstIndex -> {
+            val tcExpr = expr.typeCheckRvalue(context)
+            val tcIndex = index.typeCheckRvalue(context)
+            if (tcExpr.type == TypeError) return tcExpr
+            TypeInt.checkCompatibleWith(tcIndex)
+            if (tcExpr.type !is TypeArray)
+                return TstError(location, "Cannot index expression of type ${tcExpr.type}")
+            TstIndex(location, tcExpr, tcIndex, tcExpr.type.elementType)
+        }
+
         is AstIfExpr -> TODO()
-        is AstIndex -> TODO()
         is AstMember -> TODO()
         is AstMinus -> TODO()
 
@@ -127,6 +136,23 @@ fun AstExpr.typeCheckRvalue(context:AstBlock) : TstExpr {
                     makeTypeError(location, "Return statement with value in function returning Unit")
             }
             TstReturn(location, tc)
+        }
+
+        is AstNew -> {
+            val tcType = type.resolveType(context)
+            val tcArgs = args.map{it.typeCheckRvalue(context)}
+            when(tcType) {
+                is TypeArray -> {
+                    if (tcArgs.size != 1)
+                        return TstError(location, "new Array requires exactly one argument, not ${tcArgs.size}")
+                    val tcSize = tcArgs[0]
+                    TypeInt.checkCompatibleWith (tcSize)
+                    if (local && ! tcSize.isCompileTimeConstant())
+                        Log.error(location, "Array size must be a compile-time constant")
+                    TstNewArray(location, tcSize, local,tcType)
+                }
+                else -> TstError(location, "Cannot create instance of type $tcType")
+            }
         }
     }
 }
@@ -190,7 +216,11 @@ fun AstExpr.typeCheckLvalue(context:AstBlock) : TstExpr = when(this) {
         }
     }
 
-    is AstIndex -> TODO()
+    is AstIndex -> {
+        // Since we don't have immutable arrays (yet) we can just use the Rvalue typecheck for an lvalue
+        typeCheckRvalue(context)
+    }
+
     is AstMember -> TODO()
     else -> {
         TstError(location, "Expression is not an lvalue")
@@ -221,9 +251,20 @@ fun AstTypeExpr.resolveType(context:AstBlock) : Type = when(this) {
         }
     }
 
-    is AstTypeArray -> TODO()
-    is AstTypeRange -> TODO()
-    is AstTypeNullable -> TODO()
+    is AstTypeArray -> {
+        val elementType = base.resolveType(context)
+        TypeArray.create(elementType)
+    }
+
+    is AstTypeRange -> {
+        val elementType = base.resolveType(context)
+        TypeRange.create(elementType)
+    }
+
+    is AstTypeNullable -> {
+        val elementType = base.resolveType(context)
+        TypeNullable.create(elementType)
+    }
 }
 
 // ================================================================

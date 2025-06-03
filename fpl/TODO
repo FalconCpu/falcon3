@@ -1,8 +1,17 @@
-
-
-
+Done:
 For loops
+
+
+Short term:
 Arrays
 classes
 += -=
 break/continue
+nullable types
+arrqay bounds checking
+
+
+Longer term:
+path typing
+CSE optimisation
+bounds check elision

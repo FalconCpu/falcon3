@@ -27,6 +27,7 @@ class TstMinus(location: Location, val expr: TstExpr, type:Type) : TstExpr(locat
 class TstIfExpr(location: Location, val cond: TstExpr, val thenExpr: TstExpr, val elseExpr: TstExpr, type:Type) : TstExpr(location,type)
 class TstRange(location: Location, val start: TstExpr, val end: TstExpr, val op:AluOp,type:Type) : TstExpr(location,type)
 class TstCall(location: Location, val expr: TstExpr, val args: List<TstExpr>, type:Type) : TstExpr(location,type)
+class TstNewArray(location: Location, val size: TstExpr, val local:Boolean, type:Type) : TstExpr(location,type)
 
 class TstError(location: Location, val message: String) : TstExpr(location, TypeError) {
     init {
@@ -238,6 +239,11 @@ fun Tst.prettyPrint(sb: StringBuilder, indent:Int) {
             for(expr in exprs)
                 expr.prettyPrint(sb, indent+1)
         }
+
+        is TstNewArray -> {
+            sb.append("new-array ($type)\n")
+            size.prettyPrint(sb, indent+1)
+        }
     }
 }
 
@@ -246,3 +252,5 @@ fun Tst.prettyPrint(): String {
     prettyPrint(sb, 0)
     return sb.toString()
 }
+
+fun TstExpr.isCompileTimeConstant() = this is TstIntLit || this is TstReallit || this is TstStringlit

@@ -36,7 +36,9 @@ fun Function.rebuildIndex() {
     }
 }
 
-private fun Reg.getSmallInt() : Int? {
+private fun Reg.getSmallInt(depth:Int = 0) : Int? {
+    if (depth > 10)
+        return null     // Too deep
     if (this.def.size != 1)
         return null  // Only track through SSA definitions
     val def = def.first()
@@ -44,7 +46,7 @@ private fun Reg.getSmallInt() : Int? {
     if (def is InstrMovImm && def.src in -0xfff..0xfff)
         return def.src
     else if (def is InstrMov)
-        return def.src.getSmallInt()
+        return def.src.getSmallInt(depth+1)
     return null
 }
 

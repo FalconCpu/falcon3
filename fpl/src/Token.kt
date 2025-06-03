@@ -51,6 +51,8 @@ enum class TokenKind(val text:String, val lineContinues:Boolean) {
     ARRAY      ("Array", false),
     RANGE      ("Range", false),
     THEN       ("then", true),
+    NEW        ("new", true),
+    LOCAL      ("local", true),
 
     VAL        ("val", false),
     VAR        ("var", false),

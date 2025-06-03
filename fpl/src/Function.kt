@@ -95,9 +95,37 @@ class Function(val name:String, val parameters:List<SymbolVar>, val returnType:T
         addInstr(InstrBranch(op, lhs, rhs, label))
     }
 
-    fun addCall(func:Function) {
+    fun addCall(func:Function) : Reg {
         addInstr(InstrCall(func))
+        return if (func.returnType!=TypeUnit)
+            addMov(regResult)
+        else
+            allMachineRegs[0]
     }
+
+    fun addLoadMem(size:Int, addr:Reg, offset:Int): RegTemp {
+        val dest = newTemp()
+        addInstr(InstrLoadMem(size, dest, addr, offset))
+        return dest
+    }
+
+    fun addStoreMem(size:Int, src:Reg, addr:Reg, offset:Int) {
+        addInstr(InstrStoreMem(size, src, addr, offset))
+    }
+
+    fun addIndexOp(scale:Int, src:Reg, limit:Reg) : Reg {
+        val op = when(scale) {
+            1 -> 0
+            2 -> 1
+            4 -> 2
+            else -> error("Invalid scale $scale")
+        }
+        require(scale==1 || scale==2 || scale==4)
+        val dest = newTemp()
+        addInstr(InstrIndex(op, dest, src, limit))
+        return dest
+    }
+
 }
 
 fun List<Function>.dump() : String {

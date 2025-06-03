@@ -1,13 +1,24 @@
 
+HWREGS_BASE = 0xE0000000
+HWREGS_UART_TX = 0x10
+
+# Temporary - keep global variables at address 0x0000000
+SYSVARS_BASE = 0x00000000
+SYSVARS_HEAP_PTR = 0x0004
+
+
 # Entry point for the program
 ld $31, 0x4000000    # Initialize stack pointer to top of memory
-# jsr /init            # Call the initialization function
+
+ld $9, SYSVARS_BASE
+ld $10, 0x1000       # address for start of heap
+stw $10, $9[SYSVARS_HEAP_PTR]
+
+# jsr /init          # Call the initialization function
 jsr /main            # Call the main function
 ld $30,0             # Do a jump to address zero to exit the program
 jmp $30[0]
 
-HWREGS_BASE = 0xE0000000
-HWREGS_UART_TX = 0x10
 
 # ==========================================================
 #                     printInt
@@ -70,4 +81,36 @@ HWREGS_UART_TX = 0x10
 /printChar:
     ld $7, HWREGS_BASE         # Load base address of hardware registers
     stw $1, $7[HWREGS_UART_TX] # Print the character
+    ret
+
+# ==========================================================
+#                     mallocArray
+# ==========================================================
+# $1 = number of elements
+# $2 = size of each element
+# returns:
+# $8 = pointer to array
+
+/mallocArray:
+    mul $2, $2, $1               # $2 = number of bytes for array body
+    add $2, 7                    # round up to multiple of 8
+    and $2, -8
+    add $2, 8                    # Add 8 bytes for header
+
+    ld $3, SYSVARS_BASE
+    ldw $8, $3[SYSVARS_HEAP_PTR] # Fetch heap pointer
+    add $4, $8, $2               # Compute end of array
+    stw $4, $3[SYSVARS_HEAP_PTR] # Store new heap pointer
+    stw $2, $8[0]                # Store size of allocation
+    stw $1, $8[4]                # Store length of array
+    add $8, 8                    # Skip length word
+    ret
+
+# ==========================================================
+#                     freeArray
+# ==========================================================
+# $1 = pointer to array
+
+freeArray:
+    # For now, just do nothing
     ret

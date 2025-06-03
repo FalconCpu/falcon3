@@ -21,6 +21,7 @@ sealed class Instr {
         is InstrCall -> "jsr $func"
         is InstrCallIndirect -> "jsr $func"
         is InstrLea -> "ld $dest, $value"
+        is InstrIndex -> "${scale.idxOp()} $dest, $src, $limit"
     }
 
     fun getDef() : Reg? = when(this) {
@@ -39,6 +40,7 @@ sealed class Instr {
         is InstrCall -> if (func.returnType==TypeUnit) null else regResult
         is InstrCallIndirect -> if (signature.returnType==TypeUnit) null else regResult
         is InstrLea -> dest
+        is InstrIndex -> dest
     }
 
     fun getUse() : List<Reg> = when(this) {
@@ -57,6 +59,7 @@ sealed class Instr {
         is InstrCall -> allMachineRegs.subList(1, 1+func.parameters.size)
         is InstrCallIndirect -> allMachineRegs.subList(1, 1+signature.parameters.size) + func
         is InstrLea -> emptyList()
+        is InstrIndex -> listOf(src, limit)
     }
 }
 
@@ -75,6 +78,7 @@ class InstrStart(): Instr()
 class InstrLoadMem(val size:Int, val dest:Reg, val addr:Reg, val offset:Int) : Instr()
 class InstrStoreMem(val size:Int, val src:Reg, val addr:Reg, val offset:Int) : Instr()
 class InstrLea(val dest:Reg, val value:Value) : Instr()
+class InstrIndex(val scale:Int, val dest:Reg, val src:Reg, val limit:Reg) : Instr()
 
 fun Int.loadOp() = when(this) {
     1 -> "ldb"
@@ -90,6 +94,14 @@ fun Int.storeOp() = when(this) {
     else -> error("Invalid size for store")
 }
 
+fun Int.idxOp() = when(this) {
+    0 -> "idx1"
+    1 -> "idx2"
+    2 -> "idx4"
+    else -> error("Invalid scale")
+}
+
+
 fun AluOp.getBranchOp() = when(this) {
     AluOp.EQ_I  -> "beq"
     AluOp.NEQ_I -> "bne"
@@ -99,6 +111,7 @@ fun AluOp.getBranchOp() = when(this) {
     AluOp.GTE_I -> "bge"
     else -> error("Invalid branch op")
 }
+
 
 
 

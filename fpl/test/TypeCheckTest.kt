@@ -113,5 +113,101 @@ class TypeCheckTest {
         runTest(prog, expected)
     }
 
+    @Test
+    fun arraysCalls() {
+        val prog = """
+            fun sum(a:Array<Int>) -> Int
+                var total = 0
+                for i in 0..10
+                    total = total + a[i]
+                return total
+        """.trimIndent()
+
+        val expected = """
+            top
+              file: test
+                function: sum
+                  decl: VAR:total:Int
+                    int: 0 (Int)
+                  for: i
+                    range: LTE_I (Range<Int>)
+                      int: 0 (Int)
+                      int: 10 (Int)
+                    assign
+                      var: total (Int)
+                      ADD_I (Int)
+                        var: total (Int)
+                        index (Int)
+                          var: a (Array<Int>)
+                          var: i (Int)
+                  expr-stmt
+                    return (Nothing)
+                      var: total (Int)
+
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
+    @Test
+    fun arraysAllocationCalls() {
+        val prog = """
+            fun sum(a:Array<Int>) -> Int
+                var total = 0
+                for i in 0..10
+                    total = total + a[i]
+                return total
+                
+            fun main() -> Int
+                val a = new Array<Int>(10)
+                for i in 0..9
+                    a[i] = i
+                return sum(a)
+        """.trimIndent()
+
+        val expected = """
+            top
+              file: test
+                function: sum
+                  decl: VAR:total:Int
+                    int: 0 (Int)
+                  for: i
+                    range: LTE_I (Range<Int>)
+                      int: 0 (Int)
+                      int: 10 (Int)
+                    assign
+                      var: total (Int)
+                      ADD_I (Int)
+                        var: total (Int)
+                        index (Int)
+                          var: a (Array<Int>)
+                          var: i (Int)
+                  expr-stmt
+                    return (Nothing)
+                      var: total (Int)
+                function: main
+                  decl: VAR:a:Array<Int>
+                    new-array (Array<Int>)
+                      int: 10 (Int)
+                  for: i
+                    range: LTE_I (Range<Int>)
+                      int: 0 (Int)
+                      int: 9 (Int)
+                    assign
+                      index (Int)
+                        var: a (Array<Int>)
+                        var: i (Int)
+                      var: i (Int)
+                  expr-stmt
+                    return (Nothing)
+                      call (Int)
+                        function: sum ((Array<Int>)->Int)
+                        var: a (Array<Int>)
+
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
+
+
 
 }

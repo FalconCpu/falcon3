@@ -26,6 +26,16 @@ fun TstExpr.codeGenRvalue() : Reg {
             }
         }
 
+        is TstIndex -> {
+            val exprReg = expr.codeGenRvalue()
+            val indexReg = index.codeGenRvalue()
+            val lengthReg = currentFunc.addLoadMem(4, exprReg, -4)
+            val size = type.sizeInBytes()
+            val indexScaled = currentFunc.addIndexOp(size, indexReg, lengthReg)
+            val indexAdded = currentFunc.addAlu(AluOp.ADD_I, exprReg, indexScaled)
+            currentFunc.addLoadMem(size, indexAdded, 0)
+        }
+
         is TstAnd -> TODO()
         is TstBreak -> TODO()
         is TstContinue -> TODO()
@@ -33,7 +43,6 @@ fun TstExpr.codeGenRvalue() : Reg {
         is TstFunctionName -> TODO()
         is TstGlobalVar -> TODO()
         is TstIfExpr -> TODO()
-        is TstIndex -> TODO()
         is TstMember -> TODO()
         is TstMinus -> TODO()
         is TstNot -> TODO()
@@ -49,6 +58,18 @@ fun TstExpr.codeGenRvalue() : Reg {
         }
 
         is TstStringlit -> currentFunc.addLea(ValueString.create(value, TypeString))
+
+        is TstNewArray -> {
+            if (local) {
+                TODO("Local arrays not yet supported")
+            } else {
+                val numElementsReg = size.codeGenRvalue()
+                val elementSizeReg = currentFunc.addMov((type as TypeArray).elementType.sizeInBytes())
+                currentFunc.addMov(allMachineRegs[1], numElementsReg)
+                currentFunc.addMov(allMachineRegs[2], elementSizeReg)
+                currentFunc.addCall(Stdlib.mallocArray)
+            }
+        }
     }
 }
 
@@ -59,7 +80,17 @@ fun TstExpr.codeGenRvalue() : Reg {
 fun TstExpr.codeGenLvalue(value:Reg)  {
     return when (this) {
         is TstVariable -> currentFunc.addMov( currentFunc.getVar(symbol), value)
-        is TstIndex -> TODO()
+
+        is TstIndex -> {
+            val exprReg = expr.codeGenRvalue()
+            val indexReg = index.codeGenRvalue()
+            val lengthReg = currentFunc.addLoadMem(4, exprReg, -4)
+            val size = type.sizeInBytes()
+            val indexScaled = currentFunc.addIndexOp(size, indexReg, lengthReg)
+            val indexAdded = currentFunc.addAlu(AluOp.ADD_I, exprReg, indexScaled)
+            currentFunc.addStoreMem(size, value, indexAdded, 0)
+        }
+
         is TstMember -> TODO()
         else -> error("Malformed TST: Has assignment to $this")
     }

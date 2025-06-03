@@ -23,6 +23,7 @@ class AstNot(location: Location, val expr: AstExpr) : AstExpr(location)
 class AstMinus(location: Location, val expr: AstExpr) : AstExpr(location)
 class AstIfExpr(location: Location, val cond: AstExpr, val thenExpr: AstExpr, val elseExpr: AstExpr) : AstExpr(location)
 class AstRange(location: Location, val start: AstExpr, val end: AstExpr, val op:TokenKind) : AstExpr(location)
+class AstNew(location: Location, val type:AstTypeExpr, val args: List<AstExpr>, val local:Boolean) : AstExpr(location)
 
 class AstCall(location: Location, val expr: AstExpr, val args: List<AstExpr>) : AstExpr(location)
 
@@ -251,6 +252,13 @@ fun Ast.prettyPrint(sb: StringBuilder, indent:Int) {
             sb.append("Print\n")
             for (expr in exprs)
                 expr.prettyPrint(sb, indent+1)
+        }
+
+        is AstNew -> {
+            sb.append("New $local\n")
+            type.prettyPrint(sb, indent+1)
+            for (arg in args)
+                arg.prettyPrint(sb, indent+1)
         }
     }
 }

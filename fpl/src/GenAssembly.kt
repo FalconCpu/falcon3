@@ -80,12 +80,12 @@ private fun InstrAluImm.genAssembly() : String = when(op) {
 }
 
 private fun InstrBranch.genAssembly() : String = when (op) {
-    AluOp.EQ_I -> "beq $lhs, $rhs, $label"
-    AluOp.NEQ_I -> "bne $lhs, $rhs, $label"
-    AluOp.LT_I -> "blt $lhs, $rhs, $label"
-    AluOp.GT_I -> "blt $rhs, $lhs, $label"
-    AluOp.LTE_I -> "bge $rhs, $lhs, $label"
-    AluOp.GTE_I -> "bge $lhs, $rhs, $label"
+    AluOp.EQ_I -> "beq $lhs, $rhs, .$label"
+    AluOp.NEQ_I -> "bne $lhs, $rhs, .$label"
+    AluOp.LT_I -> "blt $lhs, $rhs, .$label"
+    AluOp.GT_I -> "blt $rhs, $lhs, .$label"
+    AluOp.LTE_I -> "bge $rhs, $lhs, .$label"
+    AluOp.GTE_I -> "bge $lhs, $rhs, .$label"
     else -> error("Not a valid branch operand")
 }
 
@@ -95,8 +95,8 @@ private fun Instr.genAssembly() = when(this) {
     is InstrBranch -> genAssembly()
     is InstrCall -> "jsr /${func.name}"
     is InstrRet -> ""
-    is InstrJump -> "jmp $label"
-    is InstrLabel -> "$label:"
+    is InstrJump -> "jmp .$label"
+    is InstrLabel -> ".$label:"
     is InstrMov -> "ld $dest, $src"
     is InstrNop -> "nop"
     is InstrStart -> ""
@@ -105,6 +105,7 @@ private fun Instr.genAssembly() = when(this) {
     is InstrMovImm -> "ld $dest, $src"
     is InstrStoreMem -> "${size.storeOp()} $src, $addr[$offset]"
     is InstrLea -> "ld $dest, $value"
+    is InstrIndex -> "${scale.idxOp()} $dest, $src, $limit"
 }
 
 fun Function.genAssembly(sb:StringBuilder) {

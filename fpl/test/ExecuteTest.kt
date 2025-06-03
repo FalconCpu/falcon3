@@ -173,9 +173,48 @@ class ExecuteTest {
         runTest(prog, expected)
     }
 
+    @Test
+    fun arraysAllocationCalls() {
+        val prog = """
+            fun sum(a:Array<Int>) -> Int
+                var total = 0
+                for i in 0..9
+                    total = total + a[i]
+                return total
+                
+            fun main()
+                val a = new Array<Int>(10)
+                for i in 0..9
+                    a[i] = i
+                print(sum(a))
+        """.trimIndent()
 
+        val expected = """
+            45
+        """.trimIndent()
+        runTest(prog, expected)
+    }
 
+    @Test
+    fun arraysOutOfBounds() {
+        val prog = """
+            fun sum(a:Array<Int>) -> Int
+                var total = 0
+                for i in 0..10
+                    total = total + a[i]
+                return total
+                
+            fun main()
+                val a = new Array<Int>(10)
+                for i in 0..9
+                    a[i] = i
+                print(sum(a))
+        """.trimIndent()
 
+        val expected = """
+            EXCEPTION Index out of range: pc=ffff00e0: data=0000000a
 
-
+        """.trimIndent()
+        runTest(prog, expected)
+    }
 }

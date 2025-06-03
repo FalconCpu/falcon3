@@ -22,7 +22,7 @@ class TypeArray private constructor(name:String, val elementType: Type) : Type(n
     companion object {
         val allArrayTypes = mutableMapOf<Type, TypeArray>()
         fun create(elementType: Type) = allArrayTypes.getOrPut(elementType) {
-            val name = "Array<$elementType}>"
+            val name = "Array<$elementType>"
             TypeArray(name, elementType)
         }
     }
@@ -32,7 +32,7 @@ class TypeRange private constructor(name:String, val elementType: Type) : Type(n
     companion object {
         val allRangeTypes = mutableMapOf<Type, TypeRange>()
         fun create(elementType: Type) = allRangeTypes.getOrPut(elementType) {
-            val name = "Range<$elementType}>"
+            val name = "Range<$elementType>"
             TypeRange(name, elementType)
         }
     }
@@ -85,4 +85,25 @@ fun Type.defaultPromotions() : Type {
     if (this == TypeChar)
         return TypeInt
     return this
+}
+
+fun Type.sizeInBytes() : Int {
+    // Gets the size of a type in bytes.
+    return when(this) {
+        TypeAny -> 4
+        is TypeArray -> 4
+        TypeBool -> 1
+        TypeChar -> 1
+        TypeError -> 0
+        is TypeFunction -> 4
+        TypeInt -> 4
+        TypeNothing -> 4
+        TypeNull -> 4
+        is TypeNullable -> 4
+        is TypeRange -> TODO()
+        TypeReal -> 4
+        TypeString -> 4
+        TypeUnit -> 0
+    }
+
 }
