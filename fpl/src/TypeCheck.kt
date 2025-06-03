@@ -90,7 +90,26 @@ fun AstExpr.typeCheckRvalue(context:AstBlock) : TstExpr {
         is AstIndex -> TODO()
         is AstMember -> TODO()
         is AstMinus -> TODO()
-        is AstRange -> TODO()
+
+        is AstRange -> {
+            val tcStart = start.typeCheckRvalue(context)
+            val tcEnd = end.typeCheckRvalue(context)
+            tcStart.type.checkCompatibleWith(tcEnd)
+            val tcOp = when(op) {
+                TokenKind.LT -> AluOp.LT_I
+                TokenKind.LTE -> AluOp.LTE_I
+                TokenKind.GT -> AluOp.GT_I
+                TokenKind.GTE -> AluOp.GTE_I
+                else -> error("Invalid range operator")
+            }
+            val tcType = when(tcStart.type) {
+                is TypeError -> TypeError
+                is TypeInt -> TypeRange.create(TypeInt)
+                is TypeChar -> TypeRange.create(TypeChar)
+                else -> makeTypeError(location, "Cannot create range of type ${tcStart.type}")
+            }
+            TstRange(location,tcStart,tcEnd, tcOp, tcType)
+        }
 
         is AstReturn -> {
             val tc = expr?.typeCheckRvalue(context)
@@ -161,7 +180,16 @@ private val binopTable = listOf(
 // ================================================================
 
 fun AstExpr.typeCheckLvalue(context:AstBlock) : TstExpr = when(this) {
-    is AstId -> TODO()
+    is AstId -> {
+        val symbol = context.lookupOrDefault(location, name)
+        when (symbol) {
+            is SymbolVar -> TstVariable(location, symbol, symbol.type)
+            is SymbolGlobal -> TstGlobalVar(location, symbol, symbol.type)
+            is SymbolFunction -> TstError(location, "Cannot use function '$name' as an lvalue")
+            is SymbolTypeName -> TstError(location, "Cannot use type name '$name' as an lvalue")
+        }
+    }
+
     is AstIndex -> TODO()
     is AstMember -> TODO()
     else -> {
@@ -173,9 +201,10 @@ fun AstExpr.typeCheckLvalue(context:AstBlock) : TstExpr = when(this) {
 //                         Conditions
 // ================================================================
 
-fun AstExpr.typeCheckBool(context:AstBlock) {
+fun AstExpr.typeCheckBool(context:AstBlock) : TstExpr {
     val tc = typeCheckRvalue(context)
     TypeBool.checkCompatibleWith(tc)
+    return tc
 }
 
 // ================================================================
@@ -193,6 +222,7 @@ fun AstTypeExpr.resolveType(context:AstBlock) : Type = when(this) {
     }
 
     is AstTypeArray -> TODO()
+    is AstTypeRange -> TODO()
     is AstTypeNullable -> TODO()
 }
 
@@ -222,7 +252,13 @@ fun AstStmt.typeCheck(context:AstBlock) : TstStmt = when(this) {
         TstFunction(location, function, tcBody)
     }
 
-    is AstAssign -> TODO()
+    is AstAssign -> {
+        val tcLhs = lhs.typeCheckLvalue(context)
+        val tcRhs = rhs.typeCheckRvalue(context)
+        tcLhs.type.checkCompatibleWith(tcRhs)
+        TstAssign(location, tcLhs, tcRhs)
+    }
+
     is AstClass -> TODO()
 
     is AstFile -> {
@@ -231,15 +267,41 @@ fun AstStmt.typeCheck(context:AstBlock) : TstStmt = when(this) {
     }
 
     is AstWhile -> {
-        val tcCond = cond.typeCheckRvalue(context)
+        val tcCond = cond.typeCheckBool(context)
         val tcBody = body.map{it.typeCheck(context)}
         TstWhile(location, tcCond, tcBody)
     }
 
-    is AstFor -> TODO()
-    is AstIf -> TODO()
-    is AstIfClause -> TODO()
-    is AstRepeat -> TODO()
+    is AstFor -> {
+        val tcExpr = expr.typeCheckRvalue(context)
+        val elementType = when(tcExpr.type) {
+            is TypeError -> TypeError
+            is TypeArray -> tcExpr.type.elementType
+            is TypeRange -> tcExpr.type.elementType
+            else -> makeTypeError(location, "Cannot iterate over type '${tcExpr.type}'")
+        }
+        val symbol = SymbolVar(location, name, elementType, false)
+        addSymbol(symbol)
+        val tcBody = body.map{it.typeCheck(this)}
+        TstFor(location, symbol, tcExpr, tcBody)
+    }
+
+    is AstIf -> {
+        val tcClauses = body.map{it.typeCheck(context) as TstIfClause}
+        TstIf(location, tcClauses)
+    }
+
+    is AstIfClause -> {
+        val tcCond = cond?.typeCheckBool(context)
+        val tcBody = body.map{it.typeCheck(this)}
+        TstIfClause(location, tcCond, tcBody)
+    }
+
+    is AstRepeat -> {
+        val tcBody = body.map{it.typeCheck(this)}
+        val tcCond = cond.typeCheckBool(this) // Note that we use 'this' here, not 'context' to allow the condition to refer to variables in the loop
+        TstRepeat(location, tcCond, tcBody)
+    }
 
     is AstTop -> error("AstTop should not appear on internals of AST")
 

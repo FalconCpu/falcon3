@@ -1,0 +1,181 @@
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Test
+import java.io.FileReader
+import java.io.StringReader
+
+class ExecuteTest {
+    private val stdlibFiles = listOf<String>()
+    private val stdLibAsm = listOf("Stdlib/start.f32")
+
+
+    fun runTest(prog: String, expected: String) {
+        val stdLibLexers = stdlibFiles.map { Lexer(it, FileReader(it)) }
+        val lexer = Lexer("test.fpl", StringReader(prog))
+        val output = compile(stdLibLexers + lexer, StopAt.EXECUTE, stdLibAsm)
+        assertEquals(expected, output)
+    }
+
+    @Test
+    fun whileLoop() {
+        val prog = """
+            fun main()
+                var i = 0
+                while i < 10
+                    print(i,"\n")
+                    i = i + 1
+        """.trimIndent()
+
+        val expected = """
+            0
+            1
+            2
+            3
+            4
+            5
+            6
+            7
+            8
+            9
+
+        """.trimIndent()
+
+        runTest(prog, expected)
+    }
+
+    @Test
+    fun ifTest() {
+        val prog = """
+            fun main()
+                var i = 0
+                while i < 5
+                    if i=0
+                        print("zero\n")
+                    elsif i=1
+                        print("one\n")
+                    else
+                        print("other\n")
+                    i = i + 1
+        """.trimIndent()
+
+        val expected = """
+            zero
+            one
+            other
+            other
+            other
+
+        """.trimIndent()
+
+        runTest(prog, expected)
+    }
+
+    @Test
+    fun repeatLoop() {
+        val prog = """
+            fun main()
+                var i = 0
+                repeat
+                    print(i,"\n")
+                    i = i + 1
+                until i=10
+        """.trimIndent()
+
+        val expected = """
+            0
+            1
+            2
+            3
+            4
+            5
+            6
+            7
+            8
+            9
+
+        """.trimIndent()
+
+        runTest(prog, expected)
+    }
+
+    @Test
+    fun forLoop() {
+        val prog = """
+            fun main()
+                for i in 0..10
+                    print(i,"\n")
+        """.trimIndent()
+
+        val expected = """
+            0
+            1
+            2
+            3
+            4
+            5
+            6
+            7
+            8
+            9
+            10
+
+        """.trimIndent()
+
+        runTest(prog, expected)
+    }
+
+    @Test
+    fun forLoopExclusive() {
+        val prog = """
+            fun main()
+                for i in 0..<10
+                    print(i,"\n")
+        """.trimIndent()
+
+        val expected = """
+            0
+            1
+            2
+            3
+            4
+            5
+            6
+            7
+            8
+            9
+
+        """.trimIndent()
+
+        runTest(prog, expected)
+    }
+
+    @Test
+    fun forLoopDescending() {
+        val prog = """
+            fun main()
+                for i in 10..>0
+                    print(i,"\n")
+        """.trimIndent()
+
+        val expected = """
+            10
+            9
+            8
+            7
+            6
+            5
+            4
+            3
+            2
+            1
+
+        """.trimIndent()
+
+        runTest(prog, expected)
+    }
+
+
+
+
+
+
+}

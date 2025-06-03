@@ -192,6 +192,14 @@ fun AluOp.isCommutative () = when(this) {
     else -> false
 }
 
+fun AluOp.isIntCompare() = when(this) {
+    AluOp.EQ_I, AluOp.NEQ_I,
+    AluOp.LT_I, AluOp.GT_I,
+    AluOp.LTE_I, AluOp.GTE_I -> true
+
+    else -> false
+}
+
 fun AluOp.evaluate(lhs:Int, rhs:Int) : Int {
     return when (this) {
         AluOp.ADD_I -> lhs + rhs

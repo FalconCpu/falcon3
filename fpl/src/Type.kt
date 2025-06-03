@@ -28,6 +28,17 @@ class TypeArray private constructor(name:String, val elementType: Type) : Type(n
     }
 }
 
+class TypeRange private constructor(name:String, val elementType: Type) : Type(name) {
+    companion object {
+        val allRangeTypes = mutableMapOf<Type, TypeRange>()
+        fun create(elementType: Type) = allRangeTypes.getOrPut(elementType) {
+            val name = "Range<$elementType}>"
+            TypeRange(name, elementType)
+        }
+    }
+}
+
+
 class TypeNullable private constructor(name:String, val elementType: Type) : Type(name) {
     companion object {
         val allNullableTypes = mutableMapOf<Type, TypeNullable>()

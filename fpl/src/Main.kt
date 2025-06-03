@@ -33,6 +33,7 @@ enum class StopAt{PARSE, TYPECHECK, CODEGEN, REG_ALLOC, ASSEMBLY, EXECUTE}
 fun compile(lexers:List<Lexer>, stopAt: StopAt, assemblyFiles:List<String> = emptyList()) : String {
     Log.clear()
     allFunctions.clear()
+    allValues.clear()
     ValueString.allStrings.clear()
 
     // Parse the input files

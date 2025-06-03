@@ -3,7 +3,7 @@ import org.junit.jupiter.api.Test
 import java.io.FileReader
 import java.io.StringReader
 
-class GenAssemblyTest {
+class StdLibTest {
     private val stdlibFiles = listOf<String>()
     private val stdLibAsm = listOf("Stdlib/start.f32")
 
@@ -43,6 +43,4 @@ class GenAssemblyTest {
 
         runTest(prog, expected)
     }
-
-
 }

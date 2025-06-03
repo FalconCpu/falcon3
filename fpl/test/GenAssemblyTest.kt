@@ -2,7 +2,7 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.io.StringReader
 
-class StdlibTest {
+class GenAssemblyTest {
     fun runTest(prog: String, expected:String) {
         val lexer = Lexer("test.fpl", StringReader(prog))
         val output = compile(listOf(lexer), StopAt.ASSEMBLY)

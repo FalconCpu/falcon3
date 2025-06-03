@@ -33,6 +33,7 @@ class AstCall(location: Location, val expr: AstExpr, val args: List<AstExpr>) : 
 sealed class AstTypeExpr(location: Location) : Ast(location)
 class AstTypeId(location: Location, val name:String) : AstTypeExpr(location)
 class AstTypeArray(location: Location, val base: AstTypeExpr) : AstTypeExpr(location)
+class AstTypeRange(location: Location, val base: AstTypeExpr) : AstTypeExpr(location)
 class AstTypeNullable(location: Location, val base: AstTypeExpr) : AstTypeExpr(location)
 
 // ================================================
@@ -40,7 +41,7 @@ class AstTypeNullable(location: Location, val base: AstTypeExpr) : AstTypeExpr(l
 // ================================================
 sealed class AstStmt(location: Location) : Ast(location)
 class AstExprStmt(location: Location, val expr: AstExpr) : AstStmt(location)
-class AstAssign(location: Location, val left: AstExpr, val right: AstExpr) : AstStmt(location)
+class AstAssign(location: Location, val lhs: AstExpr, val rhs: AstExpr) : AstStmt(location)
 class AstNullStmt(location: Location) : AstStmt(location)
 class AstDecl(location: Location, val kind:TokenKind, val name: String, val typeExpr: AstTypeExpr?, val expr: AstExpr?) : AstStmt(location)
 class AstPrint(location: Location, val exprs: List<AstExpr>) : AstStmt(location)
@@ -189,6 +190,12 @@ fun Ast.prettyPrint(sb: StringBuilder, indent:Int) {
             sb.append("TypeArray\n")
             base.prettyPrint(sb, indent+1)
         }
+
+        is AstTypeRange -> {
+            sb.append("TypeRange\n")
+            base.prettyPrint(sb, indent+1)
+        }
+
         is AstTypeId ->
             sb.append("Type $name\n")
         is AstTypeNullable -> {
@@ -211,8 +218,8 @@ fun Ast.prettyPrint(sb: StringBuilder, indent:Int) {
 
         is AstAssign -> {
             sb.append("Assign\n")
-            left.prettyPrint(sb, indent+1)
-            right.prettyPrint(sb, indent+1)
+            lhs.prettyPrint(sb, indent+1)
+            rhs.prettyPrint(sb, indent+1)
         }
 
         is AstIfExpr -> {

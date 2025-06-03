@@ -15,8 +15,8 @@ class TstVariable(location: Location, val symbol:SymbolVar, type:Type) : TstExpr
 class TstGlobalVar(location: Location, val symbol:SymbolGlobal, type:Type) : TstExpr(location, type)
 class TstFunctionName(location: Location, val symbol:SymbolFunction, type:Type) : TstExpr(location, type)
 class TstBinop(location: Location, val op: AluOp, val lhs: TstExpr, val rhs: TstExpr, type:Type) : TstExpr(location, type)
-class TstAnd(location: Location, val left: TstExpr, val right: TstExpr) : TstExpr(location, TypeBool)
-class TstOr(location: Location, val left: TstExpr, val right: TstExpr) : TstExpr(location, TypeBool)
+class TstAnd(location: Location, val lhs: TstExpr, val rhs: TstExpr) : TstExpr(location, TypeBool)
+class TstOr(location: Location, val lhs: TstExpr, val rhs: TstExpr) : TstExpr(location, TypeBool)
 class TstNot(location: Location, val expr: TstExpr) : TstExpr(location, TypeBool)
 class TstIndex(location: Location, val expr: TstExpr, val index: TstExpr, type:Type) : TstExpr(location,type)
 class TstMember(location: Location, val expr: TstExpr, val name: String, type:Type) : TstExpr(location,type)
@@ -25,7 +25,7 @@ class TstBreak(location: Location) : TstExpr(location, TypeNothing)
 class TstContinue(location: Location) : TstExpr(location, TypeNothing)
 class TstMinus(location: Location, val expr: TstExpr, type:Type) : TstExpr(location,type)
 class TstIfExpr(location: Location, val cond: TstExpr, val thenExpr: TstExpr, val elseExpr: TstExpr, type:Type) : TstExpr(location,type)
-class TstRange(location: Location, val start: TstExpr, val end: TstExpr, val op:TokenKind,type:Type) : TstExpr(location,type)
+class TstRange(location: Location, val start: TstExpr, val end: TstExpr, val op:AluOp,type:Type) : TstExpr(location,type)
 class TstCall(location: Location, val expr: TstExpr, val args: List<TstExpr>, type:Type) : TstExpr(location,type)
 
 class TstError(location: Location, val message: String) : TstExpr(location, TypeError) {
@@ -52,7 +52,7 @@ class TstIfClause(location: Location, val cond: TstExpr?, body: List<TstStmt>) :
 class TstIf(location: Location, body:List<TstIfClause>) : TstBlock(location, body)
 class TstWhile(location: Location, val cond: TstExpr, body:List<TstStmt>) : TstBlock(location, body)
 class TstRepeat(location: Location, val cond: TstExpr, body:List<TstStmt>) : TstBlock(location, body)
-class TstFor(location: Location, val name: String, val expr: TstExpr, body:List<TstStmt>) : TstBlock(location, body)
+class TstFor(location: Location, val sym: Symbol, val expr: TstExpr, body:List<TstStmt>) : TstBlock(location, body)
 class TstFunction(location: Location, val function:Function, body:List<TstStmt>) : TstBlock(location, body)
 class TstClass(location: Location, val name: String, body:List<TstStmt>) : TstBlock(location, body)
 class TstFile(location: Location, val name:String, body:List<TstStmt>) : TstBlock(location, body)
@@ -67,8 +67,8 @@ fun Tst.prettyPrint(sb: StringBuilder, indent:Int) {
     when (this) {
         is TstAnd -> {
             sb.append("and ($type)\n")
-            left.prettyPrint(sb, indent+1)
-            right.prettyPrint(sb, indent+1)
+            lhs.prettyPrint(sb, indent+1)
+            rhs.prettyPrint(sb, indent+1)
         }
 
         is TstBinop -> {
@@ -137,8 +137,8 @@ fun Tst.prettyPrint(sb: StringBuilder, indent:Int) {
 
         is TstOr -> {
             sb.append("or ($type)\n")
-            left.prettyPrint(sb, indent+1)
-            right.prettyPrint(sb, indent+1)
+            lhs.prettyPrint(sb, indent+1)
+            rhs.prettyPrint(sb, indent+1)
         }
 
         is TstRange -> {
@@ -181,7 +181,7 @@ fun Tst.prettyPrint(sb: StringBuilder, indent:Int) {
         }
 
         is TstFor -> {
-            sb.append("for: $name\n")
+            sb.append("for: $sym\n")
             expr.prettyPrint(sb, indent+1)
             body.forEach { it.prettyPrint(sb, indent+1) }
         }

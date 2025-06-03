@@ -66,6 +66,45 @@ fun TstExpr.codeGenLvalue(value:Reg)  {
 }
 
 // ================================================================
+//                         genCodeBranch
+// ================================================================
+
+fun TstExpr.codeGenBranch(trueLabel:Label, falseLabel : Label) {
+    return when (this) {
+        is TstBinop if (op.isIntCompare())-> {
+            val lhsReg = lhs.codeGenRvalue()
+            val rhsReg = rhs.codeGenRvalue()
+            currentFunc.addBranch(op, lhsReg, rhsReg, trueLabel)
+            currentFunc.addJump(falseLabel)
+        }
+
+        is TstAnd -> {
+            val midLabel = currentFunc.newLabel()
+            lhs.codeGenBranch(midLabel, falseLabel)
+            currentFunc.addLabel(midLabel)
+            rhs.codeGenBranch(trueLabel, falseLabel)
+        }
+
+        is TstOr -> {
+            val midLabel = currentFunc.newLabel()
+            lhs.codeGenBranch(trueLabel, midLabel)
+            currentFunc.addLabel(midLabel)
+            rhs.codeGenBranch(trueLabel, falseLabel)
+        }
+
+        is TstNot ->
+            expr.codeGenBranch(falseLabel, trueLabel)
+
+        else -> {
+            val result = codeGenRvalue()
+            currentFunc.addBranch(AluOp.NEQ_I, result, regZero, trueLabel)
+            currentFunc.addJump(falseLabel)
+        }
+    }
+}
+
+
+// ================================================================
 //                         Statements
 // ================================================================
 
@@ -106,11 +145,95 @@ fun TstStmt.codeGen()  {
             body.codegen()
         }
 
-        is TstFor -> TODO()
-        is TstIf -> TODO()
-        is TstIfClause -> TODO()
-        is TstRepeat -> TODO()
-        is TstWhile -> TODO()
+        is TstFor -> {
+            if (this.expr is TstRange) {
+                // For-loop with directly specified range
+
+                // Evaluate the start and end values
+                val regIterator = currentFunc.getVar(sym)
+                currentFunc.addMov( regIterator, expr.start.codeGenRvalue() )
+                val regEnd = currentFunc.addMov( expr.end.codeGenRvalue() )
+
+                // Generate the loop body
+                val labelStart = currentFunc.newLabel()
+                val labelEnd = currentFunc.newLabel()
+                val labelCond = currentFunc.newLabel()
+                currentFunc.addJump(labelCond)
+                currentFunc.addLabel(labelStart)
+                body.codegen()
+
+                // Increment the iterator and check if we are done
+                val nextOp = when(expr.op) {
+                    AluOp.LT_I -> AluOp.ADD_I
+                    AluOp.LTE_I -> AluOp.ADD_I
+                    AluOp.GT_I -> AluOp.SUB_I
+                    AluOp.GTE_I -> AluOp.SUB_I
+                    else -> error("Invalid operator for range")
+                }
+                val nextVal = currentFunc.addAlu(nextOp, regIterator, 1)
+                currentFunc.addMov(regIterator, nextVal)
+                currentFunc.addLabel(labelCond)
+                currentFunc.addBranch(expr.op, regIterator, regEnd, labelStart)
+                currentFunc.addJump(labelEnd)
+                currentFunc.addLabel(labelEnd)
+            } else {
+                TODO("For loop iterate over array or indirect range expression")
+            }
+        }
+
+        is TstIf -> {
+            val clauses = body.map{it as TstIfClause}
+            val endLabel = currentFunc.newLabel()
+            val clauseLabels = mutableListOf<Label>()
+            // Generate the code for each clause condition
+            for (clause in clauses) {
+                val clauseLabel = currentFunc.newLabel()
+                clauseLabels.add(clauseLabel)
+                if (clause.cond==null)
+                    currentFunc.addJump(clauseLabel)
+                else {
+                    val nextClauseLabel = currentFunc.newLabel()
+                    clause.cond.codeGenBranch(clauseLabel, nextClauseLabel)
+                    currentFunc.addLabel(nextClauseLabel)
+                }
+            }
+            // If no else case then jump to endLabel
+            if (clauses.none{it.cond==null})
+                currentFunc.addJump(endLabel)
+
+            // Generate the code for each clause body
+            for ((index, clause) in clauses.withIndex()) {
+                currentFunc.addLabel(clauseLabels[index])
+                clause.body.codegen()
+                currentFunc.addJump(endLabel)
+            }
+            currentFunc.addLabel(endLabel)
+        }
+
+        is TstIfClause -> error("Malformed TST: Has an if clause outside an if")
+
+        is TstRepeat -> {
+            val labelStart = currentFunc.newLabel()
+            val labelEnd = currentFunc.newLabel()
+            val labelCond = currentFunc.newLabel()
+            currentFunc.addLabel(labelStart)
+            body.codegen()
+            currentFunc.addLabel(labelCond)
+            cond.codeGenBranch(labelEnd, labelStart)
+            currentFunc.addLabel(labelEnd)
+        }
+
+        is TstWhile -> {
+            val labelStart = currentFunc.newLabel()
+            val labelEnd = currentFunc.newLabel()
+            val labelCond = currentFunc.newLabel()
+            currentFunc.addJump(labelCond)
+            currentFunc.addLabel(labelStart)
+            body.codegen()
+            currentFunc.addLabel(labelCond)
+            cond.codeGenBranch(labelStart,labelEnd)
+            currentFunc.addLabel(labelEnd)
+        }
 
         is TstTop ->
             body.codegen()

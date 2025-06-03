@@ -263,10 +263,20 @@ class Parser(val lexer: Lexer) {
         return AstTypeArray(tok.location, ret)
     }
 
+    private fun parseTypeRange() : AstTypeExpr {
+        val tok = match(RANGE)
+        match(LT)
+        val ret = parseTypeExpr()
+        match(GT)
+        return AstTypeRange(tok.location, ret)
+    }
+
+
     private fun parseTypeExpr() : AstTypeExpr {
         var ret = when(currentToken.kind) {
             ID -> parseTypeId()
             ARRAY -> parseTypeArray()
+            RANGE -> parseTypeRange()
             else -> throw ParseError(currentToken.location, "Got '$currentToken' when expecting type expression")
         }
 

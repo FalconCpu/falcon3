@@ -49,6 +49,7 @@ enum class TokenKind(val text:String, val lineContinues:Boolean) {
     CLOSESQ    ("]", false),
     CLOSECL    ("}", false),
     ARRAY      ("Array", false),
+    RANGE      ("Range", false),
     THEN       ("then", true),
 
     VAL        ("val", false),
