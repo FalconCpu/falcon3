@@ -6,6 +6,7 @@ sealed class Symbol(val location: Location, val name:String, val type:Type, val 
         is SymbolGlobal -> "GLOBAL:$name:$type"
         is SymbolVar -> "VAR:$name:$type"
         is SymbolTypeName -> "TYPE:$name:$type"
+        is SymbolField -> "FIELD:$name:$type"
     }
 }
 
@@ -13,6 +14,9 @@ class SymbolVar(location: Location, name:String, type:Type, mutable:Boolean) : S
 class SymbolGlobal(location: Location, name:String, type:Type, mutable:Boolean) : Symbol(location, name, type, mutable)
 class SymbolFunction(location: Location, name:String, type:Type, val function:Function) : Symbol(location, name, type, false)
 class SymbolTypeName(location: Location, name:String, type:Type) : Symbol(location, name, type, false)
+class SymbolField(location: Location, name:String, type:Type, mutable: Boolean) : Symbol(location, name, type, mutable) {
+    var offset = -1;
+}
 
 fun AstBlock.addSymbol(symbol:Symbol) {
     val duplicate = symbolTable[symbol.name]
@@ -57,3 +61,5 @@ private val predefinedSymbolList = listOf(
 )
 
 val predefinedSymbols = predefinedSymbolList.associateBy { it.name }
+
+val sizeField = SymbolField(nullLocation, "size", TypeInt, false).also { it.offset = -4 }

@@ -107,6 +107,38 @@ jmp $30[0]
     ret
 
 # ==========================================================
+#                     callocArray
+# ==========================================================
+# $1 = number of elements
+# $2 = size of each element
+# returns:
+# $8 = pointer to array
+
+/callocArray:
+    mul $2, $2, $1               # $2 = number of bytes for array body
+    add $2, 7                    # round up to multiple of 8
+    and $2, -8
+    add $2, 8                    # Add 8 bytes for header
+
+    ld $3, SYSVARS_BASE
+    ldw $8, $3[SYSVARS_HEAP_PTR] # Fetch heap pointer
+    add $4, $8, $2               # Compute end of array
+    stw $4, $3[SYSVARS_HEAP_PTR] # Store new heap pointer
+    stw $2, $8[0]                # Store size of allocation
+    stw $1, $8[4]                # Store length of array
+    add $8, 8                    # Skip length word
+
+    ld $1, $8
+.clearloop:
+    stw 0, $1[0]
+    add $1, 4
+    blt $1, $4, .clearloop
+
+    ret
+
+
+
+# ==========================================================
 #                     freeArray
 # ==========================================================
 # $1 = pointer to array

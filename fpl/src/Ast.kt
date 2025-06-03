@@ -23,7 +23,7 @@ class AstNot(location: Location, val expr: AstExpr) : AstExpr(location)
 class AstMinus(location: Location, val expr: AstExpr) : AstExpr(location)
 class AstIfExpr(location: Location, val cond: AstExpr, val thenExpr: AstExpr, val elseExpr: AstExpr) : AstExpr(location)
 class AstRange(location: Location, val start: AstExpr, val end: AstExpr, val op:TokenKind) : AstExpr(location)
-class AstNew(location: Location, val type:AstTypeExpr, val args: List<AstExpr>, val local:Boolean) : AstExpr(location)
+class AstNew(location: Location, val type:AstTypeExpr, val args: List<AstExpr>, val lambda:AstLambda?, val local:Boolean) : AstExpr(location)
 
 class AstCall(location: Location, val expr: AstExpr, val args: List<AstExpr>) : AstExpr(location)
 
@@ -61,6 +61,7 @@ class AstWhile(location: Location, val cond: AstExpr, body:List<AstStmt>) : AstB
 class AstRepeat(location: Location, val cond: AstExpr, body:List<AstStmt>) : AstBlock(location, body)
 class AstFor(location: Location, val name: String, val expr: AstExpr, body:List<AstStmt>) : AstBlock(location, body)
 class AstClass(location: Location, val name: String, val args:List<AstParameter>, body:List<AstStmt>) : AstBlock(location, body)
+class AstLambda(location: Location, val expr:AstExpr) : AstBlock(location, emptyList())
 
 class AstFunction(location: Location, val name: String, val params: List<AstParameter>, val retType:AstTypeExpr?, body:List<AstStmt>)
     : AstBlock(location, body) {
@@ -259,6 +260,12 @@ fun Ast.prettyPrint(sb: StringBuilder, indent:Int) {
             type.prettyPrint(sb, indent+1)
             for (arg in args)
                 arg.prettyPrint(sb, indent+1)
+            lambda?.prettyPrint(sb, indent+1)
+        }
+
+        is AstLambda -> {
+            sb.append("Lambda\n")
+            expr.prettyPrint(sb, indent+1)
         }
     }
 }

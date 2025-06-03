@@ -25,10 +25,23 @@ class Function(val name:String, val parameters:List<SymbolVar>, val returnType:T
         return new
     }
 
+    fun newVar() : RegVar {
+        val new = RegVar("V${regs.size}")
+        regs.add(new)
+        return new
+    }
+
     fun newLabel() : Label {
         val new = Label("L${labels.size}")
         labels.add(new)
         return new
+    }
+
+    fun stackAlloc(size:Int) : Int {
+        val sizeRounded = (size + 3) and -4
+        val ret = stackVarSize
+        stackVarSize += sizeRounded
+        return ret
     }
 
     fun dump(sb: StringBuilder) {
@@ -112,6 +125,17 @@ class Function(val name:String, val parameters:List<SymbolVar>, val returnType:T
     fun addStoreMem(size:Int, src:Reg, addr:Reg, offset:Int) {
         addInstr(InstrStoreMem(size, src, addr, offset))
     }
+
+    fun addLoadMem(addr:Reg, offset:SymbolField): RegTemp {
+        val dest = newTemp()
+        addInstr(InstrLoadField(offset.type.sizeInBytes(), dest, addr, offset))
+        return dest
+    }
+
+    fun addStoreMem(src:Reg, addr:Reg, offset:SymbolField) {
+        addInstr(InstrStoreField(offset.type.sizeInBytes(), src, addr, offset))
+    }
+
 
     fun addIndexOp(scale:Int, src:Reg, limit:Reg) : Reg {
         val op = when(scale) {

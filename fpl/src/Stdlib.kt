@@ -8,4 +8,5 @@ object Stdlib {
     val printString = Function("printString", listOf(stringArg), TypeUnit)
     val printChar = Function("printChar", listOf(charArg), TypeUnit)
     val mallocArray = Function("mallocArray", listOf(intArg, intArg), TypeInt)
+    val callocArray = Function("callocArray", listOf(intArg, intArg), TypeInt)
 }

@@ -19,7 +19,7 @@ class TstAnd(location: Location, val lhs: TstExpr, val rhs: TstExpr) : TstExpr(l
 class TstOr(location: Location, val lhs: TstExpr, val rhs: TstExpr) : TstExpr(location, TypeBool)
 class TstNot(location: Location, val expr: TstExpr) : TstExpr(location, TypeBool)
 class TstIndex(location: Location, val expr: TstExpr, val index: TstExpr, type:Type) : TstExpr(location,type)
-class TstMember(location: Location, val expr: TstExpr, val name: String, type:Type) : TstExpr(location,type)
+class TstMember(location: Location, val expr: TstExpr, val field:SymbolField, type:Type) : TstExpr(location,type)
 class TstReturn(location: Location, val expr: TstExpr?) : TstExpr(location, TypeNothing)
 class TstBreak(location: Location) : TstExpr(location, TypeNothing)
 class TstContinue(location: Location) : TstExpr(location, TypeNothing)
@@ -27,7 +27,8 @@ class TstMinus(location: Location, val expr: TstExpr, type:Type) : TstExpr(locat
 class TstIfExpr(location: Location, val cond: TstExpr, val thenExpr: TstExpr, val elseExpr: TstExpr, type:Type) : TstExpr(location,type)
 class TstRange(location: Location, val start: TstExpr, val end: TstExpr, val op:AluOp,type:Type) : TstExpr(location,type)
 class TstCall(location: Location, val expr: TstExpr, val args: List<TstExpr>, type:Type) : TstExpr(location,type)
-class TstNewArray(location: Location, val size: TstExpr, val local:Boolean, type:Type) : TstExpr(location,type)
+class TstNewArray(location: Location, val size: TstExpr, val initializer:TstLambda?, val local:Boolean, type:Type) : TstExpr(location,type)
+class TstLambda(location: Location, val params: List<SymbolVar>, val body: TstExpr, type:Type) : TstExpr(location,type)
 
 class TstError(location: Location, val message: String) : TstExpr(location, TypeError) {
     init {
@@ -122,7 +123,7 @@ fun Tst.prettyPrint(sb: StringBuilder, indent:Int) {
         }
 
         is TstMember -> {
-            sb.append("member: $name ($type)\n")
+            sb.append("member: $field ($type)\n")
             expr.prettyPrint(sb, indent+1)
         }
 
@@ -243,6 +244,12 @@ fun Tst.prettyPrint(sb: StringBuilder, indent:Int) {
         is TstNewArray -> {
             sb.append("new-array ($type)\n")
             size.prettyPrint(sb, indent+1)
+            initializer?.prettyPrint(sb, indent+1)
+        }
+
+        is TstLambda -> {
+            sb.append("lambda ($type)\n")
+            body.prettyPrint(sb, indent+1)
         }
     }
 }

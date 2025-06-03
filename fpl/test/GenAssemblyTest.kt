@@ -36,13 +36,13 @@ class GenAssemblyTest {
             
             /main:
             # x = R8
-            sub $31, $31, 4
-            stw $30, $31[0]
+            sub SP, SP, 4
+            stw R30, SP[0]
             ld R1, 1
             ld R2, 2
             jsr /fred
-            ldw $30, $31[0]
-            add $31, $31, 4
+            ldw R30, SP[0]
+            add SP, SP, 4
             ret
             
 

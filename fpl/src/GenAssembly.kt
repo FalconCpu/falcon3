@@ -106,6 +106,8 @@ private fun Instr.genAssembly() = when(this) {
     is InstrStoreMem -> "${size.storeOp()} $src, $addr[$offset]"
     is InstrLea -> "ld $dest, $value"
     is InstrIndex -> "${scale.idxOp()} $dest, $src, $limit"
+    is InstrLoadField -> "${size.loadOp()} $dest, $addr[${offset.offset}]"
+    is InstrStoreField -> "${size.storeOp()} $src, $addr[${offset.offset}]"
 }
 
 fun Function.genAssembly(sb:StringBuilder) {
@@ -121,11 +123,11 @@ fun Function.genAssembly(sb:StringBuilder) {
     val makesCalls = code.any{it is InstrCall || it is InstrCallIndirect}
     val stackSize = stackVarSize + (if (maxRegister>8) 4*(maxRegister-8) else 0) + (if (makesCalls) 4 else 0)
     if (stackSize!=0) {
-        sb.append("sub $31, $31, $stackSize\n")
+        sb.append("sub SP, SP, $stackSize\n")
         for(r in 9..maxRegister)
-            sb.append("stw $$r, $31[${stackVarSize + 4*(r-9)}]\n")
+            sb.append("stw R$r, SP[${stackVarSize + 4*(r-9)}]\n")
         if (makesCalls)
-            sb.append("stw $30, $31[${stackSize-4}]\n")
+            sb.append("stw R30, SP[${stackSize-4}]\n")
     }
 
     for(instr in code) {
@@ -138,10 +140,10 @@ fun Function.genAssembly(sb:StringBuilder) {
     // teardown stack frame
     if (stackSize!=0) {
         for(r in 9..maxRegister)
-            sb.append("ldw $$r, $31[${stackVarSize + 4*(r-9)}]\n")
+            sb.append("ldw R$r, SP[${stackVarSize + 4*(r-9)}]\n")
         if (makesCalls)
-            sb.append("ldw $30, $31[${stackSize-4}]\n")
-        sb.append("add $31, $31, $stackSize\n")
+            sb.append("ldw R30, SP[${stackSize-4}]\n")
+        sb.append("add SP, SP, $stackSize\n")
     }
     sb.append("ret\n\n")
 }

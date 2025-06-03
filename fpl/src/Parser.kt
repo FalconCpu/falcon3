@@ -105,7 +105,8 @@ class Parser(val lexer: Lexer) {
         val tok = nextToken()  // LOCAL or NEW
         val typeExpr = parseTypeExpr()
         val args = parseExpressionList()
-        return AstNew(tok.location, typeExpr, args, tok.kind==LOCAL)
+        val lambda = parseOptLambda()
+        return AstNew(tok.location, typeExpr, args, lambda, tok.kind==LOCAL)
     }
 
     private fun parsePrimaryExpression() : AstExpr {
@@ -252,6 +253,15 @@ class Parser(val lexer: Lexer) {
             parseExpression()
         else
             null
+    }
+
+    private fun parseOptLambda() : AstLambda? {
+        if (currentToken.kind != OPENCL)
+            return null
+        val tok = match(OPENCL)
+        val expr = parseExpression()
+        match(CLOSECL)
+        return AstLambda(tok.location, expr)
     }
 
     // ======================================================================================

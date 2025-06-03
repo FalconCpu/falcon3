@@ -80,9 +80,9 @@ class RegisterAllocator(private val func: Function, private val livemap: Livemap
         for(mov in movStatements) {
             val a = mov.src.index
             val d = mov.dest.index
-            if (alloc[a]==UNALLOCATED && alloc[d]!=UNALLOCATED && (a !in interfere[alloc[d]]))
+            if (alloc[a]==UNALLOCATED && alloc[d]!=UNALLOCATED && (a !in interfere[alloc[d]]) && alloc[d]!=0)
                 assign(a,alloc[d])
-            if (alloc[d]==UNALLOCATED && alloc[a]!=UNALLOCATED && (d !in interfere[alloc[a]]))
+            if (alloc[d]==UNALLOCATED && alloc[a]!=UNALLOCATED && (d !in interfere[alloc[a]]) && alloc[a]!=0)
                 assign(d,alloc[a])
         }
     }
@@ -118,6 +118,8 @@ class RegisterAllocator(private val func: Function, private val livemap: Livemap
             is InstrStoreMem -> InstrStoreMem(size, replace(src), replace(addr), offset)
             is InstrLea -> InstrLea(replace(dest), value)
             is InstrIndex -> InstrIndex(scale, replace(dest), replace(src), replace(limit))
+            is InstrLoadField -> InstrLoadField(size, replace(dest), replace(addr), offset)
+            is InstrStoreField -> InstrStoreField(size, replace(src), replace(addr), offset)
         }
         new.index = index
         return new

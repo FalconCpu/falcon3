@@ -1,4 +1,3 @@
-
 private lateinit var currentFunc : Function
 
 // ================================================================
@@ -29,7 +28,7 @@ fun TstExpr.codeGenRvalue() : Reg {
         is TstIndex -> {
             val exprReg = expr.codeGenRvalue()
             val indexReg = index.codeGenRvalue()
-            val lengthReg = currentFunc.addLoadMem(4, exprReg, -4)
+            val lengthReg = currentFunc.addLoadMem(exprReg, sizeField)
             val size = type.sizeInBytes()
             val indexScaled = currentFunc.addIndexOp(size, indexReg, lengthReg)
             val indexAdded = currentFunc.addAlu(AluOp.ADD_I, exprReg, indexScaled)
@@ -43,7 +42,12 @@ fun TstExpr.codeGenRvalue() : Reg {
         is TstFunctionName -> TODO()
         is TstGlobalVar -> TODO()
         is TstIfExpr -> TODO()
-        is TstMember -> TODO()
+
+        is TstMember -> {
+            val exprReg = expr.codeGenRvalue()
+            currentFunc.addLoadMem(exprReg, field)
+        }
+
         is TstMinus -> TODO()
         is TstNot -> TODO()
         is TstOr -> TODO()
@@ -61,16 +65,62 @@ fun TstExpr.codeGenRvalue() : Reg {
 
         is TstNewArray -> {
             if (local) {
-                TODO("Local arrays not yet supported")
+                require(size is TstIntLit)
+                val numElements = size.value
+                val numElementsReg = currentFunc.addMov(numElements)
+                val elementSize = (type as TypeArray).elementType.sizeInBytes()
+                val stackOffset = currentFunc.stackAlloc(numElements * elementSize+4)  // +4 to allow for size field
+                val ret = currentFunc.addAlu(AluOp.ADD_I, allMachineRegs[31], stackOffset+4)
+                currentFunc.addStoreMem(numElementsReg, ret, sizeField)
+                if (initializer==null)
+                    TODO()
+                else
+                    initializeArray(ret, initializer, elementSize, numElementsReg)
+                ret
             } else {
                 val numElementsReg = size.codeGenRvalue()
-                val elementSizeReg = currentFunc.addMov((type as TypeArray).elementType.sizeInBytes())
+                val elementSize = (type as TypeArray).elementType.sizeInBytes()
+                val elementSizeReg = currentFunc.addMov(elementSize)
                 currentFunc.addMov(allMachineRegs[1], numElementsReg)
                 currentFunc.addMov(allMachineRegs[2], elementSizeReg)
-                currentFunc.addCall(Stdlib.mallocArray)
+                if (initializer==null) {
+                    currentFunc.addCall(Stdlib.callocArray)
+                } else {
+                    val ret = currentFunc.addCall(Stdlib.mallocArray)
+                    initializeArray(ret, initializer, elementSize, numElementsReg)
+                    ret
+                }
             }
         }
+
+        is TstLambda ->
+            body.codeGenRvalue()
     }
+}
+
+private fun initializeArray(
+    arrayAddress: Reg,
+    initializer: TstLambda,
+    elementSize: Int,
+    numElementsReg: Reg
+) {
+    val indexReg = currentFunc.newVar()   // Needs to be a var not a temp, so that we can mutate it
+    val pointer = currentFunc.newVar()
+    val itVar = currentFunc.getVar(initializer.params[0])
+
+    currentFunc.addMov(indexReg, regZero)
+    currentFunc.addMov(pointer, arrayAddress)
+    val labelStart = currentFunc.newLabel()
+    val labelCond = currentFunc.newLabel()
+    currentFunc.addJump(labelCond)
+    currentFunc.addLabel(labelStart)
+    currentFunc.addMov(itVar, indexReg)
+    val valueReg = initializer.codeGenRvalue()
+    currentFunc.addStoreMem(elementSize, valueReg, pointer, 0)
+    currentFunc.addMov(indexReg, currentFunc.addAlu(AluOp.ADD_I, indexReg, 1))
+    currentFunc.addMov(pointer, currentFunc.addAlu(AluOp.ADD_I, pointer, elementSize))
+    currentFunc.addLabel(labelCond)
+    currentFunc.addBranch(AluOp.LT_I, indexReg, numElementsReg, labelStart)
 }
 
 // ================================================================
@@ -84,7 +134,7 @@ fun TstExpr.codeGenLvalue(value:Reg)  {
         is TstIndex -> {
             val exprReg = expr.codeGenRvalue()
             val indexReg = index.codeGenRvalue()
-            val lengthReg = currentFunc.addLoadMem(4, exprReg, -4)
+            val lengthReg = currentFunc.addLoadMem(exprReg, sizeField)
             val size = type.sizeInBytes()
             val indexScaled = currentFunc.addIndexOp(size, indexReg, lengthReg)
             val indexAdded = currentFunc.addAlu(AluOp.ADD_I, exprReg, indexScaled)
@@ -207,8 +257,37 @@ fun TstStmt.codeGen()  {
                 currentFunc.addBranch(expr.op, regIterator, regEnd, labelStart)
                 currentFunc.addJump(labelEnd)
                 currentFunc.addLabel(labelEnd)
+
+            } else if (expr.type is TypeArray || expr.type is TypeString) {
+                // calculate the range we need to iterate over
+                val elementSize = if (expr.type is TypeArray) expr.type.elementType.sizeInBytes() else 1
+                val regArray = expr.codeGenRvalue()
+                val regNumElements = currentFunc.addLoadMem(regArray, sizeField)
+                val scaledNumElements = currentFunc.addAlu(AluOp.MUL_I, regNumElements, elementSize)
+                val endPointer = currentFunc.addAlu(AluOp.ADD_I, regArray, scaledNumElements)
+                val regIterator = currentFunc.newVar()      // Needs to be a var not a temp, so that we can mutate it
+                currentFunc.addMov(regIterator, regArray)
+                val regSym = currentFunc.getVar(sym)
+
+                // Generate the loop body
+                val labelStart = currentFunc.newLabel()
+                val labelEnd = currentFunc.newLabel()
+                val labelCond = currentFunc.newLabel()
+                currentFunc.addJump(labelCond)
+
+                // Fetch the element at the current iterator position, and generate the code for the body
+                currentFunc.addLabel(labelStart)
+                currentFunc.addMov(regSym, currentFunc.addLoadMem(elementSize, regIterator, 0))
+                body.codegen()
+
+                // Increment the iterator and check if we are done
+                currentFunc.addMov(regIterator, currentFunc.addAlu(AluOp.ADD_I, regIterator, elementSize))
+                currentFunc.addLabel(labelCond)
+                currentFunc.addBranch(AluOp.LT_I, regIterator, endPointer, labelStart)
+                currentFunc.addJump(labelEnd)
+                currentFunc.addLabel(labelEnd)
             } else {
-                TODO("For loop iterate over array or indirect range expression")
+                TODO("For loop with range expression")
             }
         }
 

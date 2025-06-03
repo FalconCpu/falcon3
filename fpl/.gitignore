@@ -36,3 +36,4 @@ bin/
 /sim_blit.log
 /sim_reg.log
 /sim_uart.log
+/sim_traace.log

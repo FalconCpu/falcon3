@@ -178,7 +178,7 @@ class ExecuteTest {
         val prog = """
             fun sum(a:Array<Int>) -> Int
                 var total = 0
-                for i in 0..9
+                for i in 0 ..< a.size
                     total = total + a[i]
                 return total
                 
@@ -212,9 +212,90 @@ class ExecuteTest {
         """.trimIndent()
 
         val expected = """
-            EXCEPTION Index out of range: pc=ffff00e0: data=0000000a
+            EXCEPTION Index out of range: pc=ffff0120: data=0000000a
 
         """.trimIndent()
         runTest(prog, expected)
     }
+
+    @Test
+    fun stringIndex() {
+        val prog = """
+            fun printSpaced(s:String)
+                for i in 0..< s.length
+                    print(s[i]," ")
+                
+            fun main()
+                printSpaced("Hello world")
+        """.trimIndent()
+
+        val expected = """
+            H e l l o   w o r l d 
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
+    @Test
+    fun forInArray() {
+        val prog = """
+            fun printArray(array:Array<Int>)
+                for item in array
+                    print(item,"\n")
+                
+            fun main()
+                val a = new Array<Int>(10)
+                for i in 0..9
+                    a[i] = i
+                printArray(a)
+        """.trimIndent()
+
+        val expected = """
+            0
+            1
+            2
+            3
+            4
+            5
+            6
+            7
+            8
+            9
+
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
+    @Test
+    fun arrayInitializer() {
+        val prog = """
+            fun main()
+                val a = new Array<Int>(10){it*2}
+                for x in a
+                    print(x," ")
+        """.trimIndent()
+
+        val expected = """
+            0 2 4 6 8 10 12 14 16 18 
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
+    @Test
+    fun localArrayInitializer() {
+        val prog = """
+            fun main()
+                val a = local Array<Int>(10){it*2}
+                for x in a
+                    print(x," ")
+        """.trimIndent()
+
+        val expected = """
+            0 2 4 6 8 10 12 14 16 18 
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
+
+
+
 }

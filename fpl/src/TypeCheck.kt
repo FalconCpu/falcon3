@@ -28,6 +28,7 @@ fun AstExpr.typeCheckRvalue(context:AstBlock) : TstExpr {
                 is SymbolGlobal -> TstGlobalVar(location, symbol, symbol.type)
                 is SymbolFunction -> TstFunctionName(location, symbol, symbol.type)
                 is SymbolTypeName -> TstError(location, "Cannot use type name '$name' as an expression")
+                is SymbolField -> TODO("Member access through this ")
             }
         }
 
@@ -91,13 +92,36 @@ fun AstExpr.typeCheckRvalue(context:AstBlock) : TstExpr {
             val tcIndex = index.typeCheckRvalue(context)
             if (tcExpr.type == TypeError) return tcExpr
             TypeInt.checkCompatibleWith(tcIndex)
-            if (tcExpr.type !is TypeArray)
-                return TstError(location, "Cannot index expression of type ${tcExpr.type}")
-            TstIndex(location, tcExpr, tcIndex, tcExpr.type.elementType)
+
+            when (tcExpr.type) {
+                is TypeArray -> TstIndex(location, tcExpr, tcIndex, tcExpr.type.elementType)
+                is TypeString -> TstIndex(location, tcExpr, tcIndex, TypeChar)
+                else -> TstError(location, "Cannot index expression of type ${tcExpr.type}")
+            }
         }
 
         is AstIfExpr -> TODO()
-        is AstMember -> TODO()
+
+        is AstMember -> {
+            val tcExpr = expr.typeCheckRvalue(context)
+            when (tcExpr.type) {
+                is TypeArray -> {
+                    if (name== "size")
+                        TstMember(location, tcExpr, sizeField, TypeInt)
+                    else
+                        TstError(location, "Array does not have a field named '$name'")
+                }
+
+                is TypeString -> {
+                    if (name == "length")
+                        TstMember(location, tcExpr, sizeField, TypeInt)
+                    else
+                        TstError(location, "String does not have a field named '$name'")
+                }
+
+                else -> TODO()
+            }
+        }
         is AstMinus -> TODO()
 
         is AstRange -> {
@@ -147,9 +171,12 @@ fun AstExpr.typeCheckRvalue(context:AstBlock) : TstExpr {
                         return TstError(location, "new Array requires exactly one argument, not ${tcArgs.size}")
                     val tcSize = tcArgs[0]
                     TypeInt.checkCompatibleWith (tcSize)
+                    val tcLambda = lambda?.typeCheckLambda(context, listOf(SymbolVar(location,"it", TypeInt, false)))
+                    if (tcLambda!=null)
+                        tcType.elementType.checkCompatibleWith(tcLambda.body)
                     if (local && ! tcSize.isCompileTimeConstant())
                         Log.error(location, "Array size must be a compile-time constant")
-                    TstNewArray(location, tcSize, local,tcType)
+                    TstNewArray(location, tcSize, tcLambda, local,tcType)
                 }
                 else -> TstError(location, "Cannot create instance of type $tcType")
             }
@@ -213,6 +240,7 @@ fun AstExpr.typeCheckLvalue(context:AstBlock) : TstExpr = when(this) {
             is SymbolGlobal -> TstGlobalVar(location, symbol, symbol.type)
             is SymbolFunction -> TstError(location, "Cannot use function '$name' as an lvalue")
             is SymbolTypeName -> TstError(location, "Cannot use type name '$name' as an lvalue")
+            is SymbolField -> TODO("Fields are not supported yet")
         }
     }
 
@@ -235,6 +263,24 @@ fun AstExpr.typeCheckBool(context:AstBlock) : TstExpr {
     val tc = typeCheckRvalue(context)
     TypeBool.checkCompatibleWith(tc)
     return tc
+}
+
+// ================================================================
+//                         Lambda
+// ================================================================
+
+fun AstLambda.typeCheckLambda(context:AstBlock, params:List<SymbolVar>) : TstLambda {
+    // The automatic parent tracing doesn't find the lambda, so we need to do it manually
+    setParent(context)
+
+    // Add the parameters to the Lambda's symbol table
+    for (param in params)
+        addSymbol(param)
+
+    // Now type check the expression in the context of the lambda
+    val tcExpr = expr.typeCheckRvalue(this)
+
+    return TstLambda(location, params, tcExpr, tcExpr.type)
 }
 
 // ================================================================
@@ -319,6 +365,7 @@ fun AstStmt.typeCheck(context:AstBlock) : TstStmt = when(this) {
             is TypeError -> TypeError
             is TypeArray -> tcExpr.type.elementType
             is TypeRange -> tcExpr.type.elementType
+            is TypeString -> TypeChar
             else -> makeTypeError(location, "Cannot iterate over type '${tcExpr.type}'")
         }
         val symbol = SymbolVar(location, name, elementType, false)
@@ -359,6 +406,8 @@ fun AstStmt.typeCheck(context:AstBlock) : TstStmt = when(this) {
                 Log.error(tcExpr.location, "Got type ${tcExpr.type} but print only supports Int / Char/ String")
         TstPrint(location, tcExprs)
     }
+
+    is AstLambda -> TODO()
 }
 
 private fun AstParameter.typeCheckParameter(context:AstBlock) : SymbolVar {
