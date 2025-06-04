@@ -377,6 +377,68 @@ class CodeGenTest {
         runTest(prog, expected)
     }
 
+    @Test
+    fun methodsTest() {
+        val prog = """
+            class Cat(val name:String, ageInYears:Int)
+                var ageInMonths = ageInYears * 12
+                fun greet()
+                    print(name," says hello\n")
+            
+            fun main()
+                val c = new Cat("Tom", 3)
+                c.greet()
+        """.trimIndent()
+
+        val expected = """
+            Function Cat/greet
+            start
+            ld this, R1
+            ldw T0, this[name]
+            ld R1, T0
+            jsr printString
+            ld T1, OBJ0
+            ld R1, T1
+            jsr printString
+            L0:
+            ret
+
+            Function main
+            start
+            ld T0, Cat/class
+            ld R1, T0
+            jsr mallocObject
+            ld T1, R8
+            ld T2, OBJ1
+            ld T3, 3
+            ld R1, T1
+            ld R2, T2
+            ld R3, T3
+            jsr Cat
+            ld c, T1
+            ld R1, c
+            jsr Cat/greet
+            L0:
+            ret
+
+            Function Cat
+            start
+            ld this, R1
+            ld name, R2
+            ld ageInYears, R3
+            stw name, this[name]
+            ld T0, 12
+            MUL_I T1, ageInYears, T0
+            stw T1, this[ageInMonths]
+            L0:
+            ret
+
+
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
+
 
 
 }

@@ -235,6 +235,53 @@ class TypeCheckTest {
         runTest(prog, expected)
     }
 
+    @Test
+    fun methodsTest() {
+        val prog = """
+            class Cat(val name:String, ageInYears:Int)
+                var ageInMonths = ageInYears * 12
+                fun greet()
+                    print(name," says hello\n")
+            
+            fun main()
+                val c = new Cat("Tom", 3)
+                c.greet()
+        """.trimIndent()
+
+        val expected = """
+            top
+              file: test
+                class: Cat
+                  assign
+                    member: name (String)
+                      var: this (Cat)
+                    var: name (String)
+                  assign
+                    member: ageInMonths (Int)
+                      var: this (Cat)
+                    MUL_I (Int)
+                      var: ageInYears (Int)
+                      int: 12 (Int)
+                  function: Cat/greet
+                    print
+                      member: name (String)
+                        var: this (Cat)
+                      string: " says hello
+            " (String)
+                function: main
+                  decl: VAR:c:Cat
+                    new-object (Cat)
+                      string: "Tom" (String)
+                      int: 3 (Int)
+                  expr-stmt
+                    call (Unit)
+                      method: greet
+                        var: c (Cat)
+
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
 
 
 }

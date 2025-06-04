@@ -2,12 +2,14 @@ Done:
 For loops
 Arrays
 array bounds checking
-array initializers
+array initializers - lambda
+classes
 
 
 
 Short term:
-classes
+methods
+varargs...
 += -=
 break/continue
 nullable types
@@ -16,10 +18,15 @@ enums
 constant declarations
 constant folding in AST
 when statements
-
+array initializers - new Array<Int>[1,2,3]
+infer Array type from initializer
 
 
 Longer term:
+tuples
+inline arrays/structs
+inheritance
+extension functions
 path typing
 const propagation in IR
 CSE optimisation

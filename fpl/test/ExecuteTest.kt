@@ -310,10 +310,31 @@ class ExecuteTest {
         """.trimIndent()
 
         val expected = """
+            Tom 36
+
         """.trimIndent()
         runTest(prog, expected)
     }
 
+    @Test
+    fun methodsTest() {
+        val prog = """
+            class Cat(val name:String, ageInYears:Int)
+                var ageInMonths = ageInYears * 12
+                fun greet()
+                    print(name," says hello\n")
+            
+            fun main()
+                val c = new Cat("Tom", 3)
+                c.greet()
+        """.trimIndent()
+
+        val expected = """
+            Tom says hello
+            
+        """.trimIndent()
+        runTest(prog, expected)
+    }
 
 
 

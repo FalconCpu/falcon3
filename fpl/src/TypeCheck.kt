@@ -28,7 +28,17 @@ fun AstExpr.typeCheckRvalue(context:AstBlock) : TstExpr {
                 is SymbolGlobal -> TstGlobalVar(location, symbol, symbol.type)
                 is SymbolFunction -> TstFunctionName(location, symbol, symbol.type)
                 is SymbolTypeName -> TstError(location, "Cannot use type name '$name' as an expression")
-                is SymbolField -> TODO("Member access through this ")
+                is SymbolField -> {
+                    val thisSymbol = currentFunction?.thisSymbol
+                    // do some sanity checks
+                    if (thisSymbol==null)error("Accessed a SymbolField when not in a method")
+                    assert(symbol in (thisSymbol.type as TypeClass).symbols.values){
+                        "Internal Compiler Error: Field '$name' found, but does not belong to 'this' type '${thisSymbol.type}'."
+                    }
+
+                    val thisExpr = TstVariable(location, thisSymbol, thisSymbol.type)
+                    TstMember(location, thisExpr, symbol, symbol.type)
+                }
             }
         }
 
@@ -124,7 +134,8 @@ fun AstExpr.typeCheckRvalue(context:AstBlock) : TstExpr {
                     when (field) {
                         null -> TstError(location,"Class ${tcExpr.type} does not have a field named '$name'")
                         is SymbolField -> TstMember(location, tcExpr, field, field.type)
-                        else -> TODO("Method calls")
+                        is SymbolFunction -> TstMethod(location, tcExpr, field, field.type)
+                        else -> error("Unexpected Symbol type")
                     }
                 }
 
@@ -373,9 +384,12 @@ fun AstStmt.typeCheck(context:AstBlock) : TstStmt = when(this) {
     }
 
     is AstClass -> {
+        // Type check any methods
+        val methods = body.filterIsInstance<AstFunction>().map {it.typeCheck(this)}
+
         // The body of the class has already been type checked in the identifyFields pass - so all we do here is
         // package it up into a TstClass
-        TstClass(location, classType, constructorBody)
+        TstClass(location, classType, constructorBody, methods)
     }
 
     is AstFile -> {
@@ -454,14 +468,17 @@ private fun AstFunction.createFunctionSymbol(context:AstBlock) {
         addSymbol(param)
 
     // Create the Function object to represent this function in the back end
-    // TODO - add thisSymbol for methods
-    function = Function(name, paramSymbols, null, retType)
+    val thisSymbol = if (context is AstClass) SymbolVar(location, "this", context.classType, false) else null
+    val funcName = if (context is AstClass) "${context.name}/$name" else name
+    function = Function(funcName, paramSymbols, thisSymbol, retType)
     allFunctions += function
 
     // Create a symbol for this function and add it to the current scope
     val funcType = TypeFunction.create(paramSymbols.map{it.type}, retType)
     val symbol = SymbolFunction(location, name, funcType, function)
     context.addSymbol(symbol)
+    if (context is AstClass)
+        context.classType.addSymbol(symbol)
 }
 
 private fun AstClass.createClassSymbol(context:AstBlock) {

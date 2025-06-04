@@ -12,14 +12,12 @@ fun TstExpr.codeGenRvalue() : Reg {
 
         is TstCall -> {
             if (expr is TstFunctionName) {
-                val argSym = args.map { it.codeGenRvalue() }
-                for ((index, arg) in argSym.withIndex())
-                    currentFunc.addMov(allMachineRegs[index + 1], arg)
-                currentFunc.addInstr(InstrCall(expr.symbol.function))
-                if (type == TypeUnit || type == TypeNothing)
-                    regZero
-                else
-                    currentFunc.addMov(regResult)
+                val argReg = args.map { it.codeGenRvalue() }
+                codeGenCall(null, argReg, expr.symbol.function)
+            } else if (expr is TstMethod) {
+                val thisReg = expr.thisExpr.codeGenRvalue()
+                val argReg = args.map { it.codeGenRvalue() }
+                codeGenCall(thisReg, argReg, expr.func.function )
             } else {
                 TODO("Indirect function call")
             }
@@ -115,7 +113,27 @@ fun TstExpr.codeGenRvalue() : Reg {
                 ret
             }
         }
+
+        is TstMethod -> TODO()
     }
+}
+
+private fun codeGenCall(thisReg:Reg?, args:List<Reg>, func:Function) : Reg{
+    var index = 1
+
+    if (func.thisSymbol!=null) {
+        if (thisReg == null)
+            error("Attempting to call a method with 'this' undefined")
+        currentFunc.addMov(allMachineRegs[index++], thisReg)
+    }
+
+    for (arg in args)
+        currentFunc.addMov(allMachineRegs[index++], arg)
+    currentFunc.addInstr(InstrCall(func))
+    return if (func.returnType == TypeUnit || func.returnType == TypeNothing)
+        regZero
+    else
+        currentFunc.addMov(regResult)
 }
 
 private fun initializeArray(
@@ -279,6 +297,11 @@ fun TstStmt.codeGen()  {
             // and return
             currentFunc.addLabel(currentFunc.retLabel)
             currentFunc.addInstr(InstrRet())
+
+
+            // And run code gen on any methods
+            for(method in methods)
+                method.codeGen()
         }
 
         is TstFile -> {
