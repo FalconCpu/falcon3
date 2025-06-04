@@ -207,6 +207,33 @@ class TypeCheckTest {
         runTest(prog, expected)
     }
 
+    @Test
+    fun classReferenceTest() {
+        val prog = """
+            class Cat
+                var name:String
+                var age:Int
+            
+            fun printCat(c:Cat)
+                print(c.name)
+                print(c.age)
+        """.trimIndent()
+
+        val expected = """
+            top
+              file: test
+                class: Cat
+                function: printCat
+                  print
+                    member: name (String)
+                      var: c (Cat)
+                  print
+                    member: age (Int)
+                      var: c (Cat)
+
+        """.trimIndent()
+        runTest(prog, expected)
+    }
 
 
 

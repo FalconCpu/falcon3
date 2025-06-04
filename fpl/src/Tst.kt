@@ -28,6 +28,7 @@ class TstIfExpr(location: Location, val cond: TstExpr, val thenExpr: TstExpr, va
 class TstRange(location: Location, val start: TstExpr, val end: TstExpr, val op:AluOp,type:Type) : TstExpr(location,type)
 class TstCall(location: Location, val expr: TstExpr, val args: List<TstExpr>, type:Type) : TstExpr(location,type)
 class TstNewArray(location: Location, val size: TstExpr, val initializer:TstLambda?, val local:Boolean, type:Type) : TstExpr(location,type)
+class TstNewObject(location: Location, val args:List<TstExpr>, type:TypeClass, val local: Boolean) : TstExpr(location,type)
 class TstLambda(location: Location, val params: List<SymbolVar>, val body: TstExpr, type:Type) : TstExpr(location,type)
 
 class TstError(location: Location, val message: String) : TstExpr(location, TypeError) {
@@ -56,7 +57,7 @@ class TstWhile(location: Location, val cond: TstExpr, body:List<TstStmt>) : TstB
 class TstRepeat(location: Location, val cond: TstExpr, body:List<TstStmt>) : TstBlock(location, body)
 class TstFor(location: Location, val sym: Symbol, val expr: TstExpr, body:List<TstStmt>) : TstBlock(location, body)
 class TstFunction(location: Location, val function:Function, body:List<TstStmt>) : TstBlock(location, body)
-class TstClass(location: Location, val name: String, body:List<TstStmt>) : TstBlock(location, body)
+class TstClass(location: Location, val classType:TypeClass, body:List<TstStmt>) : TstBlock(location, body)
 class TstFile(location: Location, val name:String, body:List<TstStmt>) : TstBlock(location, body)
 class TstTop(location: Location, body:List<TstStmt>) : TstBlock(location, body)
 
@@ -173,7 +174,7 @@ fun Tst.prettyPrint(sb: StringBuilder, indent:Int) {
         }
 
         is TstClass -> {
-            sb.append("class: $name\n")
+            sb.append("class: ${classType}\n")
             body.forEach { it.prettyPrint(sb, indent+1) }
         }
 
@@ -250,6 +251,12 @@ fun Tst.prettyPrint(sb: StringBuilder, indent:Int) {
         is TstLambda -> {
             sb.append("lambda ($type)\n")
             body.prettyPrint(sb, indent+1)
+        }
+
+        is TstNewObject -> {
+            sb.append("new-object ($type)\n")
+            for (arg in args)
+                arg.prettyPrint(sb, indent+1)
         }
     }
 }

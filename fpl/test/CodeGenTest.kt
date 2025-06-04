@@ -278,6 +278,105 @@ class CodeGenTest {
         runTest(prog, expected)
     }
 
+    @Test
+    fun classReferenceTest() {
+        val prog = """
+            class Cat
+                var name:String
+                var age:Int
+            
+            fun printCat(c:Cat)
+                print(c.name)
+                print(c.age)
+        """.trimIndent()
+
+        val expected = """
+            Function printCat
+            start
+            ld c, R1
+            ldw T0, c[name]
+            ld R1, T0
+            jsr printString
+            ldw T1, c[age]
+            ld R1, T1
+            jsr printInt
+            L0:
+            ret
+
+            Function Cat
+            start
+            ld this, R1
+            L0:
+            ret
+
+
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
+    @Test
+    fun classConstructor() {
+        val prog = """
+            class Cat(val name:String, ageInYears:Int)
+                var ageInMonths = ageInYears * 12
+            
+            fun printCat(c:Cat)
+                print(c.name)
+                print(c.ageInMonths)
+                
+            fun main()
+                val c = new Cat("Tom", 3)
+                printCat(c)
+        """.trimIndent()
+
+        val expected = """
+            Function printCat
+            start
+            ld c, R1
+            ldw T0, c[name]
+            ld R1, T0
+            jsr printString
+            ldw T1, c[ageInMonths]
+            ld R1, T1
+            jsr printInt
+            L0:
+            ret
+
+            Function main
+            start
+            ld T0, Cat/class
+            ld R1, T0
+            jsr mallocObject
+            ld T1, R8
+            ld T2, OBJ0
+            ld T3, 3
+            ld R1, T1
+            ld R2, T2
+            ld R3, T3
+            jsr Cat
+            ld c, T1
+            ld R1, c
+            jsr printCat
+            L0:
+            ret
+
+            Function Cat
+            start
+            ld this, R1
+            ld name, R2
+            ld ageInYears, R3
+            stw name, this[name]
+            ld T0, 12
+            MUL_I T1, ageInYears, T0
+            stw T1, this[ageInMonths]
+            L0:
+            ret
+
+
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
 
 
 }

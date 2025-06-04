@@ -69,11 +69,12 @@ fun TstExpr.codeGenRvalue() : Reg {
                 val numElements = size.value
                 val numElementsReg = currentFunc.addMov(numElements)
                 val elementSize = (type as TypeArray).elementType.sizeInBytes()
-                val stackOffset = currentFunc.stackAlloc(numElements * elementSize+4)  // +4 to allow for size field
+                val sizeRounded = (numElements * elementSize + 3) and -4  // round up to nearest 4 bytes
+                val stackOffset = currentFunc.stackAlloc(sizeRounded+4)   // +4 to allow for size field
                 val ret = currentFunc.addAlu(AluOp.ADD_I, allMachineRegs[31], stackOffset+4)
                 currentFunc.addStoreMem(numElementsReg, ret, sizeField)
                 if (initializer==null)
-                    TODO()
+                    clearMem(ret, sizeRounded)
                 else
                     initializeArray(ret, initializer, elementSize, numElementsReg)
                 ret
@@ -95,6 +96,25 @@ fun TstExpr.codeGenRvalue() : Reg {
 
         is TstLambda ->
             body.codeGenRvalue()
+
+        is TstNewObject -> {
+            if (local) {
+                TODO("Stack allocated objects not yet implemented")
+            } else {
+                val classType = type as TypeClass
+                val classDescriptor = currentFunc.addLea( ValueClassDescriptor(classType))
+                currentFunc.addMov(allMachineRegs[1], classDescriptor)
+                val ret = currentFunc.addCall(Stdlib.mallocObject)
+
+                val argSyms = args.map { it.codeGenRvalue() }
+                var index = 1
+                currentFunc.addMov(allMachineRegs[index++], ret)
+                for(arg in argSyms)
+                    currentFunc.addMov(allMachineRegs[index++], arg)
+                currentFunc.addCall(classType.constructor)
+                ret
+            }
+        }
     }
 }
 
@@ -123,6 +143,21 @@ private fun initializeArray(
     currentFunc.addBranch(AluOp.LT_I, indexReg, numElementsReg, labelStart)
 }
 
+private fun clearMem(address: Reg, size: Int) {
+    if (size==0)
+        return
+    if (size%4 != 0)
+        error("Size must be a multiple of 4")
+    val pointer = currentFunc.newVar()
+    currentFunc.addMov(pointer, address)
+    val endAddress = currentFunc.addAlu(AluOp.ADD_I, address, size)
+    val label = currentFunc.newLabel()
+    currentFunc.addLabel(label)
+    currentFunc.addStoreMem(4, regZero, pointer, 0)
+    currentFunc.addMov(pointer, currentFunc.addAlu(AluOp.ADD_I, pointer, 4))
+    currentFunc.addBranch(AluOp.LT_I, pointer, endAddress, label)
+}
+
 // ================================================================
 //                         Lvalues
 // ================================================================
@@ -141,7 +176,11 @@ fun TstExpr.codeGenLvalue(value:Reg)  {
             currentFunc.addStoreMem(size, value, indexAdded, 0)
         }
 
-        is TstMember -> TODO()
+        is TstMember -> {
+            val exprReg = expr.codeGenRvalue()
+            currentFunc.addStoreMem(value, exprReg, field)
+        }
+
         else -> error("Malformed TST: Has assignment to $this")
     }
 }
@@ -196,8 +235,11 @@ fun TstStmt.codeGen()  {
             currentFunc = function
             // Load the parameter symbols from the ABI registers
             currentFunc.addInstr(InstrStart())
-            for ((index, param) in function.parameters.withIndex())
-                currentFunc.addMov(currentFunc.getVar(param), allMachineRegs[index + 1])
+            var index = 1
+            if (currentFunc.thisSymbol!=null)
+                currentFunc.addMov(currentFunc.getVar(currentFunc.thisSymbol!!), allMachineRegs[index++])
+            for (param in function.parameters)
+                currentFunc.addMov(currentFunc.getVar(param), allMachineRegs[index++])
 
             // Generate the code for the function body
             body.codegen()
@@ -220,7 +262,24 @@ fun TstStmt.codeGen()  {
             lhs.codeGenLvalue(rhsVar)
         }
 
-        is TstClass -> TODO()
+        is TstClass -> {
+            // Generate the code for the constructor
+            currentFunc = classType.constructor
+
+            // Load the parameter symbols from the ABI registers
+            currentFunc.addInstr(InstrStart())
+            var index = 1
+            currentFunc.addMov(currentFunc.getVar(currentFunc.thisSymbol!!), allMachineRegs[index++])
+            for (param in currentFunc.parameters)
+                currentFunc.addMov(currentFunc.getVar(param), allMachineRegs[index++])
+
+            // Generate the code for the function body
+            body.codegen()
+
+            // and return
+            currentFunc.addLabel(currentFunc.retLabel)
+            currentFunc.addInstr(InstrRet())
+        }
 
         is TstFile -> {
             body.codegen()

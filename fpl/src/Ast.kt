@@ -60,7 +60,13 @@ class AstIf(location: Location, body:List<AstIfClause>) : AstBlock(location, bod
 class AstWhile(location: Location, val cond: AstExpr, body:List<AstStmt>) : AstBlock(location, body)
 class AstRepeat(location: Location, val cond: AstExpr, body:List<AstStmt>) : AstBlock(location, body)
 class AstFor(location: Location, val name: String, val expr: AstExpr, body:List<AstStmt>) : AstBlock(location, body)
-class AstClass(location: Location, val name: String, val args:List<AstParameter>, body:List<AstStmt>) : AstBlock(location, body)
+class AstClass(location: Location, val name: String, val params:List<AstParameter>, body:List<AstStmt>) : AstBlock(location, body) {
+    lateinit var classType : TypeClass
+    // We typecheck the body of classes in an early type checking pass as there may be forward references to fields.
+    // But this means we may generate field initializer statements before we are ready to generate the constructor.
+    // So we store it in this list, until we get to typechecking the constructor body.
+    val constructorBody = mutableListOf<TstStmt>()
+}
 class AstLambda(location: Location, val expr:AstExpr) : AstBlock(location, emptyList())
 
 class AstFunction(location: Location, val name: String, val params: List<AstParameter>, val retType:AstTypeExpr?, body:List<AstStmt>)
@@ -74,7 +80,7 @@ class AstTop(location: Location, body:List<AstStmt>) : AstBlock(location, body)
 // ================================================
 //                  Misc
 // ================================================
-class AstParameter(location: Location, val name: String, val type: AstTypeExpr) : Ast(location)
+class AstParameter(location: Location, val kind:TokenKind, val name: String, val type: AstTypeExpr) : Ast(location)
 
 
 // ================================================
@@ -113,7 +119,7 @@ fun Ast.prettyPrint(sb: StringBuilder, indent:Int) {
         }
         is AstClass -> {
             sb.append("Class $name\n")
-            for (arg in args)
+            for (arg in params)
                 arg.prettyPrint(sb, indent+1)
             for (stmt in body)
                 stmt.prettyPrint(sb, indent+1)

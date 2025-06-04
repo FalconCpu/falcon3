@@ -119,6 +119,15 @@ fun AstExpr.typeCheckRvalue(context:AstBlock) : TstExpr {
                         TstError(location, "String does not have a field named '$name'")
                 }
 
+                is TypeClass -> {
+                    val field = tcExpr.type.lookupSymbol(name)
+                    when (field) {
+                        null -> TstError(location,"Class ${tcExpr.type} does not have a field named '$name'")
+                        is SymbolField -> TstMember(location, tcExpr, field, field.type)
+                        else -> TODO("Method calls")
+                    }
+                }
+
                 else -> TODO()
             }
         }
@@ -178,6 +187,17 @@ fun AstExpr.typeCheckRvalue(context:AstBlock) : TstExpr {
                         Log.error(location, "Array size must be a compile-time constant")
                     TstNewArray(location, tcSize, tcLambda, local,tcType)
                 }
+
+                is TypeClass -> {
+                    val constructor = tcType.constructor
+                    val parameters = constructor.parameters
+                    if (parameters.size != tcArgs.size)
+                        return TstError(location, "Invalid number of arguments for constructor")
+                    for (index in tcArgs.indices)
+                        parameters[index].type.checkCompatibleWith(tcArgs[index])
+                    TstNewObject(location, tcArgs, tcType, local)
+                }
+
                 else -> TstError(location, "Cannot create instance of type $tcType")
             }
         }
@@ -249,7 +269,13 @@ fun AstExpr.typeCheckLvalue(context:AstBlock) : TstExpr = when(this) {
         typeCheckRvalue(context)
     }
 
-    is AstMember -> TODO()
+    is AstMember -> {
+        val ret = typeCheckRvalue(context)
+        if (ret is TstMember && !ret.field.mutable)
+            Log.error(location, "Filed '${ret.field}' is not mutable")
+        ret
+    }
+
     else -> {
         TstError(location, "Expression is not an lvalue")
     }
@@ -346,7 +372,11 @@ fun AstStmt.typeCheck(context:AstBlock) : TstStmt = when(this) {
         TstAssign(location, tcLhs, tcRhs)
     }
 
-    is AstClass -> TODO()
+    is AstClass -> {
+        // The body of the class has already been type checked in the identifyFields pass - so all we do here is
+        // package it up into a TstClass
+        TstClass(location, classType, constructorBody)
+    }
 
     is AstFile -> {
         val tcBody = body.map{it.typeCheck(this)}
@@ -424,7 +454,8 @@ private fun AstFunction.createFunctionSymbol(context:AstBlock) {
         addSymbol(param)
 
     // Create the Function object to represent this function in the back end
-    function = Function(name, paramSymbols, retType)
+    // TODO - add thisSymbol for methods
+    function = Function(name, paramSymbols, null, retType)
     allFunctions += function
 
     // Create a symbol for this function and add it to the current scope
@@ -432,6 +463,55 @@ private fun AstFunction.createFunctionSymbol(context:AstBlock) {
     val symbol = SymbolFunction(location, name, funcType, function)
     context.addSymbol(symbol)
 }
+
+private fun AstClass.createClassSymbol(context:AstBlock) {
+    classType = TypeClass.create(name, null)
+    val symbol = SymbolTypeName(location, name, classType)
+    context.addSymbol(symbol)
+}
+
+private fun AstClass.createFieldSymbols(context: AstBlock) {
+    // build a function for the constructor
+    val paramSymbols = params.map { it.typeCheckParameter(context) }
+    val thisSym = SymbolVar(location, "this", classType, false)
+    val thisExpr = TstVariable(thisSym.location, thisSym, thisSym.type)
+    classType.constructor = Function(name, paramSymbols, thisSym, TypeUnit)
+    allFunctions += classType.constructor
+    val astConstructor = AstFunction(location, name, params, null, emptyList())  // provide a scope for the constructor
+    astConstructor.setParent(this)
+    astConstructor.addSymbol(thisSym)
+    for (sym in paramSymbols)
+        astConstructor.addSymbol(sym)
+
+    // Parameters could be marked VAL or VAR - in which case they define a field as well as being constructor parameters
+    for ((param, sym) in params.zip(paramSymbols))
+        if (param.kind == TokenKind.VAL || param.kind == TokenKind.VAR) {
+            val fieldSymbol = SymbolField(param.location, param.name, sym.type, param.kind == TokenKind.VAR)
+            classType.addSymbol(fieldSymbol)   // Add the field to the class
+            addSymbol(fieldSymbol) // Also add it to the current scope (so methods can refer to it)
+            // Create an expression to assign the parameter to the field
+            val paramExpr = TstVariable(param.location, sym, sym.type)
+            val fieldExpr = TstMember(param.location, thisExpr, fieldSymbol, fieldSymbol.type)
+            constructorBody += TstAssign(param.location, fieldExpr, paramExpr)
+        }
+
+    // Scan through the class body and identify any more fields
+    for (stmt in body.filterIsInstance<AstDecl>()) {
+        val tcExpr = stmt.expr?.typeCheckRvalue(astConstructor)
+        val type = stmt.typeExpr?.resolveType(context) ?:
+                   tcExpr?.type ?:
+                   makeTypeError(location,"Cannot determine type for '${stmt.name}'")
+        val sym = SymbolField(stmt.location, stmt.name, type, stmt.kind==TokenKind.VAR)
+        classType.addSymbol(sym)
+        addSymbol(sym)
+        if (tcExpr!=null) {
+            sym.type.checkCompatibleWith(tcExpr)
+            val fieldExpr = TstMember(sym.location, thisExpr, sym, sym.type)
+            constructorBody += TstAssign(sym.location, fieldExpr, tcExpr)
+        }
+    }
+}
+
 
 private fun AstBlock.identifyFunctions() {
     // Recursively scan the AST for functions and create symbols for them
@@ -442,10 +522,32 @@ private fun AstBlock.identifyFunctions() {
             stmt.identifyFunctions()
 }
 
+private fun AstBlock.identifyFields() {
+    // Recursively scan the AST for class fields
+    for (stmt in body.filterIsInstance<AstBlock>())
+        if (stmt is AstClass)
+            stmt.createFieldSymbols(this)
+        else
+            stmt.identifyFields()
+}
+
+
+private fun AstBlock.identifyClasses() {
+    // Recursively scan the AST for functions and create symbols for them
+    for (stmt in body.filterIsInstance<AstBlock>())
+        if (stmt is AstClass)
+            stmt.createClassSymbol(this)
+        else
+            stmt.identifyClasses()
+}
+
+
 fun AstTop.typeCheck() : TstTop {
     for (stmt in body.filterIsInstance<AstBlock>())
         stmt.setParent(this)
+    identifyClasses()
     identifyFunctions()
+    identifyFields()
 
     val tcBody = body.map{it.typeCheck(this)}
     return TstTop(location, tcBody)

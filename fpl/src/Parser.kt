@@ -324,19 +324,24 @@ class Parser(val lexer: Lexer) {
         return AstDecl(tok.location, tok.kind, name.text, optType, optExpr)
     }
 
-    private fun parseParam() : AstParameter {
+    private fun parseParam(forConstructor: Boolean) : AstParameter {
+        val kind = if (currentToken.kind==VAR || currentToken.kind==VAL) {
+            if (!forConstructor)
+                Log.error(currentToken.location,"'$currentToken' only allowed in constructors")
+            nextToken().kind
+        } else EOF
         val name = match(ID)
         match(COLON)
         val type = parseTypeExpr()
-        return AstParameter(name.location, name.text, type)
+        return AstParameter(name.location, kind, name.text, type)   // EOF as a marker to indicate a plain parameter
     }
 
-    private fun parseParamList() : List<AstParameter> {
+    private fun parseParamList(forConstructor:Boolean=false) : List<AstParameter> {
         val ret = mutableListOf<AstParameter>()
         match(OPENB)
         if (currentToken.kind != CLOSEB)
             do {
-                ret.add(parseParam())
+                ret.add(parseParam(forConstructor))
             } while (canTake(COMMA))
         match(CLOSEB)
         return ret
@@ -451,6 +456,16 @@ class Parser(val lexer: Lexer) {
         return AstPrint(loc, args)
     }
 
+    private fun parseClass() : AstStmt {
+        val loc = match(CLASS)
+        val name = match(ID)
+        val params = if (currentToken.kind==OPENB) parseParamList(forConstructor = true) else emptyList()
+        expectEol()
+        val body = if (currentToken.kind==INDENT) parseClassStatementBlock() else emptyList()
+        checkEnd(CLASS)
+        return AstClass(loc.location, name.text, params, body)
+    }
+
     private fun parseStatement() : AstStmt {
         val loc = currentToken.location
         try {
@@ -462,6 +477,7 @@ class Parser(val lexer: Lexer) {
                 FOR -> parseFor()
                 FUN -> parseFunction()
                 PRINT -> parsePrint()
+                CLASS -> parseClass()
                 else -> parseExpressionStatement()
             }
         } catch (e: ParseError) {
@@ -483,6 +499,35 @@ class Parser(val lexer: Lexer) {
         match(DEDENT)
         return ret
     }
+
+    private fun parseClassStatement() : AstStmt {
+        val loc = currentToken.location
+        try {
+            return when (currentToken.kind) {
+                VAL, VAR -> parseDeclaration()
+                FUN -> parseFunction()
+                else -> throw ParseError(loc, "$currentToken not allowed in Class body")
+            }
+        } catch (e: ParseError) {
+            Log.error(e.message!!)
+            skipToEndOfLine()
+            return AstNullStmt(loc)
+        }
+    }
+
+    private fun parseClassStatementBlock() : List<AstStmt> {
+        val ret = mutableListOf<AstStmt>()
+        if (currentToken.kind != INDENT) {
+            Log.error(currentToken.location, "Missing indented block")
+            return ret
+        }
+        match(INDENT)
+        while (currentToken.kind != DEDENT && currentToken.kind != EOF)
+            ret.add(parseClassStatement())
+        match(DEDENT)
+        return ret
+    }
+
 
 
     private fun parseFile(): AstFile {

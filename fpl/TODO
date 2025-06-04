@@ -1,7 +1,8 @@
 Done:
 For loops
 Arrays
-arrqay bounds checking
+array bounds checking
+array initializers
 
 
 
@@ -10,9 +11,17 @@ classes
 += -=
 break/continue
 nullable types
+string operations
+enums
+constant declarations
+constant folding in AST
+when statements
+
 
 
 Longer term:
 path typing
+const propagation in IR
 CSE optimisation
 bounds check elision
+floating point

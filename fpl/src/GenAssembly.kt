@@ -147,3 +147,14 @@ fun Function.genAssembly(sb:StringBuilder) {
     }
     sb.append("ret\n\n")
 }
+
+fun TypeClass.generateClassDescriptor(sb: StringBuilder) {
+    sb.append("$name/class:\n")
+    sb.append("dcw $sizeInBytes\n")
+    // When we get to it - vtable can go here
+}
+
+fun List<TypeClass>.generateClassDescriptors(sb: StringBuilder) {
+    for(c in this)
+        c.generateClassDescriptor(sb)
+}

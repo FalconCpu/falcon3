@@ -16,6 +16,8 @@ class ValueInt(val value:Int, type:Type) : Value(-1, type) {
 
 class ValueString private constructor(val value:String, index:Int, type:Type) : Value(index, type) {
 
+    override fun toString(): String = "OBJ$index"
+
     override fun emit(sb:StringBuilder) {
         sb.append("dcw ${value.length}\n")
         sb.append("OBJ$index: # $value\n")
@@ -37,6 +39,15 @@ class ValueString private constructor(val value:String, index:Int, type:Type) : 
             allValues += new
             new
         }
+    }
+}
+
+// Class descriptors are also a special case, as they are generated separately. We just need to reference them
+class ValueClassDescriptor(val value:TypeClass) : Value(-1, value) {
+    override fun toString() = "$value/class"
+
+    override fun emit(sb: StringBuilder) {
+        error("ValueClassDescriptor should not be in allValues list")
     }
 }
 

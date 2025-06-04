@@ -64,6 +64,45 @@ class TypeFunction private constructor(name:String, val parameters: List<Type>, 
     }
 }
 
+class TypeClass private constructor(name:String, val baseType: Type?) : Type(name) {
+    val symbols = mutableMapOf<String, Symbol>()
+    var sizeInBytes = 0
+    lateinit var constructor : Function
+
+    fun addSymbol(symbol:Symbol) {
+        val duplicate = symbols[symbol.name]
+        if (duplicate!=null)
+            Log.error(symbol.location, "Duplicate symbol '$symbol', first defined here: ${duplicate.location}")
+        symbols[symbol.name] = symbol
+        if (symbol is SymbolField) {
+            val symSize = symbol.type.sizeInBytes()
+
+            // Add padding if necessary
+            when(symSize) {
+                0, 1 -> {}
+                2 -> sizeInBytes = (sizeInBytes + 1) and -2
+                else -> sizeInBytes = (sizeInBytes + 3) and -4
+            }
+            symbol.offset = sizeInBytes
+            sizeInBytes += symSize
+        }
+    }
+
+    fun lookupSymbol(name:String) : Symbol? {
+        return symbols[name]
+    }
+
+    companion object {
+        fun create(name:String, baseType: Type?) : TypeClass {
+            val ret = TypeClass(name, baseType)
+            allClasses.add(ret)
+            return ret
+        }
+    }
+}
+val allClasses = mutableListOf<TypeClass>()
+
+
 fun Type.isAssignableFrom(other:Type) : Boolean {
     if (this == other || this is TypeError || other is TypeError || this is TypeAny || other is TypeNothing)
         return true
@@ -104,6 +143,7 @@ fun Type.sizeInBytes() : Int {
         TypeReal -> 4
         TypeString -> 4
         TypeUnit -> 0
+        is TypeClass -> 4  // References to a class are pointers
     }
 
 }

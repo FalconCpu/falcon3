@@ -136,6 +136,28 @@ jmp $30[0]
 
     ret
 
+# ==========================================================
+#                     mallocObject
+# ==========================================================
+# $1 = pointer to class descriptor
+# returns:
+# $8 = pointer to newly allocated object
+
+/mallocObject:
+    ldw $2, $1[0]                # get the sizeInBytes field of the class descriptor
+    add $2, 7                    # round up to multiple of 8
+    and $2, -8
+    add $2, 8                    # Add 8 bytes for header
+
+    ld $3, SYSVARS_BASE
+    ldw $8, $3[SYSVARS_HEAP_PTR] # Fetch heap pointer
+    add $4, $8, $2               # Compute end of object
+    stw $4, $3[SYSVARS_HEAP_PTR] # Store new heap pointer
+    stw $2, $8[0]                # Store size of allocation
+    stw $1, $8[4]                # Store object descriptor
+    add $8, 8                    # Skip past the header
+    ret
+
 
 
 # ==========================================================

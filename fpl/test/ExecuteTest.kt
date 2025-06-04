@@ -212,7 +212,7 @@ class ExecuteTest {
         """.trimIndent()
 
         val expected = """
-            EXCEPTION Index out of range: pc=ffff0120: data=0000000a
+            EXCEPTION Index out of range: pc=ffff0150: data=0000000a
 
         """.trimIndent()
         runTest(prog, expected)
@@ -291,6 +291,25 @@ class ExecuteTest {
 
         val expected = """
             0 2 4 6 8 10 12 14 16 18 
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
+    @Test
+    fun classConstructor() {
+        val prog = """
+            class Cat(val name:String, ageInYears:Int)
+                var ageInMonths = ageInYears * 12
+            
+            fun printCat(c:Cat)
+                print(c.name, " ", c.ageInMonths, "\n")
+                
+            fun main()
+                val c = new Cat("Tom", 3)
+                printCat(c)
+        """.trimIndent()
+
+        val expected = """
         """.trimIndent()
         runTest(prog, expected)
     }

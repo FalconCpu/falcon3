@@ -610,6 +610,28 @@ class ParserTest {
         runTest(prog, expected)
     }
 
+    @Test
+    fun classStatement() {
+        val prog = """
+            class Cat
+                val name : String
+                val age : Int
+        """.trimIndent()
+
+        val expected = """
+            File test
+             Class Cat
+              Decl VAL name
+               Type String
+              Decl VAL age
+               Type Int
+
+        """.trimIndent()
+
+        runTest(prog, expected)
+    }
+
+
 
 
 }
