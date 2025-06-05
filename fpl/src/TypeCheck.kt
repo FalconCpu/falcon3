@@ -121,10 +121,7 @@ fun AstExpr.typeCheckRvalue(context:AstBlock) : TstExpr {
             if (tcExpr.type !is TypeFunction)
                 return TstError(location, "Cannot call expression of type ${tcExpr.type}")
             val paramTypes = tcExpr.type.parameters
-            if (paramTypes.size != tcArgs.size)
-                return TstError(location, "Invalid number of arguments for function call")
-            for (index in tcArgs.indices)
-                paramTypes[index].checkCompatibleWith(tcArgs[index])
+            checkParameters(location, paramTypes, tcArgs)
             TstCall(location, tcExpr, tcArgs, tcExpr.type.returnType)
         }
 
@@ -278,12 +275,7 @@ fun AstExpr.typeCheckRvalue(context:AstBlock) : TstExpr {
                 }
 
                 is TypeClass -> {
-                    val constructor = tcType.constructor
-                    val parameters = constructor.parameters
-                    if (parameters.size != tcArgs.size)
-                        return TstError(location, "Invalid number of arguments for constructor")
-                    for (index in tcArgs.indices)
-                        parameters[index].type.checkCompatibleWith(tcArgs[index])
+                    checkParameters(location, tcType.constructorParameters, tcArgs)
                     TstNewObject(location, tcArgs, tcType, local)
                 }
 
@@ -295,6 +287,27 @@ fun AstExpr.typeCheckRvalue(context:AstBlock) : TstExpr {
             val tcType = typeExpr.resolveType(context)
             TstCast(location, tcExpr, tcType)
         }
+    }
+}
+
+
+private fun checkParameters(location:Location, parameters:List<Type>, args:List<TstExpr>) {
+    if (parameters.isNotEmpty() && parameters.last() is TypeVararg) {
+        if (args.size < parameters.size-1) {
+            Log.error(location, "Got ${args.size} arguments when expecting at least ${parameters.size - 1}")
+            return
+        }
+        for (index in 0..<parameters.size-1)
+            parameters[index].checkCompatibleWith(args[index])
+        val varargType = (parameters.last() as TypeVararg).elementType
+        for (index in parameters.size-1..<args.size)
+            varargType.checkCompatibleWith(args[index])
+    } else {
+        // Not a vararg
+        if (args.size != parameters.size)
+            Log.error(location, "Got ${args.size} arguments when expecting ${parameters.size}")
+        for (index in args.indices)
+            parameters[index].checkCompatibleWith(args[index])
     }
 }
 
@@ -716,27 +729,44 @@ fun AstStmt.typeCheck(context:AstBlock) : TstStmt {
     }
 }
 
-private fun AstParameter.typeCheckParameter(context:AstBlock) : SymbolVar {
-    val type = this.type.resolveType(context)
-    val symbol = SymbolVar(location, name, type, false)
-    return symbol
+
+private fun AstParameterList.createSymbols(context:AstBlock) : Pair<List<SymbolVar>,List<Type>> {
+    // Convert an AstParameterList into a list of Symbols and a list of types.
+    // If there are any vararg parameters then in the symbol list they will be represented as arrays, but in the
+    // type list as vararg type.
+
+    val typesExternal = mutableListOf<Type>()
+    val symbolsInternal = mutableListOf<SymbolVar>()
+
+    for(param in params) {
+        val type = param.type.resolveType(context)
+        if (isVararg && param==params.last()) {
+            typesExternal += TypeVararg.create(type)
+            symbolsInternal += SymbolVar(param.location, param.name, TypeArray.create(type), false)
+        } else {
+            val sym = SymbolVar(param.location, param.name, type, false)
+            symbolsInternal += sym
+            typesExternal += type
+        }
+    }
+    return Pair(symbolsInternal,typesExternal)
 }
 
 private fun AstFunction.createFunctionSymbol(context:AstBlock) {
     // Generate symbols for parameters and add them to the functions symbol table
-    val paramSymbols = params.map{it.typeCheckParameter(context)}
+    val (paramsInternal, typesExternal) = params.createSymbols(context)
     val retType = this.retType?.resolveType(context) ?: TypeUnit
-    for (param in paramSymbols)
+    for (param in paramsInternal)
         addSymbol(param)
 
     // Create the Function object to represent this function in the back end
     val thisSymbol = if (context is AstClass) SymbolVar(location, "this", context.classType, false) else null
     val funcName = if (context is AstClass) "${context.name}/$name" else name
-    function = Function(funcName, paramSymbols, thisSymbol, retType)
+    function = Function(funcName, paramsInternal, thisSymbol, retType)
     allFunctions += function
 
     // Create a symbol for this function and add it to the current scope
-    val funcType = TypeFunction.create(paramSymbols.map{it.type}, retType)
+    val funcType = TypeFunction.create(typesExternal, retType)
     val symbol = SymbolFunction(location, name, funcType, function)
     context.addSymbol(symbol)
     if (context is AstClass)
@@ -751,19 +781,20 @@ private fun AstClass.createClassSymbol(context:AstBlock) {
 
 private fun AstClass.createFieldSymbols(context: AstBlock) {
     // build a function for the constructor
-    val paramSymbols = params.map { it.typeCheckParameter(context) }
+    val (paramsInternal,typesExternal) = params.createSymbols(context)
     val thisSym = SymbolVar(location, "this", classType, false)
     val thisExpr = TstVariable(thisSym.location, thisSym, thisSym.type)
-    classType.constructor = Function(name, paramSymbols, thisSym, TypeUnit)
+    classType.constructor = Function(name, paramsInternal, thisSym, TypeUnit)
+    classType.constructorParameters = typesExternal
     allFunctions += classType.constructor
     val astConstructor = AstFunction(location, name, params, null, emptyList())  // provide a scope for the constructor
     astConstructor.setParent(this)
     astConstructor.addSymbol(thisSym)
-    for (sym in paramSymbols)
+    for (sym in paramsInternal)
         astConstructor.addSymbol(sym)
 
     // Parameters could be marked VAL or VAR - in which case they define a field as well as being constructor parameters
-    for ((param, sym) in params.zip(paramSymbols))
+    for ((param, sym) in params.params.zip(paramsInternal))
         if (param.kind == TokenKind.VAL || param.kind == TokenKind.VAR) {
             val fieldSymbol = SymbolField(param.location, param.name, sym.type, param.kind == TokenKind.VAR)
             classType.addSymbol(fieldSymbol)   // Add the field to the class

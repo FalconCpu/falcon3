@@ -66,12 +66,12 @@ fun TstExpr.codeGenRvalue() : Reg {
 
         is TstCall -> {
             if (expr is TstFunctionName) {
-                val argReg = args.map { it.codeGenRvalue() }
+                val argReg = evaluateArgs(args, (expr.type as TypeFunction).parameters)
                 val thisReg = if (currentFunc.thisSymbol!=null) currentFunc.getVar(currentFunc.thisSymbol!!) else null
                 codeGenCall(thisReg, argReg, expr.symbol.function, currentFunc.thisSymbol?.type)
             } else if (expr is TstMethod) {
                 val thisReg = expr.thisExpr.codeGenRvalue()
-                val argReg = args.map { it.codeGenRvalue() }
+                val argReg = evaluateArgs(args, (expr.func.type as TypeFunction).parameters)
                 codeGenCall(thisReg, argReg, expr.func.function, expr.thisExpr.type )
             } else {
                 TODO("Indirect function call")
@@ -169,12 +169,8 @@ fun TstExpr.codeGenRvalue() : Reg {
                 currentFunc.addMov(allMachineRegs[1], classDescriptor)
                 val ret = currentFunc.addCall(Stdlib.mallocObject)
 
-                val argSyms = args.map { it.codeGenRvalue() }
-                var index = 1
-                currentFunc.addMov(allMachineRegs[index++], ret)
-                for(arg in argSyms)
-                    currentFunc.addMov(allMachineRegs[index++], arg)
-                currentFunc.addCall(classType.constructor)
+                val argRegs = evaluateArgs(args, classType.constructorParameters)
+                codeGenCall(ret, argRegs, classType.constructor, classType )
                 ret
             }
         }
@@ -186,6 +182,29 @@ fun TstExpr.codeGenRvalue() : Reg {
             currentFunc.addMov(ret)
         }
     }
+}
+
+private fun evaluateArgs(args:List<TstExpr>, types:List<Type>) : List<Reg>{
+    if (types.isNotEmpty() && types.last() is TypeVararg) {
+        val numRegularArgs = types.size-1
+        val numVarargs = args.size - numRegularArgs
+
+        // Allocate some space on the stack, evaluate the args and store in the space
+        val stackSpace = currentFunc.stackAlloc(4*numVarargs+4)
+        val numElements = currentFunc.addMov(numVarargs)
+        currentFunc.addStoreMem(4, numElements, allMachineRegs[31], stackSpace)
+        for(index in 0..< numVarargs) {
+            val arg = args[numRegularArgs+index]
+            val reg = arg.codeGenRvalue()
+            currentFunc.addStoreMem(arg.type.sizeInBytes(), reg, allMachineRegs[31], stackSpace+4+4*index)
+        }
+
+        val regularArgRegs = args.subList(0,numRegularArgs).map{it.codeGenRvalue()}
+        val varargReg = currentFunc.addAlu(AluOp.ADD_I, allMachineRegs[31], stackSpace+4)
+        return regularArgRegs + varargReg
+    } else
+        // Not a vararg - so just create all the symbols
+        return args.map { it.codeGenRvalue() }
 }
 
 private fun codeGenCall(thisReg:Reg?, args:List<Reg>, func:Function, thisType:Type?) : Reg{

@@ -481,4 +481,25 @@ class ExecuteTest {
     }
 
 
+    @Test
+    fun varargTest() {
+        val prog = """
+            fun fred(a:Int, b:Int...)
+                print("Argument a: ",a,"\n")
+                print("Argument b: ")
+                for x in b
+                    print(x," ")
+                print("\n")
+                
+            fun main()
+                fred(1,2,3,4,5)
+        """.trimIndent()
+
+        val expected = """
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
+
+
 }

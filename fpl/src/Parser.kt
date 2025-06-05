@@ -1,4 +1,5 @@
 import TokenKind.*
+import kotlin.math.log
 
 class Parser(val lexer: Lexer) {
     private var currentToken = lexer.nextToken()
@@ -362,15 +363,18 @@ class Parser(val lexer: Lexer) {
         return AstParameter(name.location, kind, name.text, type)   // EOF as a marker to indicate a plain parameter
     }
 
-    private fun parseParamList(forConstructor:Boolean=false) : List<AstParameter> {
+    private fun parseParamList(forConstructor:Boolean=false) : AstParameterList {
         val ret = mutableListOf<AstParameter>()
         match(OPENB)
         if (currentToken.kind != CLOSEB)
             do {
                 ret.add(parseParam(forConstructor))
             } while (canTake(COMMA))
+        val varargs = canTake(DOTDOTDOT)
         match(CLOSEB)
-        return ret
+        if (ret.isEmpty() && varargs)
+            Log.error(currentToken.location, "Cannot have varargs with an empty parameter list")
+        return AstParameterList(ret,varargs)
     }
 
     private fun checkEnd(kind:TokenKind) {
@@ -485,7 +489,7 @@ class Parser(val lexer: Lexer) {
     private fun parseClass() : AstStmt {
         val loc = match(CLASS)
         val name = match(ID)
-        val params = if (currentToken.kind==OPENB) parseParamList(forConstructor = true) else emptyList()
+        val params = if (currentToken.kind==OPENB) parseParamList(forConstructor = true) else AstParameterList(emptyList(),false)
         expectEol()
         val body = if (currentToken.kind==INDENT) parseClassStatementBlock() else emptyList()
         checkEnd(CLASS)

@@ -63,7 +63,7 @@ class AstIf(location: Location, body:List<AstIfClause>) : AstBlock(location, bod
 class AstWhile(location: Location, val cond: AstExpr, body:List<AstStmt>) : AstBlock(location, body)
 class AstRepeat(location: Location, val cond: AstExpr, body:List<AstStmt>) : AstBlock(location, body)
 class AstFor(location: Location, val name: String, val expr: AstExpr, body:List<AstStmt>) : AstBlock(location, body)
-class AstClass(location: Location, val name: String, val params:List<AstParameter>, body:List<AstStmt>) : AstBlock(location, body) {
+class AstClass(location: Location, val name: String, val params:AstParameterList, body:List<AstStmt>) : AstBlock(location, body) {
     lateinit var classType : TypeClass
     // We typecheck the body of classes in an early type checking pass as there may be forward references to fields.
     // But this means we may generate field initializer statements before we are ready to generate the constructor.
@@ -72,7 +72,7 @@ class AstClass(location: Location, val name: String, val params:List<AstParamete
 }
 class AstLambda(location: Location, val expr:AstExpr) : AstBlock(location, emptyList())
 
-class AstFunction(location: Location, val name: String, val params: List<AstParameter>, val retType:AstTypeExpr?, body:List<AstStmt>)
+class AstFunction(location: Location, val name: String, val params: AstParameterList, val retType:AstTypeExpr?, body:List<AstStmt>)
     : AstBlock(location, body) {
     lateinit var function : Function
 }
@@ -84,6 +84,7 @@ class AstTop(location: Location, body:List<AstStmt>) : AstBlock(location, body)
 //                  Misc
 // ================================================
 class AstParameter(location: Location, val kind:TokenKind, val name: String, val type: AstTypeExpr) : Ast(location)
+class AstParameterList(val params:List<AstParameter>, val isVararg:Boolean)
 
 
 // ================================================
@@ -127,7 +128,7 @@ fun Ast.prettyPrint(sb: StringBuilder, indent:Int) {
         }
         is AstClass -> {
             sb.append("Class $name\n")
-            for (arg in params)
+            for (arg in params.params)
                 arg.prettyPrint(sb, indent+1)
             for (stmt in body)
                 stmt.prettyPrint(sb, indent+1)
@@ -144,7 +145,7 @@ fun Ast.prettyPrint(sb: StringBuilder, indent:Int) {
         }
         is AstFunction -> {
             sb.append("Function $name\n")
-            for (arg in params)
+            for (arg in params.params)
                 arg.prettyPrint(sb, indent+1)
             retType?.prettyPrint(sb, indent+1)
             for (stmt in body)

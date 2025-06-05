@@ -123,8 +123,12 @@ class Lexer (val fileName:String, val fileHandle: Reader) {
              (c=='!' && currentChar=='!') ||
              (c=='+' && currentChar=='=') ||
              (c=='-' && currentChar=='=') ||
-             (c=='?' && currentChar==':') )
-            return c.toString() + nextChar()
+             (c=='?' && currentChar==':') ) {
+            val ret = c.toString() + nextChar()
+            if (ret==".." && currentChar == '.')
+                return ret + nextChar()
+            return ret
+        }
         return c.toString()
     }
 

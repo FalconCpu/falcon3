@@ -407,4 +407,26 @@ class TypeCheckTest {
         """.trimIndent()
         runTest(prog, expected)
     }
+
+
+    @Test
+    fun varargTest() {
+        val prog = """
+            fun fred(a:Int, b:Int...)
+                val c = a+b[0]
+                
+            fun main()
+                fred(1,2,3,4,5)
+                fred()
+                fred(1,2,3,4,"5")
+                
+        """.trimIndent()
+
+        val expected = """
+            test.fpl:6.5-6.8: Got 0 arguments when expecting at least 1
+            test.fpl:7.18-7.20: Got type 'String' when expecting 'Int'
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
 }

@@ -443,6 +443,55 @@ class CodeGenTest {
         runTest(prog, expected)
     }
 
+    @Test
+    fun varargTest() {
+        val prog = """
+            fun fred(a:Int, b:Int...)
+                val c = a+b[0]
+                
+            fun main()
+                fred(1,2,3,4,5)
+        """.trimIndent()
+
+        val expected = """
+            Function fred
+            start
+            ld a, R1
+            ld b, R2
+            ld T0, 0
+            ldw T1, b[size]
+            idx4 T2, T0, T1
+            ADD_I T3, b, T2
+            ldw T4, T3[0]
+            ADD_I T5, a, T4
+            ld c, T5
+            L0:
+            ret
+
+            Function main
+            start
+            ld T0, 4
+            stw T0, SP[0]
+            ld T1, 2
+            stw T1, SP[4]
+            ld T2, 3
+            stw T2, SP[8]
+            ld T3, 4
+            stw T3, SP[12]
+            ld T4, 5
+            stw T4, SP[16]
+            ld T5, 1
+            ADD_I T6, SP, 4
+            ld R1, T5
+            ld R2, T6
+            jsr fred
+            L0:
+            ret
+
+
+        """.trimIndent()
+        runTest(prog, expected)
+    }
 
 
 
