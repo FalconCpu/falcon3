@@ -212,7 +212,7 @@ class ExecuteTest {
         """.trimIndent()
 
         val expected = """
-            EXCEPTION Index out of range: pc=ffff0150: data=0000000a
+            EXCEPTION Index out of range: pc=ffff01c4: data=0000000a
 
         """.trimIndent()
         runTest(prog, expected)
@@ -386,6 +386,46 @@ class ExecuteTest {
         """.trimIndent()
         runTest(prog, expected)
     }
+
+    @Test
+    fun stringCompareTest() {
+        val prog = """
+            fun compare(a:String, b:String) 
+                print("Comparing a=\"",a,"\", b=\"", b,"\"    ")
+                if a<b then print("a<b ")
+                if a<=b then print("a<=b ")
+                if a=b then print("a=b ")
+                if a!=b then print("a!=b ")
+                if a>=b then print("a>=b ")
+                if a>b then print("a>b")
+                print("\n")
+            
+            
+            fun main()
+                val s0 = ""
+                val s1 = "a"
+                val s2 = "b"
+                val s3 = "apple"     
+                val s4 = "apricot"
+                val s5 = "applepie"   # Identical to s3 up to s3's length
+                val s6 = "banana"
+                val s7 = "apple"      # Identical to s3 for direct equality test
+                
+                compare(s0,s1)
+                compare(s1,s2)
+                compare(s2,s3)
+                compare(s3,s4)
+                compare(s3,s5)
+                compare(s3,s6)
+                compare(s3,s7)
+                compare(s6,s7)
+        """.trimIndent()
+
+        val expected = """
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
 
 
 }

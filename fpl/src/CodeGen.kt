@@ -8,7 +8,58 @@ fun TstExpr.codeGenRvalue() : Reg {
     return when (this) {
         is TstVariable -> currentFunc.getVar(symbol)
         is TstIntLit -> currentFunc.addMov(value)
-        is TstBinop -> currentFunc.addAlu(op, lhs.codeGenRvalue(), rhs.codeGenRvalue())
+        is TstBinop -> {
+            val lhsReg = lhs.codeGenRvalue()
+            val rhsReg = rhs.codeGenRvalue()
+            when(op) {
+                AluOp.ADD_I,
+                AluOp.SUB_I,
+                AluOp.MUL_I,
+                AluOp.DIV_I,
+                AluOp.MOD_I,
+                AluOp.AND_I,
+                AluOp.OR_I ,
+                AluOp.XOR_I,
+                AluOp.SHL_I,
+                AluOp.SHR_I,
+                AluOp.EQ_I ,
+                AluOp.NEQ_I,
+                AluOp.LT_I ,
+                AluOp.GT_I ,
+                AluOp.LTE_I,
+                AluOp.GTE_I -> currentFunc.addAlu(op, lhsReg, rhsReg)
+                AluOp.ADD_R,
+                AluOp.SUB_R,
+                AluOp.MUL_R,
+                AluOp.DIV_R,
+                AluOp.MOD_R,
+                AluOp.EQ_R ,
+                AluOp.NEQ_R,
+                AluOp.LT_R ,
+                AluOp.GT_R ,
+                AluOp.LTE_R,
+                AluOp.GTE_R -> TODO("Floating point")
+                AluOp.EQ_S -> {
+                    currentFunc.addMov(allMachineRegs[1], lhsReg)
+                    currentFunc.addMov(allMachineRegs[2], rhsReg)
+                    currentFunc.addCall(Stdlib.strequal)
+                }
+
+                AluOp.NEQ_S, -> {
+                    currentFunc.addMov(allMachineRegs[1], lhsReg)
+                    currentFunc.addMov(allMachineRegs[2], rhsReg)
+                    val v1 = currentFunc.addCall(Stdlib.strequal)
+                    currentFunc.addAlu(AluOp.XOR_I, v1, 1)
+                }
+
+                AluOp.LT_S -> TODO()
+                AluOp.GT_S -> TODO()
+                AluOp.LTE_S -> TODO()
+                AluOp.GTE_S -> TODO()
+            }
+
+
+        }
 
         is TstCall -> {
             if (expr is TstFunctionName) {
@@ -236,11 +287,71 @@ fun TstExpr.codeGenLvalue(value:Reg, op:AluOp)  {
 
 fun TstExpr.codeGenBranch(trueLabel:Label, falseLabel : Label) {
     return when (this) {
-        is TstBinop if (op.isIntCompare())-> {
+        is TstBinop -> {
             val lhsReg = lhs.codeGenRvalue()
             val rhsReg = rhs.codeGenRvalue()
-            currentFunc.addBranch(op, lhsReg, rhsReg, trueLabel)
-            currentFunc.addJump(falseLabel)
+            when(op) {
+                AluOp.ADD_I,
+                AluOp.SUB_I,
+                AluOp.MUL_I,
+                AluOp.DIV_I,
+                AluOp.MOD_I,
+                AluOp.AND_I,
+                AluOp.OR_I ,
+                AluOp.XOR_I,
+                AluOp.SHL_I,
+                AluOp.SHR_I -> error("Got arithmetic operation when expecting branch")
+
+                AluOp.EQ_I ,
+                AluOp.NEQ_I,
+                AluOp.LT_I ,
+                AluOp.GT_I ,
+                AluOp.LTE_I,
+                AluOp.GTE_I -> {
+                    currentFunc.addBranch(op, lhsReg, rhsReg, trueLabel)
+                    currentFunc.addJump(falseLabel)
+                }
+
+                AluOp.ADD_R,
+                AluOp.SUB_R,
+                AluOp.MUL_R,
+                AluOp.DIV_R,
+                AluOp.MOD_R,
+                AluOp.EQ_R ,
+                AluOp.NEQ_R,
+                AluOp.LT_R ,
+                AluOp.GT_R ,
+                AluOp.LTE_R,
+                AluOp.GTE_R -> TODO("Floating point compare")
+
+                AluOp.EQ_S,
+                AluOp.NEQ_S -> {
+                    currentFunc.addMov(allMachineRegs[1], lhsReg)
+                    currentFunc.addMov(allMachineRegs[2], rhsReg)
+                    val v1 = currentFunc.addCall(Stdlib.strequal)
+                    val bop = if (op==AluOp.EQ_S) AluOp.NEQ_I else AluOp.EQ_I
+                    currentFunc.addBranch(bop, v1, regZero, trueLabel)
+                    currentFunc.addJump(falseLabel)
+                }
+
+                AluOp.LT_S,
+                AluOp.GT_S,
+                AluOp.LTE_S,
+                AluOp.GTE_S -> {
+                    currentFunc.addMov(allMachineRegs[1], lhsReg)
+                    currentFunc.addMov(allMachineRegs[2], rhsReg)
+                    val v1 = currentFunc.addCall(Stdlib.strcmp)
+                    val bop = when(op) {
+                        AluOp.LT_S -> AluOp.LT_I
+                        AluOp.LTE_S -> AluOp.LTE_I
+                        AluOp.GT_S -> AluOp.GT_I
+                        AluOp.GTE_S -> AluOp.GTE_I
+                        else -> error("Internal error")
+                    }
+                    currentFunc.addBranch(bop, v1, regZero, trueLabel)
+                    currentFunc.addJump(falseLabel)
+                }
+            }
         }
 
         is TstAnd -> {

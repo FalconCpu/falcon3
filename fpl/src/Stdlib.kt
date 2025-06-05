@@ -10,4 +10,7 @@ object Stdlib {
     val mallocArray = Function("mallocArray", listOf(intArg, intArg), null, TypeInt)
     val callocArray = Function("callocArray", listOf(intArg, intArg), null, TypeInt)
     val mallocObject = Function("mallocObject", listOf(intArg), null, TypeInt)
+    val strequal = Function("strequal", listOf(stringArg,stringArg), null, TypeInt)
+    val strcmp = Function("strcmp", listOf(stringArg,stringArg), null, TypeInt)
+
 }
