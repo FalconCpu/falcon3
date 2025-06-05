@@ -10,13 +10,13 @@ flow typing
 constant declarations
 casts
 constant folding in AST
++= -=
+string comparisons
 
 
 Short term:
 varargs...
-+= -=
 break/continue
-string comparisons
 enums
 when statements
 array initializers - new Array<Int>[1,2,3]
@@ -33,4 +33,3 @@ const propagation in IR
 CSE optimisation
 bounds check elision
 floating point
-fixed-point iteration on while/repeat to handle conditions chanfing mid loop

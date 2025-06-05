@@ -1,5 +1,8 @@
 private lateinit var currentFunc : Function
 
+private var breakLabel : Label? = null
+private var continueLabel : Label? = null
+
 // ================================================================
 //                         Rvalues
 // ================================================================
@@ -86,8 +89,18 @@ fun TstExpr.codeGenRvalue() : Reg {
         }
 
         is TstAnd -> TODO()
-        is TstBreak -> TODO()
-        is TstContinue -> TODO()
+
+        is TstBreak -> {
+            assert(breakLabel!=null) {"Internal error - got break outside a loop"}
+            currentFunc.addJump(breakLabel!!)
+            regZero  // dummy return value
+        }
+
+        is TstContinue -> {
+            assert(continueLabel!=null) {"Internal error - got continue outside a loop"}
+            currentFunc.addJump(continueLabel!!)
+            regZero   // dummy return value
+        }
         is TstError -> TODO()
         is TstFunctionName -> TODO()
         is TstGlobalVar -> TODO()
@@ -450,6 +463,7 @@ fun TstStmt.codeGen()  {
             if (this.expr is TstRange) {
                 // For-loop with directly specified range
 
+
                 // Evaluate the start and end values
                 val regIterator = currentFunc.getVar(sym)
                 currentFunc.addMov( regIterator, expr.start.codeGenRvalue() )
@@ -458,12 +472,18 @@ fun TstStmt.codeGen()  {
                 // Generate the loop body
                 val labelStart = currentFunc.newLabel()
                 val labelEnd = currentFunc.newLabel()
+                val labelContinue = currentFunc.newLabel()
                 val labelCond = currentFunc.newLabel()
+                val oldBreakLabel = breakLabel
+                val oldContinueLabel = continueLabel
+                breakLabel = labelEnd
+                continueLabel = labelContinue
                 currentFunc.addJump(labelCond)
                 currentFunc.addLabel(labelStart)
                 body.codegen()
 
                 // Increment the iterator and check if we are done
+                currentFunc.addLabel(labelContinue)
                 val nextOp = when(expr.op) {
                     AluOp.LT_I -> AluOp.ADD_I
                     AluOp.LTE_I -> AluOp.ADD_I
@@ -477,6 +497,8 @@ fun TstStmt.codeGen()  {
                 currentFunc.addBranch(expr.op, regIterator, regEnd, labelStart)
                 currentFunc.addJump(labelEnd)
                 currentFunc.addLabel(labelEnd)
+                breakLabel = oldBreakLabel
+                continueLabel = oldContinueLabel
 
             } else if (expr.type is TypeArray || expr.type is TypeString) {
                 // calculate the range we need to iterate over
@@ -493,6 +515,11 @@ fun TstStmt.codeGen()  {
                 val labelStart = currentFunc.newLabel()
                 val labelEnd = currentFunc.newLabel()
                 val labelCond = currentFunc.newLabel()
+                val labelContinue = currentFunc.newLabel()
+                val oldBreakLabel = breakLabel
+                val oldContinueLabel = continueLabel
+                breakLabel = labelEnd
+                continueLabel = labelContinue
                 currentFunc.addJump(labelCond)
 
                 // Fetch the element at the current iterator position, and generate the code for the body
@@ -501,11 +528,14 @@ fun TstStmt.codeGen()  {
                 body.codegen()
 
                 // Increment the iterator and check if we are done
+                currentFunc.addLabel(labelContinue)
                 currentFunc.addMov(regIterator, currentFunc.addAlu(AluOp.ADD_I, regIterator, elementSize))
                 currentFunc.addLabel(labelCond)
                 currentFunc.addBranch(AluOp.LT_I, regIterator, endPointer, labelStart)
                 currentFunc.addJump(labelEnd)
                 currentFunc.addLabel(labelEnd)
+                breakLabel = oldBreakLabel
+                continueLabel = oldContinueLabel
             } else {
                 TODO("For loop with range expression")
             }
@@ -546,23 +576,35 @@ fun TstStmt.codeGen()  {
             val labelStart = currentFunc.newLabel()
             val labelEnd = currentFunc.newLabel()
             val labelCond = currentFunc.newLabel()
+            val oldBreakLabel = breakLabel
+            val oldContinueLabel = continueLabel
+            breakLabel = labelEnd
+            continueLabel = labelCond
             currentFunc.addLabel(labelStart)
             body.codegen()
             currentFunc.addLabel(labelCond)
             cond.codeGenBranch(labelEnd, labelStart)
             currentFunc.addLabel(labelEnd)
+            breakLabel = oldBreakLabel
+            continueLabel = oldContinueLabel
         }
 
         is TstWhile -> {
             val labelStart = currentFunc.newLabel()
             val labelEnd = currentFunc.newLabel()
             val labelCond = currentFunc.newLabel()
+            val oldBreakLabel = breakLabel
+            val oldContinueLabel = continueLabel
+            breakLabel = labelEnd
+            continueLabel = labelCond
             currentFunc.addJump(labelCond)
             currentFunc.addLabel(labelStart)
             body.codegen()
             currentFunc.addLabel(labelCond)
             cond.codeGenBranch(labelStart,labelEnd)
             currentFunc.addLabel(labelEnd)
+            breakLabel = oldBreakLabel
+            continueLabel = oldContinueLabel
         }
 
         is TstTop ->

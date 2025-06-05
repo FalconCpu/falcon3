@@ -422,10 +422,63 @@ class ExecuteTest {
         """.trimIndent()
 
         val expected = """
+            Comparing a="", b="a"    a<b a<=b a!=b 
+            Comparing a="a", b="b"    a<b a<=b a!=b 
+            Comparing a="b", b="apple"    a!=b a>=b a>b
+            Comparing a="apple", b="apricot"    a<b a<=b a!=b 
+            Comparing a="apple", b="applepie"    a<b a<=b a!=b 
+            Comparing a="apple", b="banana"    a<b a<=b a!=b 
+            Comparing a="apple", b="apple"    a<=b a=b a>=b 
+            Comparing a="banana", b="apple"    a!=b a>=b a>b
+
         """.trimIndent()
         runTest(prog, expected)
     }
 
+    @Test
+    fun breakTest() {
+        val prog = """
+            fun main()
+                for x in 0..9
+                    print(x," \n")
+                    if x = 5 then break
+                print("done")
+                   
+        """.trimIndent()
+
+        val expected = """
+            0 
+            1 
+            2 
+            3 
+            4 
+            5 
+            done
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
+    @Test
+    fun continueTest() {
+        val prog = """
+            fun main()
+                for x in 0..9
+                    if x % 2 != 0 then continue # If x is odd, skip the print statement and go to next iteration
+                    print(x,"\n")
+                print("done")
+                   
+        """.trimIndent()
+
+        val expected = """
+            0
+            2
+            4
+            6
+            8
+            done
+        """.trimIndent()
+        runTest(prog, expected)
+    }
 
 
 }

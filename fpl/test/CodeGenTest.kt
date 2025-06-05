@@ -57,7 +57,7 @@ class CodeGenTest {
             ld i, T1
             ld T2, 10
             ld T3, T2
-            jmp L3
+            jmp L4
             L1:
             ldw T4, a[size]
             idx4 T5, i, T4
@@ -65,9 +65,10 @@ class CodeGenTest {
             ldw T7, T6[0]
             ADD_I T8, total, T7
             ld total, T8
+            L3:
             ADD_I T9, i, 1
             ld i, T9
-            L3:
+            L4:
             ble i, T3, L1
             jmp L2
             L2:
@@ -107,7 +108,7 @@ class CodeGenTest {
             ld i, T1
             ldw T2, a[size]
             ld T3, T2
-            jmp L3
+            jmp L4
             L1:
             ldw T4, a[size]
             idx4 T5, i, T4
@@ -115,9 +116,10 @@ class CodeGenTest {
             ldw T7, T6[0]
             ADD_I T8, total, T7
             ld total, T8
+            L3:
             ADD_I T9, i, 1
             ld i, T9
-            L3:
+            L4:
             blt i, T3, L1
             jmp L2
             L2:
@@ -139,15 +141,16 @@ class CodeGenTest {
             ld i, T3
             ld T4, 9
             ld T5, T4
-            jmp L3
+            jmp L4
             L1:
             ldw T6, a[size]
             idx4 T7, i, T6
             ADD_I T8, a, T7
             stw i, T8[0]
+            L3:
             ADD_I T9, i, 1
             ld i, T9
-            L3:
+            L4:
             ble i, T5, L1
             jmp L2
             L2:
@@ -195,6 +198,7 @@ class CodeGenTest {
             ld T4, OBJ0
             ld R1, T4
             jsr printString
+            L4:
             ADD_I T5, V36, 4
             ld V36, T5
             L3:
@@ -217,15 +221,16 @@ class CodeGenTest {
             ld i, T3
             ld T4, 9
             ld T5, T4
-            jmp L3
+            jmp L4
             L1:
             ldw T6, a[size]
             idx4 T7, i, T6
             ADD_I T8, a, T7
             stw i, T8[0]
+            L3:
             ADD_I T9, i, 1
             ld i, T9
-            L3:
+            L4:
             ble i, T5, L1
             jmp L2
             L2:

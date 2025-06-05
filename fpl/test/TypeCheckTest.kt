@@ -407,9 +407,4 @@ class TypeCheckTest {
         """.trimIndent()
         runTest(prog, expected)
     }
-
-
-
-
-
 }

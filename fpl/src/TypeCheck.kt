@@ -4,6 +4,10 @@
 private var currentFunction: Function? = null
 private var pathContext = emptyPathContext
 
+// list of PathContexts at break/continue locations in current loop
+private var breakContext : MutableList<PathContext>? = null
+private var continueContext : MutableList<PathContext>? = null
+
 // ================================================================
 //                            getSymbol
 // ================================================================
@@ -102,6 +106,10 @@ fun AstExpr.typeCheckRvalue(context:AstBlock) : TstExpr {
         }
 
         is AstBreak -> {
+            if (breakContext==null)
+                Log.error(location,"break not inside a loop")
+            else
+                breakContext!! += pathContext
             pathContext = pathContext.setUnreachable()
             TstBreak(location)
         }
@@ -143,6 +151,11 @@ fun AstExpr.typeCheckRvalue(context:AstBlock) : TstExpr {
         }
 
         is AstContinue -> {
+            if (continueContext==null)
+                Log.error(location,"continue not inside a loop")
+            else
+                continueContext!! += pathContext
+
             pathContext = pathContext.setUnreachable()
             TstContinue(location)
         }
@@ -595,13 +608,18 @@ fun AstStmt.typeCheck(context:AstBlock) : TstStmt {
         is AstWhile -> {
             val pathContextIn = pathContext
             var pathContextLoop = pathContext
+            val oldBreakContext = breakContext
+            val oldContinueContext = continueContext
+
             var iterationCount = 0
             var ret : TstStmt? = null
 
             while (ret==null) {
+                breakContext = mutableListOf()
+                continueContext = mutableListOf()
                 pathContext = listOf(pathContextIn, pathContextLoop).merge()
                 val (tcCond, truePath, falsePath) = cond.typeCheckBool(context)
-                pathContext = truePath
+                pathContext = (continueContext!!+truePath).merge()
                 val tcBody = body.map { it.typeCheck(context) }
                 // Run to fixed-point. If the path context as we branch back to the loop is different to the one coming in
                 if (pathContext != pathContextLoop && !Log.hasErrors() && iterationCount<10) {
@@ -609,14 +627,21 @@ fun AstStmt.typeCheck(context:AstBlock) : TstStmt {
                     pathContextLoop = pathContext
                     iterationCount ++
                 } else {
-                    pathContext = listOf(pathContext, falsePath).merge()
+                    pathContext = (breakContext!! + pathContext +falsePath).merge()
                     ret = TstWhile(location, tcCond, tcBody)
                 }
             }
+
+            breakContext = oldBreakContext
+            continueContext = oldContinueContext
             ret
         }
 
         is AstFor -> {
+            val oldBreakContext = breakContext
+            val oldContinueContext = continueContext
+            breakContext = mutableListOf()
+            continueContext = mutableListOf()
             val tcExpr = expr.typeCheckRvalue(context)
             val elementType = when (tcExpr.type) {
                 is TypeError -> TypeError
@@ -628,6 +653,8 @@ fun AstStmt.typeCheck(context:AstBlock) : TstStmt {
             val symbol = SymbolVar(location, name, elementType, false)
             addSymbol(symbol)
             val tcBody = body.map { it.typeCheck(this) }
+            breakContext = oldBreakContext
+            continueContext = oldContinueContext
             TstFor(location, symbol, tcExpr, tcBody)
         }
 
@@ -657,9 +684,15 @@ fun AstStmt.typeCheck(context:AstBlock) : TstStmt {
         is AstIfClause -> error("Internal error: Got ifClause outside if")
 
         is AstRepeat -> {
+            val oldBreakContext = breakContext
+            val oldContinueContext = continueContext
+            breakContext = mutableListOf()
+            continueContext = mutableListOf()
             val tcBody = body.map { it.typeCheck(this) }
             val (tcCond, truePath, falsePath) = cond.typeCheckBool(this) // Note that we use 'this' here, not 'context' to allow the condition to refer to variables in the loop
             pathContext = truePath
+            breakContext = oldBreakContext
+            continueContext = oldContinueContext
             TstRepeat(location, tcCond, tcBody)
         }
 
