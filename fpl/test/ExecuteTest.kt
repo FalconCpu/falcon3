@@ -361,7 +361,31 @@ class ExecuteTest {
         runTest(prog, expected)
     }
 
+    @Test
+    fun plusEqTest2() {
+        val prog = """
+            fun main()
+                var x = 0
+                while x<10
+                    print(x,"\n")
+                    x += 1
+        """.trimIndent()
 
+        val expected = """
+            0
+            1
+            2
+            3
+            4
+            5
+            6
+            7
+            8
+            9
+
+        """.trimIndent()
+        runTest(prog, expected)
+    }
 
 
 }

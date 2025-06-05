@@ -116,6 +116,11 @@ fun TstExpr.codeGenRvalue() : Reg {
         }
 
         is TstMethod -> TODO()
+
+        is TstCast -> {
+            val ret = expr.codeGenRvalue()
+            currentFunc.addMov(ret)
+        }
     }
 }
 
@@ -183,9 +188,16 @@ private fun clearMem(address: Reg, size: Int) {
 //                         Lvalues
 // ================================================================
 
-fun TstExpr.codeGenLvalue(value:Reg)  {
+fun TstExpr.codeGenLvalue(value:Reg, op:AluOp)  {
     return when (this) {
-        is TstVariable -> currentFunc.addMov( currentFunc.getVar(symbol), value)
+        is TstVariable -> {
+            if (op==AluOp.EQ_I)
+                currentFunc.addMov( currentFunc.getVar(symbol), value)
+            else {
+                val v1 = currentFunc.addAlu(op,currentFunc.getVar(symbol), value )
+                currentFunc.addMov( currentFunc.getVar(symbol), v1)
+            }
+        }
 
         is TstIndex -> {
             val exprReg = expr.codeGenRvalue()
@@ -194,12 +206,24 @@ fun TstExpr.codeGenLvalue(value:Reg)  {
             val size = type.sizeInBytes()
             val indexScaled = currentFunc.addIndexOp(size, indexReg, lengthReg)
             val indexAdded = currentFunc.addAlu(AluOp.ADD_I, exprReg, indexScaled)
-            currentFunc.addStoreMem(size, value, indexAdded, 0)
+            if (op==AluOp.EQ_I)
+                currentFunc.addStoreMem(size, value, indexAdded, 0)
+            else {
+                val v = currentFunc.addLoadMem(size, indexAdded, 0)
+                val v2 = currentFunc.addAlu(op, v, value)
+                currentFunc.addStoreMem(size, v2, indexAdded, 0)
+            }
         }
 
         is TstMember -> {
             val exprReg = expr.codeGenRvalue()
-            currentFunc.addStoreMem(value, exprReg, field)
+            if (op==AluOp.EQ_I)
+                currentFunc.addStoreMem(value, exprReg, field)
+            else {
+                val v = currentFunc.addLoadMem(exprReg, field)
+                val v2 = currentFunc.addAlu(op, v, value)
+                currentFunc.addStoreMem(v2, exprReg, field)
+            }
         }
 
         else -> error("Malformed TST: Has assignment to $this")
@@ -280,7 +304,7 @@ fun TstStmt.codeGen()  {
 
         is TstAssign -> {
             val rhsVar = rhs.codeGenRvalue()
-            lhs.codeGenLvalue(rhsVar)
+            lhs.codeGenLvalue(rhsVar, op)
         }
 
         is TstClass -> {

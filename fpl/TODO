@@ -5,21 +5,22 @@ array bounds checking
 array initializers - lambda
 classes
 methods
-
+nullable types
+flow typing
+constant declarations
+casts
+constant folding in AST
 
 
 Short term:
 varargs...
 += -=
 break/continue
-nullable types
-string operations
+string comparisons
 enums
-constant declarations
-constant folding in AST
 when statements
 array initializers - new Array<Int>[1,2,3]
-infer Array type from initializer
+infer Array type from initializer/lambda
 
 
 Longer term:
@@ -32,3 +33,4 @@ const propagation in IR
 CSE optimisation
 bounds check elision
 floating point
+fixed-point iteration on while/repeat to handle conditions chanfing mid loop

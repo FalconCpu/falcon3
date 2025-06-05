@@ -31,6 +31,7 @@ class TstNewArray(location: Location, val size: TstExpr, val initializer:TstLamb
 class TstNewObject(location: Location, val args:List<TstExpr>, type:TypeClass, val local: Boolean) : TstExpr(location,type)
 class TstLambda(location: Location, val params: List<SymbolVar>, val body: TstExpr, type:Type) : TstExpr(location,type)
 class TstMethod(location: Location, val thisExpr:TstExpr, val func:SymbolFunction, type:Type) : TstExpr(location,type)
+class TstCast(location: Location, val expr: TstExpr, type:Type) : TstExpr(location,type)
 
 class TstError(location: Location, val message: String) : TstExpr(location, TypeError) {
     init {
@@ -43,7 +44,7 @@ class TstError(location: Location, val message: String) : TstExpr(location, Type
 // ================================================
 sealed class TstStmt(location: Location) : Tst(location)
 class TstExprStmt(location: Location, val expr: TstExpr) : TstStmt(location)
-class TstAssign(location: Location, val lhs: TstExpr, val rhs: TstExpr) : TstStmt(location)
+class TstAssign(location: Location, val lhs: TstExpr, val rhs: TstExpr, val op:AluOp) : TstStmt(location)
 class TstNullStmt(location: Location) : TstStmt(location)
 class TstDecl(location: Location, val symbol: Symbol, val expr: TstExpr?) : TstStmt(location)
 class TstPrint(location: Location, val exprs: List<TstExpr>) : TstStmt(location)
@@ -169,7 +170,7 @@ fun Tst.prettyPrint(sb: StringBuilder, indent:Int) {
         }
 
         is TstAssign -> {
-            sb.append("assign\n")
+            sb.append("assign $op\n")
             lhs.prettyPrint(sb, indent+1)
             rhs.prettyPrint(sb, indent+1)
         }
@@ -265,6 +266,11 @@ fun Tst.prettyPrint(sb: StringBuilder, indent:Int) {
             sb.append("method: $func\n")
             thisExpr.prettyPrint(sb, indent+1)
         }
+
+        is TstCast -> {
+            sb.append("cast ($type)\n")
+            expr.prettyPrint(sb, indent+1)
+        }
     }
 }
 
@@ -274,4 +280,6 @@ fun Tst.prettyPrint(): String {
     return sb.toString()
 }
 
-fun TstExpr.isCompileTimeConstant() = this is TstIntLit || this is TstReallit || this is TstStringlit
+fun TstExpr.isCompileTimeConstant() = this is TstIntLit || this is TstReallit || this is TstStringlit || this is TstError
+fun TstExpr.isIntegerConstant() = this is TstIntLit
+fun TstExpr.getIntegerConstant() = (this as TstIntLit).value

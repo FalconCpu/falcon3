@@ -47,9 +47,10 @@ class Parser(val lexer: Lexer) {
     private fun parseIntLit() : AstIntlit {
         val ret = match(INTLIT)
         try {
-            val value = ret.text.toInt()
+            val value = if (ret.text.startsWith("0x", ignoreCase = true))
+                ret.text.drop(2).toLong(16).toInt() else ret.text.toInt()
             return AstIntlit(ret.location, value)
-        } catch (e: NumberFormatException) {
+        } catch (_: NumberFormatException) {
             Log.error(ret.location, "Malformed integer literal '$ret'")
             return AstIntlit(ret.location, 0)
         }
@@ -229,16 +230,26 @@ class Parser(val lexer: Lexer) {
         return ret
     }
 
+    private fun parseCast() : AstExpr {
+        val ret = parseOr()
+        if (currentToken.kind==AS) {
+            val loc = nextToken().location
+            val typeExpr = parseTypeExpr()
+            return AstCast(loc, ret, typeExpr)
+        }
+        return ret
+    }
+
     private fun parseExpression() : AstExpr {
         if (canTake(IF)) {
-            val cond = parseOr()
+            val cond = parseCast()
             match(THEN)
             val thenExpr = parseExpression()
             match(ELSE)
             val elseExpr = parseExpression()
             return AstIfExpr(cond.location, cond, thenExpr, elseExpr)
         } else
-            return parseOr()
+            return parseCast()
     }
 
     private fun parseExpressionList() : List<AstExpr> {
@@ -328,6 +339,17 @@ class Parser(val lexer: Lexer) {
         return AstDecl(tok.location, tok.kind, name.text, optType, optExpr)
     }
 
+    private fun parseConst() : AstConst {
+        val tok = match(CONST)
+        val name = match(ID)
+        val optType = parseOptType()
+        match(EQ)
+        val expr = parseExpression()
+        expectEol()
+        return AstConst(tok.location, name.text, optType, expr)
+    }
+
+
     private fun parseParam(forConstructor: Boolean) : AstParameter {
         val kind = if (currentToken.kind==VAR || currentToken.kind==VAL) {
             if (!forConstructor)
@@ -379,11 +401,11 @@ class Parser(val lexer: Lexer) {
     private fun parseExpressionStatement() : AstStmt  {
         val loc = currentToken.location
         val expr = parsePostfixExpression()
-        if (currentToken.kind == EQ) {
-            val op = match(EQ)
+        if (currentToken.kind == EQ || currentToken.kind==PLUSEQ || currentToken.kind==MINUSEQ) {
+            val op = nextToken()
             val rhs = parseExpression()
             expectEol()
-            return AstAssign(op.location, expr, rhs)
+            return AstAssign(op.location, expr, rhs, op.kind)
         }
         expectEol()
         return AstExprStmt(loc,expr)
@@ -482,6 +504,7 @@ class Parser(val lexer: Lexer) {
                 FUN -> parseFunction()
                 PRINT -> parsePrint()
                 CLASS -> parseClass()
+                CONST -> parseConst()
                 else -> parseExpressionStatement()
             }
         } catch (e: ParseError) {

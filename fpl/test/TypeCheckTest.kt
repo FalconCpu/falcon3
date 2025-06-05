@@ -46,29 +46,17 @@ class TypeCheckTest {
             top
               file: test
                 decl: GLOBAL:intSum:Int
-                  ADD_I (Int)
-                    int: 10 (Int)
-                    int: 20 (Int)
+                  int: 30 (Int)
                 decl: GLOBAL:intDiff:Int
-                  SUB_I (Int)
-                    int: 50 (Int)
-                    int: 15 (Int)
+                  int: 35 (Int)
                 decl: GLOBAL:intProd:Int
-                  MUL_I (Int)
-                    int: 5 (Int)
-                    int: 6 (Int)
+                  int: 30 (Int)
                 decl: GLOBAL:intDiv:Int
-                  DIV_I (Int)
-                    int: 100 (Int)
-                    int: 4 (Int)
+                  int: 25 (Int)
                 decl: GLOBAL:intMod:Int
-                  MOD_I (Int)
-                    int: 17 (Int)
-                    int: 3 (Int)
+                  int: 2 (Int)
                 decl: GLOBAL:charToInt:Int
-                  ADD_I (Int)
-                    int: 65 (Char)
-                    int: 1 (Int)
+                  int: 66 (Int)
                 decl: GLOBAL:realSum:Real
                   ADD_R (Real)
                     real: 10.5 (Real)
@@ -133,7 +121,7 @@ class TypeCheckTest {
                     range: LTE_I (Range<Int>)
                       int: 0 (Int)
                       int: 10 (Int)
-                    assign
+                    assign EQ_I
                       var: total (Int)
                       ADD_I (Int)
                         var: total (Int)
@@ -174,7 +162,7 @@ class TypeCheckTest {
                     range: LTE_I (Range<Int>)
                       int: 0 (Int)
                       int: 10 (Int)
-                    assign
+                    assign EQ_I
                       var: total (Int)
                       ADD_I (Int)
                         var: total (Int)
@@ -192,7 +180,7 @@ class TypeCheckTest {
                     range: LTE_I (Range<Int>)
                       int: 0 (Int)
                       int: 9 (Int)
-                    assign
+                    assign EQ_I
                       index (Int)
                         var: a (Array<Int>)
                         var: i (Int)
@@ -252,11 +240,11 @@ class TypeCheckTest {
             top
               file: test
                 class: Cat
-                  assign
+                  assign EQ_I
                     member: name (String)
                       var: this (Cat)
                     var: name (String)
-                  assign
+                  assign EQ_I
                     member: ageInMonths (Int)
                       var: this (Cat)
                     MUL_I (Int)
@@ -296,18 +284,18 @@ class TypeCheckTest {
             top
               file: test
                 class: Cat
-                  assign
+                  assign EQ_I
                     member: name (String)
                       var: this (Cat)
                     var: name (String)
-                  assign
+                  assign EQ_I
                     member: age (Int)
                       var: this (Cat)
                     var: age (Int)
                 function: main
                   decl: VAR:c:Cat?
                     int: 0 (Null)
-                  assign
+                  assign EQ_I
                     var: c (Cat?)
                     new-object (Cat)
                       string: "Tom" (String)
@@ -331,6 +319,96 @@ class TypeCheckTest {
         """.trimIndent()
         runTest(prog, expected)
     }
+
+    @Test
+    fun constantDeclarations() {
+        val prog = """
+            const TEN = 8+2
+            const TWELVE = TEN + 2
+            const NAME = "Fred"
+            const M1 = -1
+            
+            fun main()
+                val a = TEN + TWELVE
+                val b = NAME
+                val c = M1
+        """.trimIndent()
+
+        val expected = """
+            top
+              file: test
+                null-stmt
+                null-stmt
+                null-stmt
+                null-stmt
+                function: main
+                  decl: VAR:a:Int
+                    int: 22 (Int)
+                  decl: VAR:b:String
+                    string: "Fred" (String)
+                  decl: VAR:c:Int
+                    int: -1 (Int)
+
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
+    @Test
+    fun castTest() {
+        val prog = """
+            class HwRegs
+                var led : Int
+                val sw : Int
+
+            fun main()
+                val hwregs = 0xE0000000 as HwRegs
+                hwregs.led = 0x12345678
+        """.trimIndent()
+
+        val expected = """
+            top
+              file: test
+                class: HwRegs
+                function: main
+                  decl: VAR:hwregs:HwRegs
+                    cast (HwRegs)
+                      int: -536870912 (Int)
+                  assign EQ_I
+                    member: led (Int)
+                      var: hwregs (HwRegs)
+                    int: 305419896 (Int)
+
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
+    @Test
+    fun plusEq() {
+        val prog = """
+            fun main()
+                var x = 5
+                x += 4
+                x -= 2
+        """.trimIndent()
+
+        val expected = """
+            top
+              file: test
+                function: main
+                  decl: VAR:x:Int
+                    int: 5 (Int)
+                  assign ADD_I
+                    var: x (Int)
+                    int: 4 (Int)
+                  assign SUB_I
+                    var: x (Int)
+                    int: 2 (Int)
+
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
+
 
 
 

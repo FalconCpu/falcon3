@@ -25,6 +25,7 @@ class AstMinus(location: Location, val expr: AstExpr) : AstExpr(location)
 class AstIfExpr(location: Location, val cond: AstExpr, val thenExpr: AstExpr, val elseExpr: AstExpr) : AstExpr(location)
 class AstRange(location: Location, val start: AstExpr, val end: AstExpr, val op:TokenKind) : AstExpr(location)
 class AstNew(location: Location, val type:AstTypeExpr, val args: List<AstExpr>, val lambda:AstLambda?, val local:Boolean) : AstExpr(location)
+class AstCast(location: Location, val expr:AstExpr, val typeExpr:AstTypeExpr) : AstExpr(location)
 
 class AstCall(location: Location, val expr: AstExpr, val args: List<AstExpr>) : AstExpr(location)
 
@@ -43,9 +44,10 @@ class AstTypeNullable(location: Location, val base: AstTypeExpr) : AstTypeExpr(l
 // ================================================
 sealed class AstStmt(location: Location) : Ast(location)
 class AstExprStmt(location: Location, val expr: AstExpr) : AstStmt(location)
-class AstAssign(location: Location, val lhs: AstExpr, val rhs: AstExpr) : AstStmt(location)
+class AstAssign(location: Location, val lhs: AstExpr, val rhs: AstExpr, val op:TokenKind) : AstStmt(location)
 class AstNullStmt(location: Location) : AstStmt(location)
 class AstDecl(location: Location, val kind:TokenKind, val name: String, val typeExpr: AstTypeExpr?, val expr: AstExpr?) : AstStmt(location)
+class AstConst(location: Location, val name:String, val typeExpr:AstTypeExpr?, val expr:AstExpr) : AstStmt(location)
 class AstPrint(location: Location, val exprs: List<AstExpr>) : AstStmt(location)
 
 // ================================================
@@ -277,6 +279,17 @@ fun Ast.prettyPrint(sb: StringBuilder, indent:Int) {
 
         is AstLambda -> {
             sb.append("Lambda\n")
+            expr.prettyPrint(sb, indent+1)
+        }
+
+        is AstConst -> {
+            sb.append("Const $name\n")
+            expr.prettyPrint(sb, indent+1)
+        }
+
+        is AstCast -> {
+            sb.append("Cast\n")
+            typeExpr.prettyPrint(sb, indent+1)
             expr.prettyPrint(sb, indent+1)
         }
     }

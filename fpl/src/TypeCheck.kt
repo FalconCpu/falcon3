@@ -3,8 +3,6 @@
 
 private var currentFunction: Function? = null
 private var pathContext = emptyPathContext
-private var truePathContext = emptyPathContext
-private var falsePathContext = emptyPathContext
 
 // ================================================================
 //                            getSymbol
@@ -82,6 +80,8 @@ fun AstExpr.typeCheckRvalue(context:AstBlock) : TstExpr {
             val match = binopTable.find { it.op == op  && it.lhs == lhsType && it.rhs == rhsType }
             if (match == null)
                 TstError(location, "Invalid binary operator '$op' for types $lhsType and $rhsType")
+            else if (tcLhs.isIntegerConstant() && tcRhs.isIntegerConstant())
+                TstIntLit(location, match.resultOp.evaluate(tcLhs.getIntegerConstant(), tcRhs.getIntegerConstant()), match.resultType)
             else
                 TstBinop(location, match.resultOp, tcLhs, tcRhs, match.resultType)
         }
@@ -194,7 +194,19 @@ fun AstExpr.typeCheckRvalue(context:AstBlock) : TstExpr {
                 else -> TstError(location, "Cannot access field '$name' of expression of type ${tcExpr.type}")
             }
         }
-        is AstMinus -> TODO()
+
+        is AstMinus -> {
+            val tcExpr = expr.typeCheckRvalue(context)
+            if (tcExpr.type == TypeError)
+                return tcExpr
+            else if (tcExpr.type==TypeInt)
+                if (tcExpr.isIntegerConstant())
+                    TstIntLit(location,-tcExpr.getIntegerConstant(), tcExpr.type)
+                else
+                    TstBinop(location, AluOp.SUB_I, TstIntLit(location, 0, TypeInt), tcExpr, TypeInt)
+            else
+                TstError(location,"Invalid type for unary minus: ${tcExpr.type}")
+        }
 
         is AstRange -> {
             val tcStart = start.typeCheckRvalue(context)
@@ -264,6 +276,11 @@ fun AstExpr.typeCheckRvalue(context:AstBlock) : TstExpr {
 
                 else -> TstError(location, "Cannot create instance of type $tcType")
             }
+        }
+        is AstCast -> {
+            val tcExpr = expr.typeCheckRvalue(context)
+            val tcType = typeExpr.resolveType(context)
+            TstCast(location, tcExpr, tcType)
         }
     }
 }
@@ -357,7 +374,7 @@ fun AstExpr.typeCheckLvalue(context:AstBlock) : TstExpr = when(this) {
     }
 
     is AstIndex -> {
-        // Since we don't have immutable arrays (yet) we can just use the Rvalue typecheck for an lvalue
+        // Since we don't have immutable arrays (yet) we can just use the Rvalue typecheck for a lvalue
         typeCheckRvalue(context)
     }
 
@@ -494,128 +511,176 @@ fun AstTypeExpr.resolveType(context:AstBlock) : Type = when(this) {
 //                         Statements
 // ================================================================
 
-fun AstStmt.typeCheck(context:AstBlock) : TstStmt = when(this) {
-    is AstDecl -> {
-        val tcExpr = expr?.typeCheckRvalue(context)
-        val type = typeExpr?.resolveType(context) ?: tcExpr?.type ?:
-                   makeTypeError(location,"Cannot resolve type for '$name'")
-        val mutable = (kind == TokenKind.VAR)
-        val symbol = if (context is AstFile)
-                         SymbolGlobal(location, name, type, mutable)
-                     else
-                         SymbolVar(location, name, type, mutable)
-        pathContext = if (tcExpr==null)
-            pathContext.addUninitialized(symbol)
-        else
-            pathContext.refineType(symbol, tcExpr.type)
-        context.addSymbol(symbol)
-        TstDecl(location, symbol, tcExpr)
-    }
-
-    is AstFunction -> {
-        pathContext = emptyPathContext
-        val oldFunction = currentFunction
-        currentFunction = this.function
-        val tcBody = body.map{it.typeCheck(this)}
-        currentFunction = oldFunction
-        TstFunction(location, function, tcBody)
-    }
-
-    is AstAssign -> {
-        val tcLhs = lhs.typeCheckLvalue(context)
-        val tcRhs = rhs.typeCheckRvalue(context)
-        tcLhs.type.checkCompatibleWith(tcRhs)
-        if (tcLhs.isSymbol())
-            pathContext = pathContext.refineType(tcLhs.getSymbol(), tcRhs.type)
-        TstAssign(location, tcLhs, tcRhs)
-    }
-
-    is AstClass -> {
-        // Type check any methods
-        val methods = body.filterIsInstance<AstFunction>().map {it.typeCheck(this)}
-
-        // The body of the class has already been type checked in the identifyFields pass - so all we do here is
-        // package it up into a TstClass
-        TstClass(location, classType, constructorBody, methods)
-    }
-
-    is AstFile -> {
-        val tcBody = body.map{it.typeCheck(this)}
-        TstFile(location, name, tcBody)
-    }
-
-    is AstWhile -> {
-        val (tcCond, truePath, falsePath) = cond.typeCheckBool(context)
-        pathContext = truePath
-        val tcBody = body.map{it.typeCheck(context)}
-        pathContext = listOf(pathContext,falsePath).merge()
-        TstWhile(location, tcCond, tcBody)
-    }
-
-    is AstFor -> {
-        val tcExpr = expr.typeCheckRvalue(context)
-        val elementType = when(tcExpr.type) {
-            is TypeError -> TypeError
-            is TypeArray -> tcExpr.type.elementType
-            is TypeRange -> tcExpr.type.elementType
-            is TypeString -> TypeChar
-            else -> makeTypeError(location, "Cannot iterate over type '${tcExpr.type}'")
+fun AstStmt.typeCheck(context:AstBlock) : TstStmt {
+    return when (this) {
+        is AstDecl -> {
+            val tcExpr = expr?.typeCheckRvalue(context)
+            val type = typeExpr?.resolveType(context) ?: tcExpr?.type ?: makeTypeError(
+                location,
+                "Cannot resolve type for '$name'"
+            )
+            val mutable = (kind == TokenKind.VAR)
+            val symbol = if (context is AstFile)
+                SymbolGlobal(location, name, type, mutable)
+            else
+                SymbolVar(location, name, type, mutable)
+            pathContext = if (tcExpr == null)
+                pathContext.addUninitialized(symbol)
+            else
+                pathContext.refineType(symbol, tcExpr.type)
+            context.addSymbol(symbol)
+            TstDecl(location, symbol, tcExpr)
         }
-        val symbol = SymbolVar(location, name, elementType, false)
-        addSymbol(symbol)
-        val tcBody = body.map{it.typeCheck(this)}
-        TstFor(location, symbol, tcExpr, tcBody)
-    }
 
-    is AstIf -> {
-        val clauses = body as List<AstIfClause>
-        val pathContextOut = mutableListOf<PathContext>()
-        val tcClauses = mutableListOf<TstIfClause>()
-        for(clause in clauses) {
-            if (clause.cond != null) {
-                val (tcCond, thenPath, elsePath) = clause.cond.typeCheckBool(context)
-                pathContext = thenPath
-                val tcBody = clause.body.map { it.typeCheck(this) }
-                pathContextOut += pathContext       // Save the path context after this clause has completed
-                tcClauses += TstIfClause(location, tcCond, tcBody)
-                pathContext = elsePath
-            } else { // An else clause
-                val tcBody = clause.body.map { it.typeCheck(this) }
-                tcClauses += TstIfClause(location, null, tcBody)
+        is AstConst -> {
+            val tcExpr = expr.typeCheckRvalue(context)
+            val type = typeExpr?.resolveType(context) ?: tcExpr.type
+            type.checkCompatibleWith(tcExpr)
+            if (tcExpr.isCompileTimeConstant()) {
+                val value = when(tcExpr) {
+                    is TstIntLit -> ValueInt(tcExpr.value, tcExpr.type)
+                    is TstStringlit -> ValueString.create(tcExpr.value, tcExpr.type)
+                    is TstReallit -> TODO()
+                    else -> error("Invalid type in AstConst $tcExpr")
+                }
+                val symbol = SymbolConstant(location, name, type, value)
+                context.addSymbol(symbol)
+            } else {
+                Log.error(tcExpr.location,"Expression is not compile time constant")
+                val value=ValueInt(0,TypeError)
+                val symbol = SymbolConstant(location, name, TypeError,value)
+                context.addSymbol(symbol)
             }
+            TstNullStmt(location)
         }
-        pathContextOut += pathContext   // the path context after 'else' or if we just fall through
 
-        pathContext = pathContextOut.merge()
-        TstIf(location, tcClauses)
+        is AstFunction -> {
+            pathContext = emptyPathContext
+            val oldFunction = currentFunction
+            currentFunction = this.function
+            val tcBody = body.map { it.typeCheck(this) }
+            currentFunction = oldFunction
+            TstFunction(location, function, tcBody)
+        }
+
+        is AstAssign -> {
+            val tcLhs = lhs.typeCheckLvalue(context)
+            val tcRhs = rhs.typeCheckRvalue(context)
+            tcLhs.type.checkCompatibleWith(tcRhs)
+            if (tcLhs.isSymbol())
+                pathContext = pathContext.refineType(tcLhs.getSymbol(), tcRhs.type)
+            var tcOp = AluOp.EQ_I
+            if (op==TokenKind.PLUSEQ || op==TokenKind.MINUSEQ)
+                if (tcLhs.type==TypeInt || tcLhs.type==TypeChar)
+                    tcOp = if (op==TokenKind.PLUSEQ) AluOp.ADD_I else AluOp.SUB_I
+                else
+                    Log.error(location,"+= and -= currently only supported on integers")
+            TstAssign(location, tcLhs, tcRhs, tcOp)
+        }
+
+        is AstClass -> {
+            // Type check any methods
+            val methods = body.filterIsInstance<AstFunction>().map { it.typeCheck(this) }
+
+            // The body of the class has already been type checked in the identifyFields pass - so all we do here is
+            // package it up into a TstClass
+            TstClass(location, classType, constructorBody, methods)
+        }
+
+        is AstFile -> {
+            val tcBody = body.map { it.typeCheck(this) }
+            TstFile(location, name, tcBody)
+        }
+
+        is AstWhile -> {
+            val pathContextIn = pathContext
+            var pathContextLoop = pathContext
+            var iterationCount = 0
+            var ret : TstStmt? = null
+
+            while (ret==null) {
+                pathContext = listOf(pathContextIn, pathContextLoop).merge()
+                val (tcCond, truePath, falsePath) = cond.typeCheckBool(context)
+                pathContext = truePath
+                val tcBody = body.map { it.typeCheck(context) }
+                // Run to fixed-point. If the path context as we branch back to the loop is different to the one coming in
+                if (pathContext != pathContextLoop && !Log.hasErrors() && iterationCount<10) {
+                    // If there are any errors already reported then stop iterating
+                    pathContextLoop = pathContext
+                    iterationCount ++
+                } else {
+                    pathContext = listOf(pathContext, falsePath).merge()
+                    ret = TstWhile(location, tcCond, tcBody)
+                }
+            }
+            ret
+        }
+
+        is AstFor -> {
+            val tcExpr = expr.typeCheckRvalue(context)
+            val elementType = when (tcExpr.type) {
+                is TypeError -> TypeError
+                is TypeArray -> tcExpr.type.elementType
+                is TypeRange -> tcExpr.type.elementType
+                is TypeString -> TypeChar
+                else -> makeTypeError(location, "Cannot iterate over type '${tcExpr.type}'")
+            }
+            val symbol = SymbolVar(location, name, elementType, false)
+            addSymbol(symbol)
+            val tcBody = body.map { it.typeCheck(this) }
+            TstFor(location, symbol, tcExpr, tcBody)
+        }
+
+        is AstIf -> {
+            val clauses = body as List<AstIfClause>
+            val pathContextOut = mutableListOf<PathContext>()
+            val tcClauses = mutableListOf<TstIfClause>()
+            for (clause in clauses) {
+                if (clause.cond != null) {
+                    val (tcCond, thenPath, elsePath) = clause.cond.typeCheckBool(context)
+                    pathContext = thenPath
+                    val tcBody = clause.body.map { it.typeCheck(this) }
+                    pathContextOut += pathContext       // Save the path context after this clause has completed
+                    tcClauses += TstIfClause(location, tcCond, tcBody)
+                    pathContext = elsePath
+                } else { // An else clause
+                    val tcBody = clause.body.map { it.typeCheck(this) }
+                    tcClauses += TstIfClause(location, null, tcBody)
+                }
+            }
+            pathContextOut += pathContext   // the path context after 'else' or if we just fall through
+
+            pathContext = pathContextOut.merge()
+            TstIf(location, tcClauses)
+        }
+
+        is AstIfClause -> error("Internal error: Got ifClause outside if")
+
+        is AstRepeat -> {
+            val tcBody = body.map { it.typeCheck(this) }
+            val (tcCond, truePath, falsePath) = cond.typeCheckBool(this) // Note that we use 'this' here, not 'context' to allow the condition to refer to variables in the loop
+            pathContext = truePath
+            TstRepeat(location, tcCond, tcBody)
+        }
+
+        is AstTop -> error("AstTop should not appear on internals of AST")
+
+        is AstExprStmt -> {
+            TstExprStmt(location, expr.typeCheckRvalue(context))
+        }
+
+        is AstNullStmt -> TstNullStmt(location)
+
+        is AstPrint -> {
+            val tcExprs = exprs.map { it.typeCheckRvalue(context) }
+            for (tcExpr in tcExprs)
+                if (tcExpr.type != TypeInt && tcExpr.type != TypeString && tcExpr.type != TypeChar && tcExpr.type != TypeError)
+                    Log.error(tcExpr.location, "Got type ${tcExpr.type} but print only supports Int / Char/ String")
+            TstPrint(location, tcExprs)
+        }
+
+        is AstLambda -> TODO()
     }
-
-    is AstIfClause -> error("Internal error: Got ifClause outside if")
-
-    is AstRepeat -> {
-        val tcBody = body.map{it.typeCheck(this)}
-        val (tcCond, truePath,falsePath) = cond.typeCheckBool(this) // Note that we use 'this' here, not 'context' to allow the condition to refer to variables in the loop
-        pathContext = truePath
-        TstRepeat(location, tcCond, tcBody)
-    }
-
-    is AstTop -> error("AstTop should not appear on internals of AST")
-
-    is AstExprStmt -> {
-        TstExprStmt(location, expr.typeCheckRvalue(context))
-    }
-
-    is AstNullStmt -> TstNullStmt(location)
-
-    is AstPrint -> {
-        val tcExprs = exprs.map{it.typeCheckRvalue(context)}
-        for (tcExpr in tcExprs)
-            if (tcExpr.type != TypeInt && tcExpr.type != TypeString && tcExpr.type!=TypeChar && tcExpr.type!=TypeError)
-                Log.error(tcExpr.location, "Got type ${tcExpr.type} but print only supports Int / Char/ String")
-        TstPrint(location, tcExprs)
-    }
-
-    is AstLambda -> TODO()
 }
 
 private fun AstParameter.typeCheckParameter(context:AstBlock) : SymbolVar {
@@ -673,7 +738,7 @@ private fun AstClass.createFieldSymbols(context: AstBlock) {
             // Create an expression to assign the parameter to the field
             val paramExpr = TstVariable(param.location, sym, sym.type)
             val fieldExpr = TstMember(param.location, thisExpr, fieldSymbol, fieldSymbol.type)
-            constructorBody += TstAssign(param.location, fieldExpr, paramExpr)
+            constructorBody += TstAssign(param.location, fieldExpr, paramExpr, AluOp.EQ_I)
         }
 
     // Scan through the class body and identify any more fields
@@ -688,7 +753,7 @@ private fun AstClass.createFieldSymbols(context: AstBlock) {
         if (tcExpr!=null) {
             sym.type.checkCompatibleWith(tcExpr)
             val fieldExpr = TstMember(sym.location, thisExpr, sym, sym.type)
-            constructorBody += TstAssign(sym.location, fieldExpr, tcExpr)
+            constructorBody += TstAssign(sym.location, fieldExpr, tcExpr, AluOp.EQ_I)
         }
     }
 }

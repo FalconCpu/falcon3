@@ -38,7 +38,7 @@ class PathContextTest {
               file: test
                 function: fred
                   decl: VAR:x:Int
-                  assign
+                  assign EQ_I
                     var: x (Int)
                     int: 1 (Int)
                   expr-stmt
@@ -88,13 +88,13 @@ class PathContextTest {
                       EQ_I (Bool)
                         var: a (Int)
                         int: 1 (Int)
-                      assign
+                      assign EQ_I
                         var: x (Int)
                         int: 1 (Int)
                       expr-stmt
                         return (Nothing)
                           int: 0 (Int)
-                  assign
+                  assign EQ_I
                     var: x (Int)
                     int: 2 (Int)
                   expr-stmt
@@ -139,11 +139,11 @@ class PathContextTest {
             top
               file: test
                 class: Cat
-                  assign
+                  assign EQ_I
                     member: name (String)
                       var: this (Cat)
                     var: name (String)
-                  assign
+                  assign EQ_I
                     member: age (Int)
                       var: this (Cat)
                     var: age (Int)
@@ -205,6 +205,80 @@ class PathContextTest {
         """.trimIndent()
 
         runTest(prog, expected)
-
     }
+
+    @Test
+    fun whileLoop1() {
+        val prog = """
+            class Box(val contents: Int)
+            
+            fun main() 
+                var b : Box? = new Box(10)
+                var count = 0
+                while count<5
+                    print(b.contents)     # OK as b can never be null
+                    count = count + 1
+                print("finished: ",b.contents)
+        """.trimIndent()
+
+        val expected = """
+            top
+              file: test
+                class: Box
+                  assign EQ_I
+                    member: contents (Int)
+                      var: this (Box)
+                    var: contents (Int)
+                function: main
+                  decl: VAR:b:Box?
+                    new-object (Box)
+                      int: 10 (Int)
+                  decl: VAR:count:Int
+                    int: 0 (Int)
+                  while
+                    LT_I (Bool)
+                      var: count (Int)
+                      int: 5 (Int)
+                    print
+                      member: contents (Int)
+                        var: b (Box)
+                    assign EQ_I
+                      var: count (Int)
+                      ADD_I (Int)
+                        var: count (Int)
+                        int: 1 (Int)
+                  print
+                    string: "finished: " (String)
+                    member: contents (Int)
+                      var: b (Box)
+
+        """.trimIndent()
+
+        runTest(prog, expected)
+    }
+
+    @Test
+    fun whileLoop() {
+        val prog = """
+            class Box(val contents: Int)
+            
+            fun main() 
+                var b : Box? = new Box(10)
+                var count = 0
+                while count<5
+                    print(b.contents)     # error as b could be null - on second iteration 
+                    b = null
+                    count = count + 1
+                print("finished: ",b.contents)
+        """.trimIndent()
+
+        val expected = """
+            test.fpl:7.15-7.15: Cannot access 'contents' as expression may be null
+            test.fpl:10.24-10.24: Cannot access 'contents' as expression may be null
+        """.trimIndent()
+
+        runTest(prog, expected)
+    }
+
+
 }
