@@ -38,13 +38,18 @@ class TypeRange private constructor(name:String, val elementType: Type) : Type(n
     }
 }
 
-
 class TypeNullable private constructor(name:String, val elementType: Type) : Type(name) {
     companion object {
         val allNullableTypes = mutableMapOf<Type, TypeNullable>()
-        fun create(elementType: Type) = allNullableTypes.getOrPut(elementType) {
-            val name = "$elementType?"
-            TypeNullable(name, elementType)
+        fun create(location:Location, elementType: Type) : Type {
+            if (elementType is TypeError) return TypeError
+            if (elementType is TypeNullable) return elementType
+            if (elementType is TypeInt || elementType is TypeReal || elementType is TypeChar || elementType is TypeBool)
+                return makeTypeError(location, "Primitive types cannot be nullable")
+            return allNullableTypes.getOrPut(elementType) {
+                val name = "$elementType?"
+                TypeNullable(name, elementType)
+            }
         }
     }
 }

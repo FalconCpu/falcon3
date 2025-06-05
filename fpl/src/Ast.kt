@@ -12,6 +12,7 @@ class AstStringlit(location: Location, val value: String) : AstExpr(location)
 class AstCharlit(location: Location, val value: Char) : AstExpr(location)
 class AstId(location: Location, val name:String) : AstExpr(location)
 class AstBinop(location: Location, val op: TokenKind, val lhs: AstExpr, val rhs: AstExpr) : AstExpr(location)
+class AstEq(location: Location, val lhs: AstExpr, val rhs: AstExpr, val notEq:Boolean) : AstExpr(location)
 class AstAnd(location: Location, val lhs: AstExpr, val rhs: AstExpr) : AstExpr(location)
 class AstOr(location: Location, val lhs: AstExpr, val rhs: AstExpr) : AstExpr(location)
 class AstIndex(location: Location, val expr: AstExpr, val index: AstExpr) : AstExpr(location)
@@ -96,6 +97,11 @@ fun Ast.prettyPrint(sb: StringBuilder, indent:Int) {
         is AstCharlit -> sb.append("Charlit $value\n")
         is AstBinop -> {
             sb.append("Binop $op\n")
+            lhs.prettyPrint(sb, indent+1)
+            rhs.prettyPrint(sb, indent+1)
+        }
+        is AstEq -> {
+            sb.append("Binop ${if(notEq) "!=" else "="}\n")
             lhs.prettyPrint(sb, indent+1)
             rhs.prettyPrint(sb, indent+1)
         }

@@ -7,6 +7,7 @@ sealed class Symbol(val location: Location, val name:String, val type:Type, val 
         is SymbolVar -> "VAR:$name:$type"
         is SymbolTypeName -> "TYPE:$name:$type"
         is SymbolField -> "FIELD:$name:$type"
+        is SymbolConstant -> "CONST:$name:$type"
     }
 }
 
@@ -17,6 +18,7 @@ class SymbolTypeName(location: Location, name:String, type:Type) : Symbol(locati
 class SymbolField(location: Location, name:String, type:Type, mutable: Boolean) : Symbol(location, name, type, mutable) {
     var offset = -1;
 }
+class SymbolConstant(location: Location, name:String, type:Type, val value:Value) : Symbol(location, name, type, false)
 
 fun AstBlock.addSymbol(symbol:Symbol) {
     val duplicate = symbolTable[symbol.name]
@@ -57,7 +59,10 @@ private val predefinedSymbolList = listOf(
     SymbolTypeName(nullLocation, "String", TypeString),
     SymbolTypeName(nullLocation, "Unit", TypeUnit),
     SymbolTypeName(nullLocation, "Any", TypeAny),
-    SymbolTypeName(nullLocation, "Nothing", TypeNothing)
+    SymbolTypeName(nullLocation, "Nothing", TypeNothing),
+    SymbolConstant(nullLocation, "true", TypeBool, ValueInt(1, TypeBool)),
+    SymbolConstant(nullLocation, "false", TypeBool, ValueInt(0, TypeBool)),
+    SymbolConstant(nullLocation, "null", TypeNull, ValueInt(0, TypeNull))
 )
 
 val predefinedSymbols = predefinedSymbolList.associateBy { it.name }

@@ -336,6 +336,32 @@ class ExecuteTest {
         runTest(prog, expected)
     }
 
+    @Test
+    fun methodsTest2() {
+        val prog = """
+            class MyClass 
+                var counter: Int = 0
+            
+                fun increment()
+                    counter = counter + 1 # Implicit `this.counter`             
+            
+                fun incrementTwice()
+                    increment()           # <-- THIS IS THE CASE: Implicit `this.increment()`
+                    increment()
+                    
+            fun main()
+                val c = new MyClass()
+                c.incrementTwice()
+                print(c.counter)
+        """.trimIndent()
+
+        val expected = """
+            2
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
+
 
 
 }

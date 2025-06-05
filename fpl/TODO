@@ -4,11 +4,11 @@ Arrays
 array bounds checking
 array initializers - lambda
 classes
+methods
 
 
 
 Short term:
-methods
 varargs...
 += -=
 break/continue

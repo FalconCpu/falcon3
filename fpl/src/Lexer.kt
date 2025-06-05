@@ -118,7 +118,10 @@ class Lexer (val fileName:String, val fileHandle: Reader) {
              (c=='<' && currentChar=='<') ||
              (c=='>' && currentChar=='>') ||
              (c=='-' && currentChar=='>') ||
-             (c=='.' && currentChar=='.') )
+             (c=='.' && currentChar=='.') ||
+             (c=='?' && currentChar=='.') ||
+             (c=='!' && currentChar=='!') ||
+             (c=='?' && currentChar==':') )
             return c.toString() + nextChar()
         return c.toString()
     }

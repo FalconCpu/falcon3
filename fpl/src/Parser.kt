@@ -202,7 +202,11 @@ class Parser(val lexer: Lexer) {
         var ret = parseRange()
         while(currentToken.kind in listOf(LT, GT, LTE, GTE, EQ, NEQ)) {
             val op = match(currentToken.kind)
-            ret = AstBinop(op.location, op.kind, ret, parseRange())
+            ret = when(op.kind) {
+                EQ -> AstEq(op.location, ret, parseRange(), false)
+                NEQ -> AstEq(op.location, ret, parseRange(), true)
+                else -> AstBinop(op.location, op.kind, ret, parseRange())
+            }
         }
         return ret
     }

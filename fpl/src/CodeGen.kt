@@ -13,11 +13,12 @@ fun TstExpr.codeGenRvalue() : Reg {
         is TstCall -> {
             if (expr is TstFunctionName) {
                 val argReg = args.map { it.codeGenRvalue() }
-                codeGenCall(null, argReg, expr.symbol.function)
+                val thisReg = if (currentFunc.thisSymbol!=null) currentFunc.getVar(currentFunc.thisSymbol!!) else null
+                codeGenCall(thisReg, argReg, expr.symbol.function, currentFunc.thisSymbol?.type)
             } else if (expr is TstMethod) {
                 val thisReg = expr.thisExpr.codeGenRvalue()
                 val argReg = args.map { it.codeGenRvalue() }
-                codeGenCall(thisReg, argReg, expr.func.function )
+                codeGenCall(thisReg, argReg, expr.func.function, expr.thisExpr.type )
             } else {
                 TODO("Indirect function call")
             }
@@ -118,12 +119,14 @@ fun TstExpr.codeGenRvalue() : Reg {
     }
 }
 
-private fun codeGenCall(thisReg:Reg?, args:List<Reg>, func:Function) : Reg{
+private fun codeGenCall(thisReg:Reg?, args:List<Reg>, func:Function, thisType:Type?) : Reg{
     var index = 1
 
     if (func.thisSymbol!=null) {
         if (thisReg == null)
             error("Attempting to call a method with 'this' undefined")
+        else if (!func.thisSymbol.type.isAssignableFrom(thisType!!))
+            error("Internal error: Passing 'this' of type $thisType to method that expects ${func.thisSymbol.type}")
         currentFunc.addMov(allMachineRegs[index++], thisReg)
     }
 

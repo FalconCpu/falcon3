@@ -282,6 +282,56 @@ class TypeCheckTest {
         runTest(prog, expected)
     }
 
+    @Test
+    fun nullableTest() {
+        val prog = """
+            class Cat(val name:String, val age:Int)
+            
+            fun main()
+                var c : Cat? = null
+                c = new Cat("Tom", 3)
+        """.trimIndent()
+
+        val expected = """
+            top
+              file: test
+                class: Cat
+                  assign
+                    member: name (String)
+                      var: this (Cat)
+                    var: name (String)
+                  assign
+                    member: age (Int)
+                      var: this (Cat)
+                    var: age (Int)
+                function: main
+                  decl: VAR:c:Cat?
+                    int: 0 (Null)
+                  assign
+                    var: c (Cat?)
+                    new-object (Cat)
+                      string: "Tom" (String)
+                      int: 3 (Int)
+
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
+    @Test
+    fun nullableTestError() {
+        val prog = """
+            class Cat(val name:String, val age:Int)
+            
+            fun printCat(c:Cat?)
+                print(c.name)       # an error as c may be null
+        """.trimIndent()
+
+        val expected = """
+            test.fpl:4.11-4.11: Cannot access 'name' as expression may be null
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
 
 
 }

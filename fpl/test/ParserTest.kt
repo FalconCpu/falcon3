@@ -58,7 +58,7 @@ class ParserTest {
                Intlit 3
              Decl VAL a
               Or
-               Binop EQ
+               Binop =
                 Id y
                 Intlit 2
                Binop GTE
@@ -572,7 +572,7 @@ class ParserTest {
               ExprStmt
                Return
                 IfExpr
-                 Binop EQ
+                 Binop =
                   Id a
                   Intlit 0
                  Stringlit hello
