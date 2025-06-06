@@ -49,6 +49,7 @@ class TstAssign(location: Location, val lhs: TstExpr, val rhs: TstExpr, val op:A
 class TstNullStmt(location: Location) : TstStmt(location)
 class TstDecl(location: Location, val symbol: Symbol, val expr: TstExpr?) : TstStmt(location)
 class TstPrint(location: Location, val exprs: List<TstExpr>) : TstStmt(location)
+class TstFree(location: Location, val expr: TstExpr) : TstStmt(location)
 
 // ================================================
 //                  Blocks
@@ -292,6 +293,11 @@ fun Tst.prettyPrint(sb: StringBuilder, indent:Int) {
                 expr.prettyPrint(sb, indent+1)
             for(stmt in body)
                 stmt.prettyPrint(sb,indent+1)
+        }
+
+        is TstFree -> {
+            sb.append("free\n")
+            expr.prettyPrint(sb, indent+1)
         }
     }
 }

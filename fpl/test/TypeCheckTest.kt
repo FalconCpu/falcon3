@@ -517,4 +517,27 @@ class TypeCheckTest {
         runTest(prog, expected)
     }
 
+    @Test
+    fun ifExpr() {
+        val prog = """
+            fun fred(a:Int) -> String
+                return if a=1 then "one" else "other"
+        """.trimIndent()
+
+        val expected = """
+            top
+              file: test
+                function: fred
+                  expr-stmt
+                    return (Nothing)
+                      if-expr (String)
+                        EQ_I (Bool)
+                          var: a (Int)
+                          int: 1 (Int)
+                        string: "one" (String)
+                        string: "other" (String)
+
+        """.trimIndent()
+        runTest(prog, expected)
+    }
 }

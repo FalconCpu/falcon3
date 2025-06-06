@@ -12,5 +12,6 @@ object Stdlib {
     val mallocObject = Function("mallocObject", listOf(intArg), null, TypeInt)
     val strequal = Function("strequal", listOf(stringArg,stringArg), null, TypeInt)
     val strcmp = Function("strcmp", listOf(stringArg,stringArg), null, TypeInt)
+    val free = Function("free", listOf(intArg), null, TypeUnit)
 
 }

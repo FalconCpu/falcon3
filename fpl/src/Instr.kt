@@ -24,6 +24,8 @@ sealed class Instr {
         is InstrIndex -> "${scale.idxOp()} $dest, $src, $limit"
         is InstrLoadField -> "${size.loadOp()} $dest, $addr[$offset]"
         is InstrStoreField -> "${size.storeOp()} $src, $addr[$offset]"
+        is InstrLoadGlobal -> "ld $dest, GLOBAL[$global]"
+        is InstrStoreGlobal -> "st $src, GLOBAL[$global]"
     }
 
     fun getDef() : Reg? = when(this) {
@@ -45,6 +47,8 @@ sealed class Instr {
         is InstrIndex -> dest
         is InstrLoadField -> dest
         is InstrStoreField -> null
+        is InstrLoadGlobal -> dest
+        is InstrStoreGlobal -> null
     }
 
     fun getUse() : List<Reg> = when(this) {
@@ -66,6 +70,8 @@ sealed class Instr {
         is InstrIndex -> listOf(src, limit)
         is InstrLoadField -> listOf(addr)
         is InstrStoreField -> listOf(src, addr)
+        is InstrLoadGlobal -> emptyList()
+        is InstrStoreGlobal -> listOf(src)
     }
 }
 
@@ -87,6 +93,10 @@ class InstrLea(val dest:Reg, val value:Value) : Instr()
 class InstrIndex(val scale:Int, val dest:Reg, val src:Reg, val limit:Reg) : Instr()
 class InstrLoadField(val size:Int, val dest:Reg, val addr:Reg, val offset:SymbolField) : Instr()
 class InstrStoreField(val size:Int, val src:Reg, val addr:Reg, val offset:SymbolField) : Instr()
+class InstrLoadGlobal(val dest:Reg, val global:SymbolGlobal) : Instr()
+class InstrStoreGlobal(val src:Reg, val global:SymbolGlobal) : Instr()
+
+
 
 fun Int.loadOp() = when(this) {
     1 -> "ldb"

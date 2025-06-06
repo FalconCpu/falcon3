@@ -147,6 +147,16 @@ class Function(val name:String, val parameters:List<SymbolVar>, val thisSymbol :
         addInstr(InstrStoreField(offset.type.sizeInBytes(), src, addr, offset))
     }
 
+    fun addLoadGlobal(global:SymbolGlobal): RegTemp {
+        val dest = newTemp()
+        addInstr(InstrLoadGlobal(dest, global))
+        return dest
+    }
+
+    fun addStoreGlobal(src:Reg, global:SymbolGlobal) {
+        addInstr(InstrStoreGlobal(src, global))
+    }
+
 
     fun addIndexOp(scale:Int, src:Reg, limit:Reg) : Reg {
         val op = when(scale) {

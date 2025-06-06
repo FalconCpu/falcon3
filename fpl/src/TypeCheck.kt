@@ -1,5 +1,3 @@
-import kotlin.math.exp
-
 // Type checking phase of the compiler. This phase takes the AST built in the parser phase and
 // converts it to a TypeChecked AST (Tst).
 
@@ -10,17 +8,41 @@ private var pathContext = emptyPathContext
 private var breakContext : MutableList<PathContext>? = null
 private var continueContext : MutableList<PathContext>? = null
 
+val allGlobalVars = mutableListOf<SymbolGlobal>()
+private var allGlobalSize = 0
+
+// ================================================================
+//                          createGlobalVar
+// ================================================================
+
+fun createGlobalVar(location:Location, name:String, type:Type, mutable:Boolean) : SymbolGlobal {
+    if (allGlobalVars.isEmpty())     // If the global table was reset then reset the global size
+        allGlobalSize = 0
+
+    val ret = SymbolGlobal(location, name, type, mutable)
+    ret.offset = allGlobalSize
+    allGlobalSize += 4               // For now all global variables are 4 bytes
+    if (allGlobalSize>=1024)            // For now assume a global variable table of 1024 bytes
+        error("Too many global variables")
+    allGlobalVars.add(ret)
+    return ret
+}
+
+
+
 // ================================================================
 //                            getSymbol
 // ================================================================
 
 fun TstExpr.isSymbol() : Boolean = when(this) {
     is TstVariable -> true
+    is TstGlobalVar -> true
     else -> false
 }
 
 fun TstExpr.getSymbol() : Symbol = when(this) {
     is TstVariable -> symbol
+    is TstGlobalVar -> symbol
     else -> error("getSymbol called on $this")
 }
 
@@ -52,7 +74,7 @@ fun AstExpr.typeCheckRvalue(context:AstBlock) : TstExpr {
                         Log.error(location,"Symbol '$name' may be uninitialized")
                     TstVariable(location, symbol, pathContext.getType(symbol))
                 }
-                is SymbolGlobal -> TstGlobalVar(location, symbol, symbol.type)
+                is SymbolGlobal -> TstGlobalVar(location, symbol, pathContext.getType(symbol))
                 is SymbolFunction -> TstFunctionName(location, symbol, symbol.type)
                 is SymbolTypeName -> TstError(location, "Cannot use type name '$name' as an expression")
                 is SymbolField -> {
@@ -172,7 +194,17 @@ fun AstExpr.typeCheckRvalue(context:AstBlock) : TstExpr {
             }
         }
 
-        is AstIfExpr -> TODO()
+        is AstIfExpr -> {
+            val (tcCond, truePathContext, falsePathContext) = cond.typeCheckBool(context)
+            pathContext = truePathContext
+            val tcTrue = thenExpr.typeCheckRvalue(context)
+            val pathContext1 = pathContext
+            pathContext = falsePathContext
+            val tcFalse = elseExpr.typeCheckRvalue(context)
+            pathContext = listOf(pathContext,pathContext1).merge()
+            tcTrue.type.checkCompatibleWith(tcFalse)
+            TstIfExpr(location, tcCond, tcTrue, tcFalse, tcTrue.type)
+        }
 
         is AstMember -> {
             val tcExpr = expr.typeCheckRvalue(context)
@@ -291,7 +323,7 @@ fun AstExpr.typeCheckRvalue(context:AstBlock) : TstExpr {
             }
         }
 
-        is AstNewInitialiser -> {
+        is AstNewWithInitialiser -> {
             val tcType = type.resolveType(context)
             if (tcType !is TypeArray)
                 return TstError(location,"Initializer list only supported for arrays")
@@ -353,9 +385,9 @@ private val binopTable = listOf(
     BinopEntry(TokenKind.LTE,     TypeInt, TypeInt, AluOp.LTE_I, TypeBool),
     BinopEntry(TokenKind.GT,      TypeInt, TypeInt, AluOp.GT_I,  TypeBool),
     BinopEntry(TokenKind.GTE,     TypeInt, TypeInt, AluOp.GTE_I, TypeBool),
-    BinopEntry(TokenKind.AMP,     TypeInt, TypeInt, AluOp.AND_I, TypeBool),
-    BinopEntry(TokenKind.BAR,     TypeInt, TypeInt, AluOp.OR_I,  TypeBool),
-    BinopEntry(TokenKind.CARET,   TypeInt, TypeInt, AluOp.XOR_I, TypeBool),
+    BinopEntry(TokenKind.AMP,     TypeInt, TypeInt, AluOp.AND_I, TypeInt),
+    BinopEntry(TokenKind.BAR,     TypeInt, TypeInt, AluOp.OR_I,  TypeInt),
+    BinopEntry(TokenKind.CARET,   TypeInt, TypeInt, AluOp.XOR_I, TypeInt),
 
     BinopEntry(TokenKind.PLUS,    TypeReal, TypeReal, AluOp.ADD_R, TypeReal),
     BinopEntry(TokenKind.MINUS,   TypeReal, TypeReal, AluOp.SUB_R, TypeReal),
@@ -430,7 +462,7 @@ fun AstExpr.typeCheckLvalue(context:AstBlock) : TstExpr = when(this) {
     is AstMember -> {
         val ret = typeCheckRvalue(context)
         if (ret is TstMember && !ret.field.mutable)
-            Log.error(location, "Filed '${ret.field}' is not mutable")
+            Log.error(location, "Field '${ret.field}' is not mutable")
         ret
     }
 
@@ -570,7 +602,7 @@ fun AstStmt.typeCheck(context:AstBlock) : TstStmt {
             )
             val mutable = (kind == TokenKind.VAR)
             val symbol = if (context is AstFile)
-                SymbolGlobal(location, name, type, mutable)
+                createGlobalVar(location, name, type, mutable)
             else
                 SymbolVar(location, name, type, mutable)
             pathContext = if (tcExpr == null)
@@ -642,32 +674,16 @@ fun AstStmt.typeCheck(context:AstBlock) : TstStmt {
         }
 
         is AstWhile -> {
-            val pathContextIn = pathContext
-            var pathContextLoop = pathContext
             val oldBreakContext = breakContext
             val oldContinueContext = continueContext
 
-            var iterationCount = 0
-            var ret : TstStmt? = null
-
-            while (ret==null) {
-                breakContext = mutableListOf()
-                continueContext = mutableListOf()
-                pathContext = listOf(pathContextIn, pathContextLoop).merge()
-                val (tcCond, truePath, falsePath) = cond.typeCheckBool(context)
-                pathContext = (continueContext!!+truePath).merge()
-                val tcBody = body.map { it.typeCheck(context) }
-                // Run to fixed-point. If the path context as we branch back to the loop is different to the one coming in
-                if (pathContext != pathContextLoop && !Log.hasErrors() && iterationCount<10) {
-                    // If there are any errors already reported then stop iterating
-                    pathContextLoop = pathContext
-                    iterationCount ++
-                } else {
-                    pathContext = (breakContext!! + pathContext +falsePath).merge()
-                    ret = TstWhile(location, tcCond, tcBody)
-                }
-            }
-
+            breakContext = mutableListOf()
+            continueContext = mutableListOf()
+            val (tcCond, truePath, falsePath) = cond.typeCheckBool(context)
+            pathContext = (continueContext!!+truePath).merge()
+            val tcBody = body.map { it.typeCheck(context) }
+            pathContext = (breakContext!! + pathContext +falsePath).merge()
+            val ret = TstWhile(location, tcCond, tcBody)
             breakContext = oldBreakContext
             continueContext = oldContinueContext
             ret
@@ -758,11 +774,21 @@ fun AstStmt.typeCheck(context:AstBlock) : TstStmt {
                 val tcArgs = clause.clauses.map{ it.typeCheckRvalue(context)}
                 for(arg in tcArgs)
                     tcExpr.type.checkCompatibleWith(arg)
-                val tcBody = clause.body.map {it.typeCheck(this)}
+                val tcBody = clause.body.map {it.typeCheck(clause)}
                 tcClauses += TstWhenClause(clause.location, tcArgs, tcBody)
             }
             tcClauses.checkForDuplicates()
             TstWhen(location, tcExpr, tcClauses)
+        }
+
+        is AstFree -> {
+            val tcExpr = expr.typeCheckRvalue(context)
+            if (tcExpr==TypeError)
+                return TstNullStmt(location)
+            val type = if (tcExpr.type is TypeNullable) tcExpr.type.elementType else tcExpr.type
+            if (type !is TypeClass && type !is TypeArray)
+                Log.error(location, "Free only supports expressions of type Class or Array")
+            TstFree(location, tcExpr)
         }
 
         is AstWhenClause -> error("AstWhenClause outside of when")
@@ -827,6 +853,10 @@ private fun AstFunction.createFunctionSymbol(context:AstBlock) {
     val funcName = if (context is AstClass) "${context.name}/$name" else name
     function = Function(funcName, paramsInternal, thisSymbol, retType)
     allFunctions += function
+
+    // Special case - destructors are just methods with the name `free`. They are not allowed to take parameters
+    if (thisSymbol!=null && name=="free" && paramsInternal.isNotEmpty())
+            Log.error(location, "Destructor cannot take parameters")
 
     // Create a symbol for this function and add it to the current scope
     val funcType = TypeFunction.create(typesExternal, retType)

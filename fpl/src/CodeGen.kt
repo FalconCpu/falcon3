@@ -1,3 +1,6 @@
+import kotlin.math.PI
+import kotlin.math.exp
+
 private lateinit var currentFunc : Function
 
 private var breakLabel : Label? = null
@@ -103,8 +106,27 @@ fun TstExpr.codeGenRvalue() : Reg {
         }
         is TstError -> TODO()
         is TstFunctionName -> TODO()
-        is TstGlobalVar -> TODO()
-        is TstIfExpr -> TODO()
+
+        is TstGlobalVar -> {
+            currentFunc.addLoadGlobal(symbol)
+        }
+
+        is TstIfExpr -> {
+            val ret = currentFunc.newVar()
+            val trueLabel = currentFunc.newLabel()
+            val falseLabel = currentFunc.newLabel()
+            val endLabel = currentFunc.newLabel()
+            val condReg = cond.codeGenBranch(trueLabel, falseLabel)
+            currentFunc.addLabel(trueLabel)
+            val trueReg = thenExpr.codeGenRvalue()
+            currentFunc.addMov(ret, trueReg)
+            currentFunc.addJump(endLabel)
+            currentFunc.addLabel(falseLabel)
+            val falseReg = elseExpr.codeGenRvalue()
+            currentFunc.addMov(ret, falseReg)
+            currentFunc.addLabel(endLabel)
+            ret
+        }
 
         is TstMember -> {
             val exprReg = expr.codeGenRvalue()
@@ -326,6 +348,17 @@ fun TstExpr.codeGenLvalue(value:Reg, op:AluOp)  {
                 val v2 = currentFunc.addAlu(op, v, value)
                 currentFunc.addStoreMem(v2, exprReg, field)
             }
+        }
+
+        is TstGlobalVar -> {
+            if (op==AluOp.EQ_I)
+                currentFunc.addStoreGlobal(value, symbol)
+            else {
+                val v1 = currentFunc.addLoadGlobal(symbol)
+                val v2 = currentFunc.addAlu(op,v1, value )
+                currentFunc.addStoreGlobal(v2, symbol)
+            }
+
         }
 
         else -> error("Malformed TST: Has assignment to $this")
@@ -697,6 +730,27 @@ fun TstStmt.codeGen()  {
         }
 
         is TstWhenClause -> error("WhenClause outside of when")
+
+        is TstFree -> {
+            val argReg = expr.codeGenRvalue()
+            val label = currentFunc.newLabel()
+            // Do a null check
+            currentFunc.addBranch(AluOp.EQ_I, argReg, regZero, label)
+
+            // See if the class has a method called free - if so call it
+            val typex = if (expr.type is TypeNullable) expr.type.elementType else expr.type
+            if (typex is TypeClass) {
+                val destructor = typex.lookupSymbol("free")
+                if (destructor is SymbolFunction) {
+                    // Call the destructor
+                    currentFunc.addCall(destructor.function, listOf(argReg))
+                }
+            }
+
+            // Free the memory
+            currentFunc.addCall(Stdlib.free, listOf(argReg))
+            currentFunc.addLabel(label)
+        }
     }
 }
 

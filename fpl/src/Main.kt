@@ -35,6 +35,7 @@ fun compile(lexers:List<Lexer>, stopAt: StopAt, assemblyFiles:List<String> = emp
     allFunctions.clear()
     allValues.clear()
     allClasses.clear()
+    allGlobalVars.clear()
     ValueString.allStrings.clear()
 
     // Parse the input files
@@ -62,8 +63,8 @@ fun compile(lexers:List<Lexer>, stopAt: StopAt, assemblyFiles:List<String> = emp
     genAssemblyHeader(sb)
     for (func in allFunctions)
         func.genAssembly(sb)
-    allValues.emit(sb)
     allClasses.generateClassDescriptors(sb)
+    allValues.emit(sb)
     if (Log.hasErrors())   return Log.getErrors()
     if (stopAt == StopAt.ASSEMBLY) return sb.toString()
 

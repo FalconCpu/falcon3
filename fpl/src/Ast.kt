@@ -25,7 +25,7 @@ class AstMinus(location: Location, val expr: AstExpr) : AstExpr(location)
 class AstIfExpr(location: Location, val cond: AstExpr, val thenExpr: AstExpr, val elseExpr: AstExpr) : AstExpr(location)
 class AstRange(location: Location, val start: AstExpr, val end: AstExpr, val op:TokenKind) : AstExpr(location)
 class AstNew(location: Location, val type:AstTypeExpr, val args: List<AstExpr>, val lambda:AstLambda?, val local:Boolean) : AstExpr(location)
-class AstNewInitialiser(location: Location, val type:AstTypeExpr, val initializer: List<AstExpr>, val local:Boolean) : AstExpr(location)
+class AstNewWithInitialiser(location: Location, val type:AstTypeExpr, val initializer: List<AstExpr>, val local:Boolean) : AstExpr(location)
 class AstCast(location: Location, val expr:AstExpr, val typeExpr:AstTypeExpr) : AstExpr(location)
 
 class AstCall(location: Location, val expr: AstExpr, val args: List<AstExpr>) : AstExpr(location)
@@ -50,6 +50,7 @@ class AstNullStmt(location: Location) : AstStmt(location)
 class AstDecl(location: Location, val kind:TokenKind, val name: String, val typeExpr: AstTypeExpr?, val expr: AstExpr?) : AstStmt(location)
 class AstConst(location: Location, val name:String, val typeExpr:AstTypeExpr?, val expr:AstExpr) : AstStmt(location)
 class AstPrint(location: Location, val exprs: List<AstExpr>) : AstStmt(location)
+class AstFree(location: Location, val expr: AstExpr) : AstStmt(location)
 
 // ================================================
 //                  Blocks
@@ -281,7 +282,7 @@ fun Ast.prettyPrint(sb: StringBuilder, indent:Int) {
             lambda?.prettyPrint(sb, indent+1)
         }
 
-        is AstNewInitialiser -> {
+        is AstNewWithInitialiser -> {
             sb.append("New $local\n")
             type.prettyPrint(sb, indent+1)
             for (arg in initializer)
@@ -316,6 +317,11 @@ fun Ast.prettyPrint(sb: StringBuilder, indent:Int) {
                 clause.prettyPrint(sb,indent+1)
             for(stmt in body)
                 stmt.prettyPrint(sb,indent+1)
+        }
+
+        is AstFree -> {
+            sb.append("Free\n")
+            expr.prettyPrint(sb, indent+1)
         }
     }
 }

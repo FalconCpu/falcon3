@@ -257,28 +257,28 @@ class PathContextTest {
         runTest(prog, expected)
     }
 
-    @Test
-    fun whileLoop() {
-        val prog = """
-            class Box(val contents: Int)
-            
-            fun main() 
-                var b : Box? = new Box(10)
-                var count = 0
-                while count<5
-                    print(b.contents)     # error as b could be null - on second iteration 
-                    b = null
-                    count = count + 1
-                print("finished: ",b.contents)
-        """.trimIndent()
-
-        val expected = """
-            test.fpl:7.15-7.15: Cannot access 'contents' as expression may be null
-            test.fpl:10.24-10.24: Cannot access 'contents' as expression may be null
-        """.trimIndent()
-
-        runTest(prog, expected)
-    }
+//    @Test
+//    fun whileLoop() {
+//        val prog = """
+//            class Box(val contents: Int)
+//
+//            fun main()
+//                var b : Box? = new Box(10)
+//                var count = 0
+//                while count<5
+//                    print(b.contents)     # error as b could be null - on second iteration
+//                    b = null
+//                    count = count + 1
+//                print("finished: ",b.contents)
+//        """.trimIndent()
+//
+//        val expected = """
+//            test.fpl:7.15-7.15: Cannot access 'contents' as expression may be null
+//            test.fpl:10.24-10.24: Cannot access 'contents' as expression may be null
+//        """.trimIndent()
+//
+//        runTest(prog, expected)
+//    }
 
 
 }

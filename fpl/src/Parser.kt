@@ -12,8 +12,15 @@ class Parser(val lexer: Lexer) {
     private fun match(kind: TokenKind) : Token {
         if (currentToken.kind == kind)
             return nextToken()
-        throw ParseError(currentToken.location, "Got $currentToken when expecting ${kind.text}")
+        throw ParseError(currentToken.location, "Got `$currentToken` when expecting ${kind.text}")
     }
+
+    private fun match(kind1: TokenKind,kind2:TokenKind) : Token {
+        if (currentToken.kind == kind1 || currentToken.kind == kind2)
+            return nextToken()
+        throw ParseError(currentToken.location, "Got `$currentToken` when expecting ${kind1.text} or ${kind2.text}")
+    }
+
 
     private fun canTake(kind: TokenKind) : Boolean {
         if (currentToken.kind == kind) {
@@ -31,7 +38,7 @@ class Parser(val lexer: Lexer) {
 
     private fun expectEol() {
         if (currentToken.kind != EOL)
-            Log.error(currentToken.location, "Got '$currentToken when expecting end of line")
+            Log.error(currentToken.location, "Got '$currentToken' when expecting end of line")
         skipToEndOfLine()
     }
 
@@ -107,7 +114,7 @@ class Parser(val lexer: Lexer) {
         val typeExpr = parseTypeExpr()
         if (currentToken.kind==OPENSQ) {
             val initializers = parseInitializerList()
-            return AstNewInitialiser(tok.location, typeExpr, initializers, tok.kind == LOCAL)
+            return AstNewWithInitialiser(tok.location, typeExpr, initializers, tok.kind == LOCAL)
         } else {
             val args = parseExpressionList()
             val lambda = parseOptLambda()
@@ -235,7 +242,7 @@ class Parser(val lexer: Lexer) {
         return ret
     }
 
-    private fun parseCast() : AstExpr {
+    private fun parseCastExpr() : AstExpr {
         val ret = parseOr()
         if (currentToken.kind==AS) {
             val loc = nextToken().location
@@ -247,14 +254,14 @@ class Parser(val lexer: Lexer) {
 
     private fun parseExpression() : AstExpr {
         if (canTake(IF)) {
-            val cond = parseCast()
+            val cond = parseCastExpr()
             match(THEN)
             val thenExpr = parseExpression()
             match(ELSE)
             val elseExpr = parseExpression()
             return AstIfExpr(cond.location, cond, thenExpr, elseExpr)
         } else
-            return parseCast()
+            return parseCastExpr()
     }
 
     private fun parseExpressionList() : List<AstExpr> {
@@ -411,7 +418,7 @@ class Parser(val lexer: Lexer) {
 
     private fun parseFunction() : AstFunction {
         val loc = match(FUN).location
-        val name = match(ID)
+        val name = match(ID,FREE)
         val params = parseParamList()
         val retType = if (canTake(ARROW)) parseTypeExpr() else null
         expectEol()
@@ -544,6 +551,13 @@ class Parser(val lexer: Lexer) {
         return AstPrint(loc, args)
     }
 
+    private fun parseFree() : AstStmt {
+        val loc = match(FREE).location
+        val args = parseExpression()
+        expectEol()
+        return AstFree(loc, args)
+    }
+
     private fun parseClass() : AstStmt {
         val loc = match(CLASS)
         val name = match(ID)
@@ -566,6 +580,7 @@ class Parser(val lexer: Lexer) {
                 FUN -> parseFunction()
                 PRINT -> parsePrint()
                 WHEN -> parseWhen()
+                FREE -> parseFree()
                 CLASS -> parseClass()
                 CONST -> parseConst()
                 else -> parseExpressionStatement()

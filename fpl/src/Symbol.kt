@@ -12,7 +12,9 @@ sealed class Symbol(val location: Location, val name:String, val type:Type, val 
 }
 
 class SymbolVar(location: Location, name:String, type:Type, mutable:Boolean) : Symbol(location, name, type, mutable)
-class SymbolGlobal(location: Location, name:String, type:Type, mutable:Boolean) : Symbol(location, name, type, mutable)
+class SymbolGlobal(location: Location, name:String, type:Type, mutable:Boolean) : Symbol(location, name, type, mutable) {
+    var offset = -1;
+}
 class SymbolFunction(location: Location, name:String, type:Type, val function:Function) : Symbol(location, name, type, false)
 class SymbolTypeName(location: Location, name:String, type:Type) : Symbol(location, name, type, false)
 class SymbolField(location: Location, name:String, type:Type, mutable: Boolean) : Symbol(location, name, type, mutable) {
@@ -21,6 +23,12 @@ class SymbolField(location: Location, name:String, type:Type, mutable: Boolean) 
 class SymbolConstant(location: Location, name:String, type:Type, val value:Value) : Symbol(location, name, type, false)
 
 fun AstBlock.addSymbol(symbol:Symbol) {
+    // Promote non-private symbols at file level to global scope
+    if (this is AstFile) {
+        parent!!.addSymbol(symbol)
+        return
+    }
+
     val duplicate = symbolTable[symbol.name]
     if (duplicate != null)
         Log.error(symbol.location, "Duplicate symbol '$symbol', first defined at ${duplicate.location}")

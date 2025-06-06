@@ -16,12 +16,16 @@ varargs...
 break/continue
 when statements
 array initializers - new Array<Int>[1,2,3]
+infer Array type from initializer/lambda
+if expressions
+destructors (free operator)
 
 
 Short term:
 enums
-infer Array type from initializer/lambda
-if expressions
+unsafe blocks
+abort instruction
+?: !! and .? operators
 
 Longer term:
 tuples
@@ -33,3 +37,4 @@ const propagation in IR
 CSE optimisation
 bounds check elision
 floating point
+more thorough pathContext checking in loops (iterate to fixed point)

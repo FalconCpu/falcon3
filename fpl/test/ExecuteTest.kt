@@ -212,7 +212,7 @@ class ExecuteTest {
         """.trimIndent()
 
         val expected = """
-            EXCEPTION Index out of range: pc=ffff01c4: data=0000000a
+            EXCEPTION Index out of range: pc=ffff01c8: data=0000000a
 
         """.trimIndent()
         runTest(prog, expected)
@@ -595,6 +595,29 @@ class ExecuteTest {
             one
             two
             three
+
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
+    @Test
+    fun ifExpr() {
+        val prog = """
+            fun fred(a:Int) -> String
+                return if a=1 then "one" else "other"
+            
+            fun main()
+                for i in 0..4
+                    print(i," ",fred(i),"\n")
+
+        """.trimIndent()
+
+        val expected = """
+            0 other
+            1 one
+            2 other
+            3 other
+            4 other
 
         """.trimIndent()
         runTest(prog, expected)
