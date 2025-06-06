@@ -260,7 +260,7 @@ fun AstExpr.typeCheckRvalue(context:AstBlock) : TstExpr {
         }
 
         is AstNew -> {
-            val tcType = type.resolveType(context)
+            var tcType = type.resolveType(context)
             val tcArgs = args.map{it.typeCheckRvalue(context)}
             when(tcType) {
                 is TypeArray -> {
@@ -269,6 +269,12 @@ fun AstExpr.typeCheckRvalue(context:AstBlock) : TstExpr {
                     val tcSize = tcArgs[0]
                     TypeInt.checkCompatibleWith (tcSize)
                     val tcLambda = lambda?.typeCheckLambda(context, listOf(SymbolVar(location,"it", TypeInt, false)))
+                    if (tcType.elementType==TypeNothing) {
+                        if (tcLambda!=null)
+                            tcType = TypeArray.create(tcLambda.body.type)
+                        else
+                            Log.error(location,"Cannot determine type for array")
+                    }
                     if (tcLambda!=null)
                         tcType.elementType.checkCompatibleWith(tcLambda.body)
                     if (local && ! tcSize.isCompileTimeConstant())
@@ -284,6 +290,21 @@ fun AstExpr.typeCheckRvalue(context:AstBlock) : TstExpr {
                 else -> TstError(location, "Cannot create instance of type $tcType")
             }
         }
+
+        is AstNewInitialiser -> {
+            val tcType = type.resolveType(context)
+            if (tcType !is TypeArray)
+                return TstError(location,"Initializer list only supported for arrays")
+            var elementType = tcType.elementType
+            val tcInit = initializer.map {it.typeCheckRvalue(context)}
+            if (elementType==TypeNothing && tcInit.isNotEmpty())
+                elementType = tcInit[0].type
+            if (elementType==TypeNothing)
+                Log.error(location,"Cannot determine type for array")
+            tcInit.forEach { elementType.checkCompatibleWith(it) }
+            TstNewArrayInitializer(location, tcInit, local, TypeArray.create(elementType))
+        }
+
         is AstCast -> {
             val tcExpr = expr.typeCheckRvalue(context)
             val tcType = typeExpr.resolveType(context)
@@ -520,7 +541,7 @@ fun AstTypeExpr.resolveType(context:AstBlock) : Type = when(this) {
     }
 
     is AstTypeArray -> {
-        val elementType = base.resolveType(context)
+        val elementType = base?.resolveType(context) ?: TypeNothing
         TypeArray.create(elementType)
     }
 

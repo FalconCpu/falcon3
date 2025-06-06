@@ -116,6 +116,17 @@ class Function(val name:String, val parameters:List<SymbolVar>, val thisSymbol :
             allMachineRegs[0]
     }
 
+    fun addCall(func:Function, args:List<Reg>) : Reg {
+        for((index,reg) in args.withIndex())
+            addInstr(InstrMov(allMachineRegs[index+1], reg))
+        addInstr(InstrCall(func))
+        return if (func.returnType!=TypeUnit)
+            addMov(regResult)
+        else
+            allMachineRegs[0]
+    }
+
+
     fun addLoadMem(size:Int, addr:Reg, offset:Int): RegTemp {
         val dest = newTemp()
         addInstr(InstrLoadMem(size, dest, addr, offset))

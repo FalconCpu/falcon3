@@ -105,9 +105,14 @@ class Parser(val lexer: Lexer) {
     private fun parseNew() : AstExpr {
         val tok = nextToken()  // LOCAL or NEW
         val typeExpr = parseTypeExpr()
-        val args = parseExpressionList()
-        val lambda = parseOptLambda()
-        return AstNew(tok.location, typeExpr, args, lambda, tok.kind==LOCAL)
+        if (currentToken.kind==OPENSQ) {
+            val initializers = parseInitializerList()
+            return AstNewInitialiser(tok.location, typeExpr, initializers, tok.kind == LOCAL)
+        } else {
+            val args = parseExpressionList()
+            val lambda = parseOptLambda()
+            return AstNew(tok.location, typeExpr, args, lambda, tok.kind == LOCAL)
+        }
     }
 
     private fun parsePrimaryExpression() : AstExpr {
@@ -279,6 +284,17 @@ class Parser(val lexer: Lexer) {
         return AstLambda(tok.location, expr)
     }
 
+    private fun parseInitializerList() : List<AstExpr> {
+        val ret = mutableListOf<AstExpr>()
+        match(OPENSQ)
+        if (currentToken.kind!=CLOSESQ)
+            do {
+                ret += parseExpression()
+            } while(canTake(COMMA))
+        match(CLOSESQ)
+        return ret
+    }
+
     // ======================================================================================
     //                               TypeExpressions
     // ======================================================================================
@@ -290,9 +306,12 @@ class Parser(val lexer: Lexer) {
 
     private fun parseTypeArray() : AstTypeExpr {
         val tok = match(ARRAY)
-        match(LT)
-        val ret = parseTypeExpr()
-        match(GT)
+        val ret : AstTypeExpr?
+        if (canTake(LT)) {
+            ret=parseTypeExpr()
+            match(GT)
+        } else
+            ret = null
         return AstTypeArray(tok.location, ret)
     }
 

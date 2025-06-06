@@ -14,12 +14,12 @@ constant folding in AST
 string comparisons
 varargs...
 break/continue
+when statements
+array initializers - new Array<Int>[1,2,3]
 
 
 Short term:
 enums
-when statements
-array initializers - new Array<Int>[1,2,3]
 infer Array type from initializer/lambda
 if expressions
 

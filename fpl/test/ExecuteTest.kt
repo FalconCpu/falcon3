@@ -557,6 +557,48 @@ class ExecuteTest {
         runTest(prog, expected)
     }
 
+    @Test
+    fun initializerList() {
+        val prog = """
+            fun print_array(a:Array<String>)
+                for s in a
+                    print(s,"\n")
+                    
+            fun main()
+                val array = new Array<String>["one","two","three"]
+                print_array(array)
+        """.trimIndent()
+
+        val expected = """
+            one
+            two
+            three
+
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
+
+    @Test
+    fun initializerListImpliedType() {
+        val prog = """
+            fun print_array(a:Array<String>)
+                for s in a
+                    print(s,"\n")
+                    
+            fun main()
+                val array = new Array["one","two","three"]
+                print_array(array)
+        """.trimIndent()
+
+        val expected = """
+            one
+            two
+            three
+
+        """.trimIndent()
+        runTest(prog, expected)
+    }
 
 
 }

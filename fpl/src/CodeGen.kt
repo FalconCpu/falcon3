@@ -145,16 +145,35 @@ fun TstExpr.codeGenRvalue() : Reg {
                 val numElementsReg = size.codeGenRvalue()
                 val elementSize = (type as TypeArray).elementType.sizeInBytes()
                 val elementSizeReg = currentFunc.addMov(elementSize)
-                currentFunc.addMov(allMachineRegs[1], numElementsReg)
-                currentFunc.addMov(allMachineRegs[2], elementSizeReg)
+                val args = listOf(numElementsReg, elementSizeReg)
                 if (initializer==null) {
-                    currentFunc.addCall(Stdlib.callocArray)
+                    currentFunc.addCall(Stdlib.callocArray, args)
                 } else {
-                    val ret = currentFunc.addCall(Stdlib.mallocArray)
+                    val ret = currentFunc.addCall(Stdlib.mallocArray, args)
                     initializeArray(ret, initializer, elementSize, numElementsReg)
                     ret
                 }
             }
+        }
+
+        is TstNewArrayInitializer -> {
+            val elementSize = (type as TypeArray).elementType.sizeInBytes()
+            val ret = if (local) {
+                val reqSize = initializer.size * elementSize + 4
+                val offset = currentFunc.stackAlloc(reqSize)
+                val numElementsReg = currentFunc.addMov(initializer.size)
+                currentFunc.addStoreMem(4, numElementsReg, allMachineRegs[31], offset)
+                currentFunc.addAlu(AluOp.ADD_I, allMachineRegs[31], offset+4)
+            } else {
+                val numElementsReg = currentFunc.addMov(initializer.size)
+                val elementSizeReg = currentFunc.addMov(elementSize)
+                currentFunc.addCall(Stdlib.mallocArray, listOf(numElementsReg,elementSizeReg))
+            }
+            for((index,expr) in initializer.withIndex()) {
+                val v = expr.codeGenRvalue()
+                currentFunc.addStoreMem(elementSize, v, ret, index*elementSize)
+            }
+            ret
         }
 
         is TstLambda ->

@@ -28,6 +28,7 @@ class TstIfExpr(location: Location, val cond: TstExpr, val thenExpr: TstExpr, va
 class TstRange(location: Location, val start: TstExpr, val end: TstExpr, val op:AluOp,type:Type) : TstExpr(location,type)
 class TstCall(location: Location, val expr: TstExpr, val args: List<TstExpr>, type:Type) : TstExpr(location,type)
 class TstNewArray(location: Location, val size: TstExpr, val initializer:TstLambda?, val local:Boolean, type:Type) : TstExpr(location,type)
+class TstNewArrayInitializer(location: Location, val initializer:List<TstExpr>, val local:Boolean, type:Type) : TstExpr(location,type)
 class TstNewObject(location: Location, val args:List<TstExpr>, type:TypeClass, val local: Boolean) : TstExpr(location,type)
 class TstLambda(location: Location, val params: List<SymbolVar>, val body: TstExpr, type:Type) : TstExpr(location,type)
 class TstMethod(location: Location, val thisExpr:TstExpr, val func:SymbolFunction, type:Type) : TstExpr(location,type)
@@ -251,6 +252,12 @@ fun Tst.prettyPrint(sb: StringBuilder, indent:Int) {
             sb.append("new-array ($type)\n")
             size.prettyPrint(sb, indent+1)
             initializer?.prettyPrint(sb, indent+1)
+        }
+
+        is TstNewArrayInitializer -> {
+            sb.append("new-array-init ($type)\n")
+            for(e in initializer)
+                e.prettyPrint(sb, indent+1)
         }
 
         is TstLambda -> {
