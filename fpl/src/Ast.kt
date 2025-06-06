@@ -70,6 +70,8 @@ class AstClass(location: Location, val name: String, val params:AstParameterList
     // So we store it in this list, until we get to typechecking the constructor body.
     val constructorBody = mutableListOf<TstStmt>()
 }
+class AstWhen(location: Location, val expr:AstExpr, body:List<AstWhenClause>) : AstBlock(location,body)
+class AstWhenClause(location: Location, val clauses:List<AstExpr>, body:List<AstStmt>) : AstBlock(location,body)
 class AstLambda(location: Location, val expr:AstExpr) : AstBlock(location, emptyList())
 
 class AstFunction(location: Location, val name: String, val params: AstParameterList, val retType:AstTypeExpr?, body:List<AstStmt>)
@@ -292,6 +294,20 @@ fun Ast.prettyPrint(sb: StringBuilder, indent:Int) {
             sb.append("Cast\n")
             typeExpr.prettyPrint(sb, indent+1)
             expr.prettyPrint(sb, indent+1)
+        }
+
+        is AstWhen -> {
+            sb.append("When\n")
+            expr.prettyPrint(sb, indent+1)
+            for (clause in body)
+                clause.prettyPrint(sb, indent+1)
+        }
+        is AstWhenClause -> {
+            sb.append("WhenClause\n")
+            for(clause in clauses)
+                clause.prettyPrint(sb,indent+1)
+            for(stmt in body)
+                stmt.prettyPrint(sb,indent+1)
         }
     }
 }

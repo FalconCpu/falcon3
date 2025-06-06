@@ -38,7 +38,7 @@ enum class TokenKind(val text:String, val lineContinues:Boolean) {
     DOT        (".", true),
     LEFT       ("<<", true),
     RIGHT      (">>", true),
-    ARROW      ("->", true),
+    ARROW      ("->", false),
     QMARK      ("?", true),
     BANGBANG   ("!!", true),
     ELVIS      ("?:", true),
@@ -77,6 +77,7 @@ enum class TokenKind(val text:String, val lineContinues:Boolean) {
     CONTINUE   ("continue", false),
     FUN        ("fun", false),
     CLASS      ("class", false),
+    WHEN       ("when", false),
     PRINT      ("print", false),
     ERROR      ("<error>", false);
 

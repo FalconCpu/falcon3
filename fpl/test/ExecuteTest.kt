@@ -496,6 +496,63 @@ class ExecuteTest {
         """.trimIndent()
 
         val expected = """
+            Argument a: 1
+            Argument b: 2 3 4 5 
+
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
+    @Test
+    fun whenTest() {
+        val prog = """
+            fun fred(a:Int) -> String
+                when a
+                    1 -> return "one"
+                    2 -> return "two"
+                    else -> return "other"
+            
+            fun main()
+                for i in 0..4
+                    print(i," ",fred(i),"\n")
+        """.trimIndent()
+
+        val expected = """
+            0 other
+            1 one
+            2 two
+            3 other
+            4 other
+
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
+    @Test
+    fun whenStringsTest() {
+        val prog = """
+            fun fred(a:String)
+                when a
+                    "one" -> print(1,"\n")
+                    "two" -> print(2,"\n")
+                    "three" -> print(3,"\n")
+                    else -> print("else\n")
+            
+            fun main()
+                fred("zero")
+                fred("one")
+                fred("two")
+                fred("three")
+                fred("four")
+        """.trimIndent()
+
+        val expected = """
+            else
+            1
+            2
+            3
+            else
+
         """.trimIndent()
         runTest(prog, expected)
     }

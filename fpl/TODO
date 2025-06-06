@@ -12,16 +12,16 @@ casts
 constant folding in AST
 += -=
 string comparisons
+varargs...
+break/continue
 
 
 Short term:
-varargs...
-break/continue
 enums
 when statements
 array initializers - new Array<Int>[1,2,3]
 infer Array type from initializer/lambda
-
+if expressions
 
 Longer term:
 tuples

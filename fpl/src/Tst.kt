@@ -62,6 +62,8 @@ class TstFunction(location: Location, val function:Function, body:List<TstStmt>)
 class TstClass(location: Location, val classType:TypeClass, body:List<TstStmt>, val methods:List<TstStmt>) : TstBlock(location, body)
 class TstFile(location: Location, val name:String, body:List<TstStmt>) : TstBlock(location, body)
 class TstTop(location: Location, body:List<TstStmt>) : TstBlock(location, body)
+class TstWhen(location: Location, val expr:TstExpr, body:List<TstWhenClause>) : TstBlock(location, body)
+class TstWhenClause(location: Location, val exprs:List<TstExpr>, body:List<TstStmt>) : TstBlock(location,body)
 
 // ================================================
 //                  Pretty Printing
@@ -271,6 +273,19 @@ fun Tst.prettyPrint(sb: StringBuilder, indent:Int) {
             sb.append("cast ($type)\n")
             expr.prettyPrint(sb, indent+1)
         }
+
+        is TstWhen -> {
+            sb.append("when \n")
+            expr.prettyPrint(sb, indent+1)
+            body.forEach { it.prettyPrint(sb, indent+1) }
+        }
+        is TstWhenClause -> {
+            sb.append("when-clause\n")
+            for(expr in exprs)
+                expr.prettyPrint(sb, indent+1)
+            for(stmt in body)
+                stmt.prettyPrint(sb,indent+1)
+        }
     }
 }
 
@@ -283,3 +298,5 @@ fun Tst.prettyPrint(): String {
 fun TstExpr.isCompileTimeConstant() = this is TstIntLit || this is TstReallit || this is TstStringlit || this is TstError
 fun TstExpr.isIntegerConstant() = this is TstIntLit
 fun TstExpr.getIntegerConstant() = (this as TstIntLit).value
+fun TstExpr.isStringConstant() = this is TstStringlit
+fun TstExpr.getStringConstant() = (this as TstStringlit).value

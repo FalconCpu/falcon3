@@ -429,4 +429,92 @@ class TypeCheckTest {
         runTest(prog, expected)
     }
 
+    @Test
+    fun whenTest() {
+        val prog = """
+            fun fred(a:Int) -> String
+                when a
+                    1 -> 
+                        return "one"
+                    2 -> 
+                        return "two"
+                    else ->
+                        return "other"
+        """.trimIndent()
+
+        val expected = """
+            top
+              file: test
+                function: fred
+                  when 
+                    var: a (Int)
+                    when-clause
+                      int: 1 (Int)
+                      expr-stmt
+                        return (Nothing)
+                          string: "one" (String)
+                    when-clause
+                      int: 2 (Int)
+                      expr-stmt
+                        return (Nothing)
+                          string: "two" (String)
+                    when-clause
+                      expr-stmt
+                        return (Nothing)
+                          string: "other" (String)
+
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
+    @Test
+    fun whenTestDuplicateInt() {
+        val prog = """
+            fun fred(a:Int) -> String
+                when a
+                    1 -> return "one"
+                    2 -> return "two"
+                    2 -> return "two"
+                    else -> return "other"
+        """.trimIndent()
+
+        val expected = """
+            test.fpl:5.9-5.9: Duplicate value '2'
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
+    @Test
+    fun whenTestDuplicateString() {
+        val prog = """
+            fun fred(a:String) -> String
+                when a
+                    "1" -> return "one"
+                    "2" -> return "two"
+                    "2" -> return "two"
+                    else -> return "other"
+        """.trimIndent()
+
+        val expected = """
+            test.fpl:5.9-5.11: Duplicate value '2'
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
+    @Test
+    fun whenTestMisplacedElse() {
+        val prog = """
+            fun fred(a:String) -> String
+                when a
+                    "1" -> return "one"
+                    else -> return "other"
+                    "2" -> return "two"
+        """.trimIndent()
+
+        val expected = """
+            test.fpl:4.9-4.12: else clause must be the last clause in when
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
 }

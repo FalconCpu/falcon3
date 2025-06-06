@@ -1,5 +1,4 @@
 import TokenKind.*
-import kotlin.math.log
 
 class Parser(val lexer: Lexer) {
     private var currentToken = lexer.nextToken()
@@ -415,6 +414,46 @@ class Parser(val lexer: Lexer) {
         return AstExprStmt(loc,expr)
     }
 
+    private fun parseWhen() : AstWhen {
+        val loc = match(WHEN)
+        val expr = parseExpression()
+        expectEol()
+        val body = parseWhenBlock()
+        checkEnd(WHEN)
+        return AstWhen(loc.location, expr, body)
+    }
+
+    private fun parseWhenBlock() : List<AstWhenClause> {
+        val ret = mutableListOf<AstWhenClause>()
+        if (!canTake(INDENT)) {
+            Log.error(currentToken.location,"Expected indented block after when")
+            return ret
+        }
+
+        while(currentToken.kind!=DEDENT && currentToken.kind!=EOF) {
+            ret += parseWhenClause()
+        }
+        match(DEDENT)
+        return ret
+    }
+
+    private fun parseWhenClause() : AstWhenClause {
+        val location = currentToken.location
+        val exprs = mutableListOf<AstExpr>()
+        if (!canTake(ELSE))
+            do {
+                exprs += parseExpression()
+            } while (canTake(COMMA))
+        match(ARROW)
+        val body = if (currentToken.kind==EOL) {
+            expectEol()
+            parseStatementBlock()
+        } else {
+            listOf(parseStatement())
+        }
+        return AstWhenClause(location, exprs, body)
+    }
+
     private fun parseThenOrIndentedBlock() : List<AstStmt> {
         if (canTake(THEN)) {
             val ret = parseStatement()
@@ -507,6 +546,7 @@ class Parser(val lexer: Lexer) {
                 FOR -> parseFor()
                 FUN -> parseFunction()
                 PRINT -> parsePrint()
+                WHEN -> parseWhen()
                 CLASS -> parseClass()
                 CONST -> parseConst()
                 else -> parseExpressionStatement()

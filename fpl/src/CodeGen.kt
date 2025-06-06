@@ -650,6 +650,49 @@ fun TstStmt.codeGen()  {
             }
         }
 
+        is TstWhen -> {
+            val expReg = expr.codeGenRvalue()
+            val clauses = body.filterIsInstance<TstWhenClause>()
+            val labelEnd = currentFunc.newLabel()
+
+            // Generate code for the comparisons
+            val clauseLabels = mutableListOf<Label>()
+            for (clause in clauses) {
+                val clauseLabel = currentFunc.newLabel()
+                clauseLabels += clauseLabel
+                if (clause.exprs.isEmpty())
+                    currentFunc.addJump(clauseLabel)
+                else for (expr in clause.exprs)
+                    branchIfEqual(expReg, expr.codeGenRvalue(), clauseLabel, expr.type)
+            }
+            currentFunc.addJump(labelEnd)
+
+            // Generate code for the clause bodies
+            for(index in clauses.indices) {
+                currentFunc.addLabel(clauseLabels[index])
+                for (stmt in clauses[index].body)
+                    stmt.codeGen()
+                currentFunc.addJump(labelEnd)
+            }
+            currentFunc.addLabel(labelEnd)
+        }
+
+        is TstWhenClause -> error("WhenClause outside of when")
+    }
+}
+
+private fun branchIfEqual(a:Reg, b:Reg, label:Label, type:Type) {
+    when(type) {
+        TypeInt,
+        TypeBool,
+        TypeChar -> currentFunc.addBranch(AluOp.EQ_I, a, b, label)
+        TypeString -> {
+            currentFunc.addMov(allMachineRegs[1], a)
+            currentFunc.addMov(allMachineRegs[2], b)
+            val r = currentFunc.addCall(Stdlib.strequal)
+            currentFunc.addBranch(AluOp.NEQ_I, r, regZero, label)
+        }
+        else -> error("$type not supported in branchIfEqual")
     }
 }
 

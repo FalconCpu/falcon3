@@ -493,6 +493,52 @@ class CodeGenTest {
         runTest(prog, expected)
     }
 
+    @Test
+    fun whenTest() {
+        val prog = """
+            fun fred(a:Int) -> String
+                when a
+                    1 -> 
+                        return "one"
+                    2 -> 
+                        return "two"
+                    else ->
+                        return "other"
+        """.trimIndent()
+
+        val expected = """
+            Function fred
+            start
+            ld a, R1
+            ld T0, 1
+            beq a, T0, L2
+            ld T1, 2
+            beq a, T1, L3
+            jmp L4
+            jmp L1
+            L2:
+            ld T2, OBJ0
+            ld R8, T2
+            jmp L0
+            jmp L1
+            L3:
+            ld T3, OBJ1
+            ld R8, T3
+            jmp L0
+            jmp L1
+            L4:
+            ld T4, OBJ2
+            ld R8, T4
+            jmp L0
+            jmp L1
+            L1:
+            L0:
+            ret
+
+
+        """.trimIndent()
+        runTest(prog, expected)
+    }
 
 
 }

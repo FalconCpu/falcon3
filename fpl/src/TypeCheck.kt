@@ -1,3 +1,5 @@
+import kotlin.math.exp
+
 // Type checking phase of the compiler. This phase takes the AST built in the parser phase and
 // converts it to a TypeChecked AST (Tst).
 
@@ -672,7 +674,7 @@ fun AstStmt.typeCheck(context:AstBlock) : TstStmt {
         }
 
         is AstIf -> {
-            val clauses = body as List<AstIfClause>
+            val clauses = body.filterIsInstance<AstIfClause>()
             val pathContextOut = mutableListOf<PathContext>()
             val tcClauses = mutableListOf<TstIfClause>()
             for (clause in clauses) {
@@ -726,7 +728,47 @@ fun AstStmt.typeCheck(context:AstBlock) : TstStmt {
         }
 
         is AstLambda -> TODO()
+        is AstWhen -> {
+            val tcExpr = expr.typeCheckRvalue(context)
+            if (tcExpr.type!=TypeError && tcExpr.type!=TypeInt && tcExpr.type!=TypeString)
+                Log.error(location,"When only supports expressions of type Int or String")
+            val tcClauses = mutableListOf<TstWhenClause>()
+            for (clause in body.filterIsInstance<AstWhenClause>()) {
+                val tcArgs = clause.clauses.map{ it.typeCheckRvalue(context)}
+                for(arg in tcArgs)
+                    tcExpr.type.checkCompatibleWith(arg)
+                val tcBody = clause.body.map {it.typeCheck(this)}
+                tcClauses += TstWhenClause(clause.location, tcArgs, tcBody)
+            }
+            tcClauses.checkForDuplicates()
+            TstWhen(location, tcExpr, tcClauses)
+        }
+
+        is AstWhenClause -> error("AstWhenClause outside of when")
     }
+}
+
+private fun List<TstWhenClause>.checkForDuplicates() {
+    val elseClauses = filter { it.exprs.isEmpty() }
+    for (e in elseClauses)
+        if (e != last())
+            Log.error(e.location, "else clause must be the last clause in when")
+
+    val duplicateInt = mutableSetOf<Int>()
+    val duplicateString = mutableSetOf<String>()
+    for (clause in this)
+        for (expr in clause.exprs)
+            if (expr.isIntegerConstant()) {
+                val v = expr.getIntegerConstant()
+                if (v in duplicateInt)
+                    Log.error(expr.location, "Duplicate value '$v'")
+                duplicateInt += v
+            } else if (expr.isStringConstant()) {
+                val v = expr.getStringConstant()
+                if (v in duplicateString)
+                    Log.error(expr.location, "Duplicate value '$v'")
+                duplicateString += v
+            }
 }
 
 
