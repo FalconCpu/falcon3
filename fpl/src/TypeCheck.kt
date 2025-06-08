@@ -50,7 +50,7 @@ fun TstExpr.getSymbol() : Symbol = when(this) {
 //                            Rvalues
 // ================================================================
 
-fun AstExpr.typeCheckRvalue(context:AstBlock) : TstExpr {
+fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowTypeNames:Boolean=false) : TstExpr {
     return when (this) {
         is AstIntlit ->
             TstIntLit(location, value, TypeInt)
@@ -72,11 +72,17 @@ fun AstExpr.typeCheckRvalue(context:AstBlock) : TstExpr {
                         Log.error(location,"Symbol '$name' is uninitialized")
                     else if (symbol in pathContext.maybeUninitialized)
                         Log.error(location,"Symbol '$name' may be uninitialized")
+                    if (symbol in pathContext.freedVars && !allowFreeUse)
+                        Log.warn(location,"Symbol '$name' may point to a freed object")
                     TstVariable(location, symbol, pathContext.getType(symbol))
                 }
                 is SymbolGlobal -> TstGlobalVar(location, symbol, pathContext.getType(symbol))
                 is SymbolFunction -> TstFunctionName(location, symbol, symbol.type)
-                is SymbolTypeName -> TstError(location, "Cannot use type name '$name' as an expression")
+                is SymbolTypeName ->
+                    if (allowTypeNames)
+                        TstTypeName(location, symbol.type)
+                    else
+                        TstError(location, "Cannot use type name '$name' as an expression")
                 is SymbolField -> {
                     val thisSymbol = currentFunction?.thisSymbol
                     // do some sanity checks
@@ -88,13 +94,7 @@ fun AstExpr.typeCheckRvalue(context:AstBlock) : TstExpr {
                     val thisExpr = TstVariable(location, thisSymbol, thisSymbol.type)
                     TstMember(location, thisExpr, symbol, symbol.type)
                 }
-                is SymbolConstant -> {
-                    when(symbol.value) {
-                        is ValueClassDescriptor -> TstError(location, "Cannot use type name '$name' as an expression")
-                        is ValueInt -> TstIntLit(location, symbol.value.value, symbol.type)
-                        is ValueString -> TstStringlit(location, symbol.value.value, symbol.type)
-                    }
-                }
+                is SymbolConstant -> symbol.toExpression()
             }
         }
 
@@ -142,11 +142,19 @@ fun AstExpr.typeCheckRvalue(context:AstBlock) : TstExpr {
             val tcArgs = args.map{it.typeCheckRvalue(context)}
             val tcExpr = expr.typeCheckRvalue(context)
             if (tcExpr.type == TypeError) return tcExpr
-            if (tcExpr.type !is TypeFunction)
-                return TstError(location, "Cannot call expression of type ${tcExpr.type}")
-            val paramTypes = tcExpr.type.parameters
-            checkParameters(location, paramTypes, tcArgs)
-            TstCall(location, tcExpr, tcArgs, tcExpr.type.returnType)
+            when (tcExpr) {
+                is TstFunctionName -> tcExpr.symbol.resolveOverload(location, tcArgs, null)
+
+                is TstMethod ->  tcExpr.func.resolveOverload(location, tcArgs, tcExpr.thisExpr)
+
+                else -> {
+                    if (tcExpr.type !is TypeFunction)
+                        return TstError(location, "Cannot call expression of type ${tcExpr.type}")
+                    val paramTypes = tcExpr.type.parameters
+                    checkParameters(location, paramTypes, tcArgs)
+                    TODO("Indirect function calls")
+                }
+            }
         }
 
         is AstAnd -> {
@@ -207,8 +215,21 @@ fun AstExpr.typeCheckRvalue(context:AstBlock) : TstExpr {
         }
 
         is AstMember -> {
-            val tcExpr = expr.typeCheckRvalue(context)
-            when (tcExpr.type) {
+            val tcExpr = expr.typeCheckRvalue(context, allowTypeNames=true)
+            if (tcExpr is TstTypeName) {
+                // Accessing static members of a type
+                when (tcExpr.type) {
+                    is TypeEnum -> {
+                        val field = tcExpr.type.lookupSymbol(name)
+                        when (field) {
+                            null -> TstError(location, "Enum ${tcExpr.type} does not have a field named '$name'")
+                            is SymbolConstant -> field.toExpression()
+                            else -> error("Unexpected Symbol type")
+                        }
+                    }
+                    else -> TstError(location, "Cannot access static members of type '$tcExpr.type}'")
+                }
+            } else when (tcExpr.type) {
                 is TypeArray -> {
                     if (name== "size")
                         TstMember(location, tcExpr, sizeField, TypeInt)
@@ -315,7 +336,7 @@ fun AstExpr.typeCheckRvalue(context:AstBlock) : TstExpr {
                 }
 
                 is TypeClass -> {
-                    checkParameters(location, tcType.constructorParameters, tcArgs)
+                    checkParameters(location, tcType.constructor.parameters.map{it.type}, tcArgs)
                     TstNewObject(location, tcArgs, tcType, local)
                 }
 
@@ -342,28 +363,44 @@ fun AstExpr.typeCheckRvalue(context:AstBlock) : TstExpr {
             val tcType = typeExpr.resolveType(context)
             TstCast(location, tcExpr, tcType)
         }
+
+        is AstAbort ->{
+            val tcExpr = expr.typeCheckRvalue(context)
+            TypeInt.checkCompatibleWith(tcExpr)
+            pathContext = pathContext.setUnreachable()
+            TstAbort(location, tcExpr)
+        }
     }
 }
 
 
+private fun SymbolConstant.toExpression(): TstExpr {
+    return when(value) {
+        is ValueClassDescriptor -> TstError(location, "Cannot use type name '$name' as an expression")
+        is ValueInt -> TstIntLit(location, value.value, type)
+        is ValueString -> TstStringlit(location, value.value, type)
+    }
+}
+
 private fun checkParameters(location:Location, parameters:List<Type>, args:List<TstExpr>) {
-    if (parameters.isNotEmpty() && parameters.last() is TypeVararg) {
-        if (args.size < parameters.size-1) {
-            Log.error(location, "Got ${args.size} arguments when expecting at least ${parameters.size - 1}")
-            return
-        }
-        for (index in 0..<parameters.size-1)
-            parameters[index].checkCompatibleWith(args[index])
-        val varargType = (parameters.last() as TypeVararg).elementType
-        for (index in parameters.size-1..<args.size)
-            varargType.checkCompatibleWith(args[index])
-    } else {
+// TODO : Varargs should be handled here
+//    if (parameters.isNotEmpty() && parameters.last() is TypeVararg) {
+//        if (args.size < parameters.size-1) {
+//            Log.error(location, "Got ${args.size} arguments when expecting at least ${parameters.size - 1}")
+//            return
+//        }
+//        for (index in 0..<parameters.size-1)
+//            parameters[index].checkCompatibleWith(args[index])
+//        val varargType = (parameters.last() as TypeVararg).elementType
+//        for (index in parameters.size-1..<args.size)
+//            varargType.checkCompatibleWith(args[index])
+//    } else {
         // Not a vararg
         if (args.size != parameters.size)
             Log.error(location, "Got ${args.size} arguments when expecting ${parameters.size}")
         for (index in args.indices)
             parameters[index].checkCompatibleWith(args[index])
-    }
+//    }
 }
 
 // ================================================================
@@ -648,8 +685,10 @@ fun AstStmt.typeCheck(context:AstBlock) : TstStmt {
             val tcLhs = lhs.typeCheckLvalue(context)
             val tcRhs = rhs.typeCheckRvalue(context)
             tcLhs.type.checkCompatibleWith(tcRhs)
-            if (tcLhs.isSymbol())
-                pathContext = pathContext.refineType(tcLhs.getSymbol(), tcRhs.type)
+            if (tcLhs.isSymbol()) {
+                val sym = tcLhs.getSymbol()
+                pathContext = pathContext.reassignVar(sym).refineType(sym,tcRhs.type)
+            }
             var tcOp = AluOp.EQ_I
             if (op==TokenKind.PLUSEQ || op==TokenKind.MINUSEQ)
                 if (tcLhs.type==TypeInt || tcLhs.type==TypeChar)
@@ -759,7 +798,8 @@ fun AstStmt.typeCheck(context:AstBlock) : TstStmt {
         is AstPrint -> {
             val tcExprs = exprs.map { it.typeCheckRvalue(context) }
             for (tcExpr in tcExprs)
-                if (tcExpr.type != TypeInt && tcExpr.type != TypeString && tcExpr.type != TypeChar && tcExpr.type != TypeError)
+                if (tcExpr.type != TypeInt && tcExpr.type != TypeString && tcExpr.type != TypeChar
+                    && tcExpr.type != TypeError && tcExpr.type !is TypeEnum)
                     Log.error(tcExpr.location, "Got type ${tcExpr.type} but print only supports Int / Char/ String")
             TstPrint(location, tcExprs)
         }
@@ -782,16 +822,23 @@ fun AstStmt.typeCheck(context:AstBlock) : TstStmt {
         }
 
         is AstFree -> {
-            val tcExpr = expr.typeCheckRvalue(context)
+            val tcExpr = expr.typeCheckRvalue(context, allowFreeUse = true)
             if (tcExpr==TypeError)
                 return TstNullStmt(location)
             val type = if (tcExpr.type is TypeNullable) tcExpr.type.elementType else tcExpr.type
-            if (type !is TypeClass && type !is TypeArray)
+            if (type !is TypeClass && type !is TypeArray && type != TypeString)
                 Log.error(location, "Free only supports expressions of type Class or Array")
+            if (tcExpr.isSymbol()) {
+                val sym = tcExpr.getSymbol()
+                if (sym in pathContext.freedVars)
+                    Log.warn(location, "Possible double free of '$sym'")
+                pathContext = pathContext.freeVar(tcExpr.getSymbol())
+            }
             TstFree(location, tcExpr)
         }
 
         is AstWhenClause -> error("AstWhenClause outside of when")
+        is AstEnum -> TstNullStmt(location) // Do nothing here as enums are handled in the identify Fields stage
     }
 }
 
@@ -818,52 +865,121 @@ private fun List<TstWhenClause>.checkForDuplicates() {
             }
 }
 
+// ===============================================================================
+//                              Function Overloads
+// ===============================================================================
 
-private fun AstParameterList.createSymbols(context:AstBlock) : Pair<List<SymbolVar>,List<Type>> {
-    // Convert an AstParameterList into a list of Symbols and a list of types.
-    // If there are any vararg parameters then in the symbol list they will be represented as arrays, but in the
-    // type list as vararg type.
+private fun Function.canReceiveArgs(args:List<TstExpr>) : Boolean{
+    if (isVararg) {
+        if (args.size < parameters.size - 1)
+            return false
+        for(i in 0 until parameters.size-1)
+            if (! parameters[i].type.isAssignableFrom(args[i].type))
+                return false
+        val varargType = ((parameters.last().type) as TypeArray).elementType
+        for(i in parameters.size until args.size)
+            if (! varargType.isAssignableFrom(args[i].type))
+                return false
+        return true
+    } else {
+        if (args.size != parameters.size)
+            return false
+        for(i in parameters.indices)
+            if (! parameters[i].type.isAssignableFrom(args[i].type))
+                return false
+        return true
+    }
+}
 
-    val typesExternal = mutableListOf<Type>()
-    val symbolsInternal = mutableListOf<SymbolVar>()
+private fun Function.hasSameParametersAs(other:Function): Boolean {
+    if (isVararg != other.isVararg)
+        return false
+    if (parameters.size != other.parameters.size)
+        return false
+    for (i in parameters.indices)
+        if (parameters[i].type!=other.parameters[i].type)
+            return false
+    return true
+}
+
+private fun SymbolFunction.resolveOverload(location: Location, args:List<TstExpr>, thisArg:TstExpr?) : TstExpr {
+    val matching = functions.filter { it.canReceiveArgs(args) }
+    if (matching.isEmpty()) {
+        val candidates = functions.joinToString(separator = "\n") { it.name }
+        val argTypes = args.joinToString{it.type.name}
+        return TstError(location,"No functions match '$name($argTypes)'\nCandidates are:-\n$candidates")
+    } else if (matching.size>1) {
+        val duplicates = matching.joinToString(separator = "\n") { it.name }
+        val argTypes = args.joinToString{it.type.name}
+        return TstError(location, "Ambiguous overloads for '$name($argTypes)'\nCandidates are:-\n$duplicates")
+    } else
+        return TstCall(location, matching[0], args, thisArg, matching[0].returnType)
+}
+
+
+private fun AstParameterList.createSymbols(context:AstBlock) : List<SymbolVar> {
+    val ret = mutableListOf<SymbolVar>()
 
     for(param in params) {
-        val type = param.type.resolveType(context)
-        if (isVararg && param==params.last()) {
-            typesExternal += TypeVararg.create(type)
-            symbolsInternal += SymbolVar(param.location, param.name, TypeArray.create(type), false)
-        } else {
-            val sym = SymbolVar(param.location, param.name, type, false)
-            symbolsInternal += sym
-            typesExternal += type
-        }
+        var type = param.type.resolveType(context)
+        if (isVararg && param==params.last())
+            type = TypeArray.create(type)
+        ret += SymbolVar(param.location, param.name, type, false)
     }
-    return Pair(symbolsInternal,typesExternal)
+    return ret
 }
 
 private fun AstFunction.createFunctionSymbol(context:AstBlock) {
     // Generate symbols for parameters and add them to the functions symbol table
-    val (paramsInternal, typesExternal) = params.createSymbols(context)
+    val paramSymbols = params.createSymbols(context)
     val retType = this.retType?.resolveType(context) ?: TypeUnit
-    for (param in paramsInternal)
+    for (param in paramSymbols)
         addSymbol(param)
+
+    // Build the mangled name for the function
+
+    val funcName = if (context is AstClass) context.name+"/"+name else name
+    val paramTypeNames = paramSymbols.joinToString(prefix = "(", postfix = ")", separator = ",") {
+        if (params.isVararg && it == paramSymbols.last()) (it.type as TypeArray).elementType.name + "..." else it.type.name
+    }
 
     // Create the Function object to represent this function in the back end
     val thisSymbol = if (context is AstClass) SymbolVar(location, "this", context.classType, false) else null
-    val funcName = if (context is AstClass) "${context.name}/$name" else name
-    function = Function(funcName, paramsInternal, thisSymbol, retType)
+    function = Function(funcName+paramTypeNames, paramSymbols, thisSymbol, params.isVararg, retType)
     allFunctions += function
 
     // Special case - destructors are just methods with the name `free`. They are not allowed to take parameters
-    if (thisSymbol!=null && name=="free" && paramsInternal.isNotEmpty())
+    if (thisSymbol!=null && name=="free" && paramSymbols.isNotEmpty())
             Log.error(location, "Destructor cannot take parameters")
 
     // Create a symbol for this function and add it to the current scope
-    val funcType = TypeFunction.create(typesExternal, retType)
-    val symbol = SymbolFunction(location, name, funcType, function)
-    context.addSymbol(symbol)
-    if (context is AstClass)
-        context.classType.addSymbol(symbol)
+    // Allow for file-scope non-private symbols can get promoted to global scope
+    val existingSymbol = context.symbolTable[name] ?:
+            if (context is AstFile) context.parent?.symbolTable[name] else null
+
+    val sym = when(existingSymbol) {
+        null -> {
+            val new = SymbolFunction(location, name, TypeUnit, mutableListOf())
+            context.addSymbol(new)
+            if (context is AstClass)
+                context.classType.addSymbol(new)
+            new
+        }
+        is SymbolFunction -> existingSymbol
+        else -> {
+            Log.error(location, "Duplicate symbol '$name', first defined at ${existingSymbol.location}")
+            val new = SymbolFunction(location, name, TypeUnit, mutableListOf())
+            context.symbolTable[name] = new
+            new
+        }
+    }
+
+    // check to see if there is already a function with the same parameters
+    val duplicates = sym.functions.filter{it.hasSameParametersAs(function)}
+    if (duplicates.isNotEmpty())
+        Log.error(location, "Multiple definitions of '$name' with the same parameters")
+
+    sym.functions += function
 }
 
 private fun AstClass.createClassSymbol(context:AstBlock) {
@@ -874,20 +990,19 @@ private fun AstClass.createClassSymbol(context:AstBlock) {
 
 private fun AstClass.createFieldSymbols(context: AstBlock) {
     // build a function for the constructor
-    val (paramsInternal,typesExternal) = params.createSymbols(context)
+    val paramSymbols = params.createSymbols(context)
     val thisSym = SymbolVar(location, "this", classType, false)
     val thisExpr = TstVariable(thisSym.location, thisSym, thisSym.type)
-    classType.constructor = Function(name, paramsInternal, thisSym, TypeUnit)
-    classType.constructorParameters = typesExternal
+    classType.constructor = Function(name, paramSymbols, thisSym, params.isVararg, TypeUnit)
     allFunctions += classType.constructor
     val astConstructor = AstFunction(location, name, params, null, emptyList())  // provide a scope for the constructor
     astConstructor.setParent(this)
     astConstructor.addSymbol(thisSym)
-    for (sym in paramsInternal)
+    for (sym in paramSymbols)
         astConstructor.addSymbol(sym)
 
     // Parameters could be marked VAL or VAR - in which case they define a field as well as being constructor parameters
-    for ((param, sym) in params.params.zip(paramsInternal))
+    for ((param, sym) in params.params.zip(paramSymbols))
         if (param.kind == TokenKind.VAL || param.kind == TokenKind.VAR) {
             val fieldSymbol = SymbolField(param.location, param.name, sym.type, param.kind == TokenKind.VAR)
             classType.addSymbol(fieldSymbol)   // Add the field to the class
@@ -915,6 +1030,20 @@ private fun AstClass.createFieldSymbols(context: AstBlock) {
     }
 }
 
+private fun AstEnum.createEnumSymbol(context: AstBlock) {
+    val symbol = SymbolTypeName(location, name, enumType)
+    context.addSymbol(symbol)
+}
+
+private fun AstEnum.createFieldSymbols(context: AstBlock) {
+    // Create a symbol for each enum value
+    for ((index,name) in values.withIndex()) {
+        val value = ValueInt(index, enumType)
+        val symbol = SymbolConstant(location, name.name, enumType, value)
+        enumType.addSymbol(symbol)
+    }
+}
+
 
 private fun AstBlock.identifyFunctions() {
     // Recursively scan the AST for functions and create symbols for them
@@ -927,21 +1056,25 @@ private fun AstBlock.identifyFunctions() {
 
 private fun AstBlock.identifyFields() {
     // Recursively scan the AST for class fields
-    for (stmt in body.filterIsInstance<AstBlock>())
-        if (stmt is AstClass)
-            stmt.createFieldSymbols(this)
-        else
-            stmt.identifyFields()
+    for (stmt in body)
+        when (stmt) {
+            is AstClass -> stmt.createFieldSymbols(this)
+            is AstEnum -> stmt.createFieldSymbols(this)
+            is AstBlock -> stmt.identifyFields()
+            else -> {}
+        }
 }
 
 
 private fun AstBlock.identifyClasses() {
     // Recursively scan the AST for functions and create symbols for them
-    for (stmt in body.filterIsInstance<AstBlock>())
-        if (stmt is AstClass)
-            stmt.createClassSymbol(this)
-        else
-            stmt.identifyClasses()
+    for (stmt in body)
+        when (stmt) {
+            is AstClass -> stmt.createClassSymbol(this)
+            is AstEnum -> stmt.createEnumSymbol(this)
+            is AstBlock -> stmt.identifyClasses()
+            else -> {}
+        }
 }
 
 

@@ -1,0 +1,69 @@
+
+class StringBuilder
+    var buffer = new Array<Char>(8)
+    var length = 0
+
+    fun resize(newSize:Int)
+        val oldBuffer = buffer
+        buffer = new Array<Char>(newSize)
+        val lengthToCopy = if newSize >= length then length else newSize
+        memcpy(buffer as Int, oldBuffer as Int, lengthToCopy)
+        free oldBuffer
+
+    fun append(s:String)
+        val newLength = length + s.length
+        if newLength > buffer.size
+            resize(newLength)
+        memcpy((buffer as Int) + length, s as Int, s.length)
+        length = newLength
+
+    fun appendChar(c:Char)
+        if length = buffer.size
+            resize(length * 2)
+        buffer[length] = c
+        length += 1
+
+    fun appendInt(i:Int, fieldWidth:Int)
+        var n = i
+        val buf = local Array<Char>(12)
+        var index = 0
+        var minus = false
+        if n<0
+            minus = true
+            n = -n
+        repeat
+            buf[index] = (n % 10) + '0' as Char
+            n = n / 10
+            index += 1
+        until n=0
+        if minus
+            buf[index] = '-' as Char
+            index += 1
+        for x in 0..<(fieldWidth-index)
+            buf[index+x] = ' '
+        for i in index-1 ..>= 0
+            appendChar(buf[i])
+
+    fun appendHex(i:Int, fieldWidth:Int)
+        var n = i
+        val buf = local Array<Char>(8)
+        var index = 0
+        repeat
+            val digit = n & 0xF
+            buf[index] = if digit<=9 then digit+'0' as Char else digit-10+'A' as Char
+            n = n >> 4
+            index += 1
+        until n=0
+        for x in 0..<(fieldWidth-index)
+            buf[index+x] = ' '
+        for i in index-1 ..>= 0
+            appendChar(buf[i])
+
+
+    fun toString() -> String
+        val ret = new Array<Char>(length)
+        memcpy(ret as Int, buffer as Int, length)
+        return ret as String
+
+    fun free()
+        free buffer

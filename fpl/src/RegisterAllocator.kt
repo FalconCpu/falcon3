@@ -122,6 +122,7 @@ class RegisterAllocator(private val func: Function, private val livemap: Livemap
             is InstrStoreField -> InstrStoreField(size, replace(src), replace(addr), offset)
             is InstrLoadGlobal -> InstrLoadGlobal(replace(dest), global)
             is InstrStoreGlobal -> InstrStoreGlobal(replace(src), global)
+            is InstrSyscall -> this
         }
         new.index = index
         return new

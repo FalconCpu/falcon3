@@ -92,6 +92,13 @@ class Parser(val lexer: Lexer) {
         return AstReturn(ret.location, expr)
     }
 
+    private fun parseAbort() : AstAbort {
+        val ret = match(ABORT)
+        val expr = parseExpression()
+        return AstAbort(ret.location, expr)
+    }
+
+
     private fun parseBreak() : AstBreak {
         val ret = match(BREAK)
         return AstBreak(ret.location)
@@ -135,6 +142,7 @@ class Parser(val lexer: Lexer) {
             CONTINUE -> parseContinue()
             NEW -> parseNew()
             LOCAL -> parseNew()
+            ABORT -> parseAbort()
             else -> throw ParseError(currentToken.location, "Got '$currentToken' when expecting primary expression")
         }
     }
@@ -568,6 +576,20 @@ class Parser(val lexer: Lexer) {
         return AstClass(loc.location, name.text, params, body)
     }
 
+    private fun parseEnum(): AstEnum {
+        val values = mutableListOf<AstId>()
+        val loc = match(ENUM)
+        val name = match(ID)
+        match(OPENSQ)
+        do {
+            val id = match(ID)
+            values.add(AstId(id.location, id.text))
+        } while (canTake(COMMA))
+        match(CLOSESQ)
+        expectEol()
+        return AstEnum(loc.location, name.text, values)
+    }
+
     private fun parseStatement() : AstStmt {
         val loc = currentToken.location
         try {
@@ -583,6 +605,7 @@ class Parser(val lexer: Lexer) {
                 FREE -> parseFree()
                 CLASS -> parseClass()
                 CONST -> parseConst()
+                ENUM -> parseEnum()
                 else -> parseExpressionStatement()
             }
         } catch (e: ParseError) {

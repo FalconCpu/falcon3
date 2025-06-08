@@ -213,7 +213,12 @@ class ExecuteTest {
 
         val expected = """
             EXCEPTION Index out of range: pc=ffff01c8: data=0000000a
-
+            $ 1=00001008 $ 2=0000000a $ 3=0000000a $ 4=0000000a $ 5=00000000 $ 6=00000000 
+            $ 7=00000000 $ 8=0000002d $ 9=00000000 $10=00001000 $11=00000000 $12=00000000 
+            $13=00000000 $14=00000000 $15=00000000 $16=00000000 $17=00000000 $18=00000000 
+            $19=00000000 $20=00000000 $21=00000000 $22=00000000 $23=00000000 $24=00000000 
+            $25=00000000 $26=00000000 $27=00000000 $28=00000000 $29=00000100 $30=ffff0228 
+            $31=03fffffc 
         """.trimIndent()
         runTest(prog, expected)
     }
@@ -622,6 +627,79 @@ class ExecuteTest {
         """.trimIndent()
         runTest(prog, expected)
     }
+
+    @Test
+    fun enumTest() {
+        val prog = """
+            enum DayOfWeek [ MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY ]
+            enum TrafficLight [ RED, AMBER, GREEN ]
+
+            fun main()
+                # 1. Access an enum member and assign it to a variable
+                val today = DayOfWeek.MONDAY
+                val tomorrow = DayOfWeek.TUESDAY
+            
+                # 2. Print enum members directly (assuming they resolve to printable values, likely integers)
+                print("Today is: ", today, "\n")
+                print("Tomorrow is: ", tomorrow, "\n")
+                print("The light is: ", TrafficLight.RED, "\n")
+            
+                # 3. Use enum members in a simple comparison
+                if today = DayOfWeek.MONDAY
+                    print("Starting the week!\n")
+                else
+                    print("Not Monday.\n")
+            
+                if DayOfWeek.SATURDAY = DayOfWeek.SUNDAY
+                    print("Weekend equality is true.\n")
+                else
+                    print("Weekend equality is false.\n")
+            
+                # 4. Test a different enum's member
+                if TrafficLight.GREEN = TrafficLight.RED
+                    print("Traffic light equality is true.\n")
+                else
+                    print("Traffic light equality is false.\n")
+            
+                print("--- Test Complete ---\n")
+                 
+        """.trimIndent()
+
+        val expected = """
+            Today is: 0
+            Tomorrow is: 1
+            The light is: 0
+            Starting the week!
+            Weekend equality is false.
+            Traffic light equality is false.
+            --- Test Complete ---
+
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
+    @Test
+    fun overloadFuncCall() {
+        val prog = """
+            fun doSomething(a:Int)
+                print("Int ",a,"\n")
+                
+            fun doSomething(a:String)
+                print("String ",a,"\n")
+                
+            fun main()
+                doSomething(1)
+                doSomething("hello")
+        """.trimIndent()
+
+        val expected = """
+            Int 1
+            String hello
+
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
 
 
 }

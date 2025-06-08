@@ -26,6 +26,7 @@ sealed class Instr {
         is InstrStoreField -> "${size.storeOp()} $src, $addr[$offset]"
         is InstrLoadGlobal -> "ld $dest, GLOBAL[$global]"
         is InstrStoreGlobal -> "st $src, GLOBAL[$global]"
+        is InstrSyscall -> "syscall $syscall"
     }
 
     fun getDef() : Reg? = when(this) {
@@ -49,6 +50,7 @@ sealed class Instr {
         is InstrStoreField -> null
         is InstrLoadGlobal -> dest
         is InstrStoreGlobal -> null
+        is InstrSyscall -> null
     }
 
     fun getUse() : List<Reg> = when(this) {
@@ -72,6 +74,7 @@ sealed class Instr {
         is InstrStoreField -> listOf(src, addr)
         is InstrLoadGlobal -> emptyList()
         is InstrStoreGlobal -> listOf(src)
+        is InstrSyscall -> emptyList()
     }
 }
 
@@ -95,6 +98,7 @@ class InstrLoadField(val size:Int, val dest:Reg, val addr:Reg, val offset:Symbol
 class InstrStoreField(val size:Int, val src:Reg, val addr:Reg, val offset:SymbolField) : Instr()
 class InstrLoadGlobal(val dest:Reg, val global:SymbolGlobal) : Instr()
 class InstrStoreGlobal(val src:Reg, val global:SymbolGlobal) : Instr()
+class InstrSyscall(val syscall:Int) : Instr()
 
 
 

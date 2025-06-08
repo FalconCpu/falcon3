@@ -19,7 +19,7 @@ class CodeGenTest {
         """.trimIndent()
 
         val expected = """
-            Function main
+            Function main()
             start
             ld T0, 1
             ld x, T0
@@ -48,7 +48,7 @@ class CodeGenTest {
         """.trimIndent()
 
         val expected = """
-            Function sum
+            Function sum(Array<Int>)
             start
             ld a, R1
             ld T0, 0
@@ -99,7 +99,7 @@ class CodeGenTest {
         """.trimIndent()
 
         val expected = """
-            Function sum
+            Function sum(Array<Int>)
             start
             ld a, R1
             ld T0, 0
@@ -128,36 +128,38 @@ class CodeGenTest {
             L0:
             ret
 
-            Function main
+            Function main()
             start
             ld T0, 10
             ld T1, 4
+            ld T2, 1
             ld R1, T0
             ld R2, T1
-            jsr callocArray
-            ld T2, R8
-            ld a, T2
-            ld T3, 0
-            ld i, T3
-            ld T4, 9
-            ld T5, T4
+            ld R3, T2
+            jsr mallocArray(Int,Int,Bool)
+            ld T3, R8
+            ld a, T3
+            ld T4, 0
+            ld i, T4
+            ld T5, 9
+            ld T6, T5
             jmp L4
             L1:
-            ldw T6, a[size]
-            idx4 T7, i, T6
-            ADD_I T8, a, T7
-            stw i, T8[0]
+            ldw T7, a[size]
+            idx4 T8, i, T7
+            ADD_I T9, a, T8
+            stw i, T9[0]
             L3:
-            ADD_I T9, i, 1
-            ld i, T9
+            ADD_I T10, i, 1
+            ld i, T10
             L4:
-            ble i, T5, L1
+            ble i, T6, L1
             jmp L2
             L2:
             ld R1, a
-            jsr sum
-            ld T10, R8
-            ld R1, T10
+            jsr sum(Array<Int>)
+            ld T11, R8
+            ld R1, T11
             jsr printInt
             L0:
             ret
@@ -182,7 +184,7 @@ class CodeGenTest {
         """.trimIndent()
 
         val expected = """
-            Function printArray
+            Function printArray(Array<Int>)
             start
             ld array, R1
             ldw T0, array[size]
@@ -208,34 +210,36 @@ class CodeGenTest {
             L0:
             ret
 
-            Function main
+            Function main()
             start
             ld T0, 10
             ld T1, 4
+            ld T2, 1
             ld R1, T0
             ld R2, T1
-            jsr callocArray
-            ld T2, R8
-            ld a, T2
-            ld T3, 0
-            ld i, T3
-            ld T4, 9
-            ld T5, T4
+            ld R3, T2
+            jsr mallocArray(Int,Int,Bool)
+            ld T3, R8
+            ld a, T3
+            ld T4, 0
+            ld i, T4
+            ld T5, 9
+            ld T6, T5
             jmp L4
             L1:
-            ldw T6, a[size]
-            idx4 T7, i, T6
-            ADD_I T8, a, T7
-            stw i, T8[0]
+            ldw T7, a[size]
+            idx4 T8, i, T7
+            ADD_I T9, a, T8
+            stw i, T9[0]
             L3:
-            ADD_I T9, i, 1
-            ld i, T9
+            ADD_I T10, i, 1
+            ld i, T10
             L4:
-            ble i, T5, L1
+            ble i, T6, L1
             jmp L2
             L2:
             ld R1, a
-            jsr printArray
+            jsr printArray(Array<Int>)
             L0:
             ret
 
@@ -252,29 +256,31 @@ class CodeGenTest {
         """.trimIndent()
 
         val expected = """
-            Function main
+            Function main()
             start
             ld T0, 10
             ld T1, 4
+            ld T2, 0
             ld R1, T0
             ld R2, T1
-            jsr mallocArray
-            ld T2, R8
-            ld V36, 0
-            ld V37, T2
+            ld R3, T2
+            jsr mallocArray(Int,Int,Bool)
+            ld T3, R8
+            ld V37, 0
+            ld V38, T3
             jmp L2
             L1:
-            ld it, V36
-            ld T3, 2
-            MUL_I T4, it, T3
-            stw T4, V37[0]
-            ADD_I T5, V36, 1
-            ld V36, T5
-            ADD_I T6, V37, 4
+            ld it, V37
+            ld T4, 2
+            MUL_I T5, it, T4
+            stw T5, V38[0]
+            ADD_I T6, V37, 1
             ld V37, T6
+            ADD_I T7, V38, 4
+            ld V38, T7
             L2:
-            blt V36, T0, L1
-            ld a, T2
+            blt V37, T0, L1
+            ld a, T3
             L0:
             ret
 
@@ -296,7 +302,7 @@ class CodeGenTest {
         """.trimIndent()
 
         val expected = """
-            Function printCat
+            Function printCat(Cat)
             start
             ld c, R1
             ldw T0, c[name]
@@ -335,7 +341,7 @@ class CodeGenTest {
         """.trimIndent()
 
         val expected = """
-            Function printCat
+            Function printCat(Cat)
             start
             ld c, R1
             ldw T0, c[name]
@@ -347,11 +353,11 @@ class CodeGenTest {
             L0:
             ret
 
-            Function main
+            Function main()
             start
             ld T0, Cat/class
             ld R1, T0
-            jsr mallocObject
+            jsr mallocObject(ClassDescriptor)
             ld T1, R8
             ld T2, OBJ0
             ld T3, 3
@@ -361,7 +367,7 @@ class CodeGenTest {
             jsr Cat
             ld c, T1
             ld R1, c
-            jsr printCat
+            jsr printCat(Cat)
             L0:
             ret
 
@@ -396,7 +402,7 @@ class CodeGenTest {
         """.trimIndent()
 
         val expected = """
-            Function Cat/greet
+            Function Cat/greet()
             start
             ld this, R1
             ldw T0, this[name]
@@ -408,11 +414,11 @@ class CodeGenTest {
             L0:
             ret
 
-            Function main
+            Function main()
             start
             ld T0, Cat/class
             ld R1, T0
-            jsr mallocObject
+            jsr mallocObject(ClassDescriptor)
             ld T1, R8
             ld T2, OBJ1
             ld T3, 3
@@ -422,7 +428,7 @@ class CodeGenTest {
             jsr Cat
             ld c, T1
             ld R1, c
-            jsr Cat/greet
+            jsr Cat/greet()
             L0:
             ret
 
@@ -454,7 +460,7 @@ class CodeGenTest {
         """.trimIndent()
 
         val expected = """
-            Function fred
+            Function fred(Int,Int...)
             start
             ld a, R1
             ld b, R2
@@ -468,7 +474,7 @@ class CodeGenTest {
             L0:
             ret
 
-            Function main
+            Function main()
             start
             ld T0, 4
             stw T0, SP[0]
@@ -484,7 +490,7 @@ class CodeGenTest {
             ADD_I T6, SP, 4
             ld R1, T5
             ld R2, T6
-            jsr fred
+            jsr fred(Int,Int...)
             L0:
             ret
 
@@ -507,7 +513,7 @@ class CodeGenTest {
         """.trimIndent()
 
         val expected = """
-            Function fred
+            Function fred(Int)
             start
             ld a, R1
             ld T0, 1
@@ -539,6 +545,138 @@ class CodeGenTest {
         """.trimIndent()
         runTest(prog, expected)
     }
+
+
+    @Test
+    fun enumTest() {
+        val prog = """
+            enum DayOfWeek [ MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY ]
+            enum TrafficLight [ RED, AMBER, GREEN ]
+
+            fun main()
+                # 1. Access an enum member and assign it to a variable
+                val today = DayOfWeek.MONDAY
+                val tomorrow = DayOfWeek.TUESDAY
+            
+                # 2. Print enum members directly (assuming they resolve to printable values, likely integers)
+                print("Today is: ", today, "\n")
+                print("Tomorrow is: ", tomorrow, "\n")
+                print("The light is: ", TrafficLight.RED, "\n")
+            
+                # 3. Use enum members in a simple comparison
+                if today = DayOfWeek.MONDAY
+                    print("Starting the week!\n")
+                else
+                    print("Not Monday.\n")
+            
+                if DayOfWeek.SATURDAY = DayOfWeek.SUNDAY
+                    print("Weekend equality is true.\n")
+                else
+                    print("Weekend equality is false.\n")
+            
+                # 4. Test a different enum's member
+                if TrafficLight.GREEN = TrafficLight.RED
+                    print("Traffic light equality is true.\n")
+                else
+                    print("Traffic light equality is false.\n")
+            
+                print("--- Test Complete ---\n")
+                 
+        """.trimIndent()
+
+        val expected = """
+            Function main()
+            start
+            ld T0, 0
+            ld today, T0
+            ld T1, 1
+            ld tomorrow, T1
+            ld T2, OBJ0
+            ld R1, T2
+            jsr printString
+            ld R1, today
+            jsr printInt
+            ld T3, OBJ1
+            ld R1, T3
+            jsr printString
+            ld T4, OBJ2
+            ld R1, T4
+            jsr printString
+            ld R1, tomorrow
+            jsr printInt
+            ld T5, OBJ1
+            ld R1, T5
+            jsr printString
+            ld T6, OBJ3
+            ld R1, T6
+            jsr printString
+            ld T7, 0
+            ld R1, T7
+            jsr printInt
+            ld T8, OBJ1
+            ld R1, T8
+            jsr printString
+            ld T9, 0
+            beq today, T9, L2
+            jmp L3
+            L3:
+            jmp L4
+            L2:
+            ld T10, OBJ4
+            ld R1, T10
+            jsr printString
+            jmp L1
+            L4:
+            ld T11, OBJ5
+            ld R1, T11
+            jsr printString
+            jmp L1
+            L1:
+            ld T12, 5
+            ld T13, 6
+            beq T12, T13, L6
+            jmp L7
+            L7:
+            jmp L8
+            L6:
+            ld T14, OBJ6
+            ld R1, T14
+            jsr printString
+            jmp L5
+            L8:
+            ld T15, OBJ7
+            ld R1, T15
+            jsr printString
+            jmp L5
+            L5:
+            ld T16, 2
+            ld T17, 0
+            beq T16, T17, L10
+            jmp L11
+            L11:
+            jmp L12
+            L10:
+            ld T18, OBJ8
+            ld R1, T18
+            jsr printString
+            jmp L9
+            L12:
+            ld T19, OBJ9
+            ld R1, T19
+            jsr printString
+            jmp L9
+            L9:
+            ld T20, OBJ10
+            ld R1, T20
+            jsr printString
+            L0:
+            ret
+
+
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
 
 
 }

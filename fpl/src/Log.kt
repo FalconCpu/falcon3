@@ -9,6 +9,11 @@ object Log {
         allErrors.add("$location: $message")
     }
 
+    fun warn(location:Location, message:String) {
+        allErrors.add("$location: $message")
+    }
+
+
     fun hasErrors() = allErrors.isNotEmpty()
 
     fun getErrors() = allErrors.joinToString("\n")

@@ -19,7 +19,7 @@ class RegisterAllocatorTest {
         """.trimIndent()
 
         val expected = """
-            Function main
+            Function main()
             start
             ld R8, 3
             ret

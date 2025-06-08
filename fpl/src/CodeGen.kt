@@ -68,17 +68,23 @@ fun TstExpr.codeGenRvalue() : Reg {
         }
 
         is TstCall -> {
-            if (expr is TstFunctionName) {
-                val argReg = evaluateArgs(args, (expr.type as TypeFunction).parameters)
-                val thisReg = if (currentFunc.thisSymbol!=null) currentFunc.getVar(currentFunc.thisSymbol!!) else null
-                codeGenCall(thisReg, argReg, expr.symbol.function, currentFunc.thisSymbol?.type)
-            } else if (expr is TstMethod) {
-                val thisReg = expr.thisExpr.codeGenRvalue()
-                val argReg = evaluateArgs(args, (expr.func.type as TypeFunction).parameters)
-                codeGenCall(thisReg, argReg, expr.func.function, expr.thisExpr.type )
+            val argReg = evaluateArgs(args, func.isVararg, func.parameters.map { it.type })
+            val thisReg : Reg?
+            val thisType : Type ?
+            if (thisArg!=null) {
+                thisReg = thisArg.codeGenRvalue()
+                thisType = thisArg.type
+            } else if (currentFunc.thisSymbol!=null) {
+                thisReg = currentFunc.getVar(currentFunc.thisSymbol!!)
+                thisType = currentFunc.thisSymbol!!.type
             } else {
-                TODO("Indirect function call")
+                thisReg = null
+                thisType = null
             }
+            codeGenCall(thisReg, argReg, func, thisType)
+            // TODO - fix variadic functions
+            // TODO - FIx for method calls a.x()
+            // TODO("Indirect function call")
         }
 
         is TstIndex -> {
@@ -167,14 +173,12 @@ fun TstExpr.codeGenRvalue() : Reg {
                 val numElementsReg = size.codeGenRvalue()
                 val elementSize = (type as TypeArray).elementType.sizeInBytes()
                 val elementSizeReg = currentFunc.addMov(elementSize)
-                val args = listOf(numElementsReg, elementSizeReg)
-                if (initializer==null) {
-                    currentFunc.addCall(Stdlib.callocArray, args)
-                } else {
-                    val ret = currentFunc.addCall(Stdlib.mallocArray, args)
+                val clearMemReg = currentFunc.addMov(if (initializer==null) 1 else 0)
+                val args = listOf(numElementsReg, elementSizeReg, clearMemReg)
+                val ret = currentFunc.addCall(Stdlib.mallocArray, args)
+                if (initializer!=null)
                     initializeArray(ret, initializer, elementSize, numElementsReg)
-                    ret
-                }
+                ret
             }
         }
 
@@ -210,7 +214,7 @@ fun TstExpr.codeGenRvalue() : Reg {
                 currentFunc.addMov(allMachineRegs[1], classDescriptor)
                 val ret = currentFunc.addCall(Stdlib.mallocObject)
 
-                val argRegs = evaluateArgs(args, classType.constructorParameters)
+                val argRegs = evaluateArgs(args, classType.constructor.isVararg, classType.constructor.parameters.map{it.type})
                 codeGenCall(ret, argRegs, classType.constructor, classType )
                 ret
             }
@@ -222,11 +226,22 @@ fun TstExpr.codeGenRvalue() : Reg {
             val ret = expr.codeGenRvalue()
             currentFunc.addMov(ret)
         }
+
+        is TstAbort -> {
+            val argReg = expr.codeGenRvalue()
+            currentFunc.addMov(allMachineRegs[1], argReg)
+            currentFunc.addSystemCall(Stdlib.SYS_ABORT)
+            regZero
+        }
+
+        is TstTypeName -> error("Type names should not appear as rvalues")
+
+        is TstIndirectCall -> TODO()
     }
 }
 
-private fun evaluateArgs(args:List<TstExpr>, types:List<Type>) : List<Reg>{
-    if (types.isNotEmpty() && types.last() is TypeVararg) {
+private fun evaluateArgs(args:List<TstExpr>, isVarargs:Boolean, types:List<Type>) : List<Reg>{
+    if (isVarargs) {
         val numRegularArgs = types.size-1
         val numVarargs = args.size - numRegularArgs
 
@@ -697,6 +712,7 @@ fun TstStmt.codeGen()  {
                     is TypeInt -> currentFunc.addCall(Stdlib.printInt)
                     is TypeChar -> currentFunc.addCall(Stdlib.printChar)
                     is TypeString -> currentFunc.addCall(Stdlib.printString)
+                    is TypeEnum -> currentFunc.addCall(Stdlib.printInt)
                     else -> error("Unsupported type ${arg.type}")
                 }
             }
@@ -743,7 +759,7 @@ fun TstStmt.codeGen()  {
                 val destructor = typex.lookupSymbol("free")
                 if (destructor is SymbolFunction) {
                     // Call the destructor
-                    currentFunc.addCall(destructor.function, listOf(argReg))
+                    currentFunc.addCall(destructor.functions[0], listOf(argReg))
                 }
             }
 

@@ -27,7 +27,7 @@ enum class TokenKind(val text:String, val lineContinues:Boolean) {
     EQ         ("=", true),
     NEQ        ("!=", true),
     LT         ("<", true),
-    GT         (">", true),
+    GT         (">", false),
     LTE        ("<=", true),
     GTE        (">=", true),
     PLUSEQ     ("+=", true),
@@ -81,6 +81,7 @@ enum class TokenKind(val text:String, val lineContinues:Boolean) {
     CLASS      ("class", false),
     WHEN       ("when", false),
     PRINT      ("print", false),
+    ENUM       ("enum", false),
     ERROR      ("<error>", false);
 
     companion object {

@@ -19,22 +19,27 @@ array initializers - new Array<Int>[1,2,3]
 infer Array type from initializer/lambda
 if expressions
 destructors (free operator)
+abort instruction
+enums
 
 
 Short term:
-enums
 unsafe blocks
-abort instruction
 ?: !! and .? operators
+public/private
+static class fields
+static methods
+function overloading
+default arguments to functions
 
 Longer term:
 tuples
 inline arrays/structs
 inheritance
 extension functions
-path typing
 const propagation in IR
 CSE optimisation
 bounds check elision
 floating point
 more thorough pathContext checking in loops (iterate to fixed point)
+enums with data values

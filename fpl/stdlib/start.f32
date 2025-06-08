@@ -16,7 +16,7 @@ ld $10, 0x1000       # address for start of heap
 stw $10, $9[SYSVARS_HEAP_PTR]
 
 # jsr /init          # Call the initialization function
-jsr /main            # Call the main function
+jsr /main()          # Call the main function
 ld $30,0             # Do a jump to address zero to exit the program
 jmp $30[0]
 
@@ -92,7 +92,7 @@ jmp $30[0]
 # returns:
 # $8 = pointer to array
 
-/mallocArray:
+/mallocArray(Int,Int,Bool):
     mul $2, $2, $1               # $2 = number of bytes for array body
     add $2, 7                    # round up to multiple of 8
     and $2, -8
@@ -144,7 +144,7 @@ jmp $30[0]
 # returns:
 # $8 = pointer to newly allocated object
 
-/mallocObject:
+/mallocObject(ClassDescriptor):
     ldw $2, $1[0]                # get the sizeInBytes field of the class descriptor
     add $2, 7                    # round up to multiple of 8
     and $2, -8

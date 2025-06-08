@@ -1,6 +1,6 @@
 val allFunctions = mutableListOf<Function>()
 
-class Function(val name:String, val parameters:List<SymbolVar>, val thisSymbol : SymbolVar?, val returnType:Type) {
+class Function(val name:String, val parameters:List<SymbolVar>, val thisSymbol : SymbolVar?, val isVararg:Boolean, val returnType:Type) {
     val code = mutableListOf<Instr>()
     val regs = allMachineRegs.toMutableList<Reg>()
     val labels = mutableListOf<Label>()
@@ -157,6 +157,9 @@ class Function(val name:String, val parameters:List<SymbolVar>, val thisSymbol :
         addInstr(InstrStoreGlobal(src, global))
     }
 
+    fun addSystemCall(syscall:Int) {
+        addInstr(InstrSyscall(syscall))
+    }
 
     fun addIndexOp(scale:Int, src:Reg, limit:Reg) : Reg {
         val op = when(scale) {

@@ -116,6 +116,7 @@ private fun Instr.genAssembly() = when(this) {
     is InstrStoreField -> "${size.storeOp()} $src, $addr[${offset.offset}]"
     is InstrLoadGlobal -> "ldw $dest, R29[${global.offset}]"
     is InstrStoreGlobal -> "stw $src, R29[${global.offset}]"
+    is InstrSyscall -> "sys $syscall"
 }
 
 fun Function.genAssembly(sb:StringBuilder) {

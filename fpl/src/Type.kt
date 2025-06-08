@@ -54,20 +54,6 @@ class TypeNullable private constructor(name:String, val elementType: Type) : Typ
     }
 }
 
-class TypeVararg private constructor(name:String, val elementType: Type) : Type(name) {
-    companion object {
-        val allVarargTypes = mutableMapOf<Type, TypeVararg>()
-        fun create(elementType: Type) : Type {
-            if (elementType is TypeError) return TypeError
-            return allVarargTypes.getOrPut(elementType) {
-                val name = "$elementType..."
-                TypeVararg(name, elementType)
-            }
-        }
-    }
-}
-
-
 class TypeFunction private constructor(name:String, val parameters: List<Type>, val returnType: Type) : Type(name) {
     companion object {
         val allFunctionTypes = mutableListOf<TypeFunction>()
@@ -83,11 +69,26 @@ class TypeFunction private constructor(name:String, val parameters: List<Type>, 
     }
 }
 
+class TypeEnum(name:String) : Type(name) {
+    val symbols = mutableMapOf<String, Symbol>()
+
+    fun addSymbol(symbol:Symbol) {
+        val duplicate = symbols[symbol.name]
+        if (duplicate!=null)
+            Log.error(symbol.location, "Duplicate symbol '$symbol', first defined here: ${duplicate.location}")
+        symbols[symbol.name] = symbol
+    }
+
+    fun lookupSymbol(name:String) : Symbol? {
+        return symbols[name]
+    }
+}
+
+
 class TypeClass private constructor(name:String, val baseType: Type?) : Type(name) {
     val symbols = mutableMapOf<String, Symbol>()
     var sizeInBytes = 0
     lateinit var constructor : Function
-    lateinit var constructorParameters : List<Type>
 
     fun addSymbol(symbol:Symbol) {
         val duplicate = symbols[symbol.name]
@@ -163,8 +164,8 @@ fun Type.sizeInBytes() : Int {
         TypeReal -> 4
         TypeString -> 4
         TypeUnit -> 0
-        is TypeVararg -> 4
         is TypeClass -> 4  // References to a class are pointers
+        is TypeEnum -> 4  // References to an enum are integers
     }
 
 }

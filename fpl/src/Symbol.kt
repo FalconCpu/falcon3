@@ -15,7 +15,7 @@ class SymbolVar(location: Location, name:String, type:Type, mutable:Boolean) : S
 class SymbolGlobal(location: Location, name:String, type:Type, mutable:Boolean) : Symbol(location, name, type, mutable) {
     var offset = -1;
 }
-class SymbolFunction(location: Location, name:String, type:Type, val function:Function) : Symbol(location, name, type, false)
+class SymbolFunction(location: Location, name:String, type:Type, val functions:MutableList<Function>) : Symbol(location, name, type, false)
 class SymbolTypeName(location: Location, name:String, type:Type) : Symbol(location, name, type, false)
 class SymbolField(location: Location, name:String, type:Type, mutable: Boolean) : Symbol(location, name, type, mutable) {
     var offset = -1;
@@ -70,7 +70,8 @@ private val predefinedSymbolList = listOf(
     SymbolTypeName(nullLocation, "Nothing", TypeNothing),
     SymbolConstant(nullLocation, "true", TypeBool, ValueInt(1, TypeBool)),
     SymbolConstant(nullLocation, "false", TypeBool, ValueInt(0, TypeBool)),
-    SymbolConstant(nullLocation, "null", TypeNull, ValueInt(0, TypeNull))
+    SymbolConstant(nullLocation, "null", TypeNull, ValueInt(0, TypeNull)),
+    SymbolFunction(nullLocation, "memcpy",TypeFunction.create(listOf(TypeInt,TypeInt,TypeInt),TypeInt), mutableListOf(Stdlib.memcpy)),
 )
 
 val predefinedSymbols = predefinedSymbolList.associateBy { it.name }

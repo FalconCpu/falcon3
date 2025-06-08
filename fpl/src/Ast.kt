@@ -1,3 +1,4 @@
+import kotlin.math.PI
 
 sealed class Ast (val location: Location)
 
@@ -27,6 +28,7 @@ class AstRange(location: Location, val start: AstExpr, val end: AstExpr, val op:
 class AstNew(location: Location, val type:AstTypeExpr, val args: List<AstExpr>, val lambda:AstLambda?, val local:Boolean) : AstExpr(location)
 class AstNewWithInitialiser(location: Location, val type:AstTypeExpr, val initializer: List<AstExpr>, val local:Boolean) : AstExpr(location)
 class AstCast(location: Location, val expr:AstExpr, val typeExpr:AstTypeExpr) : AstExpr(location)
+class AstAbort(location: Location, val expr: AstExpr) : AstExpr(location)
 
 class AstCall(location: Location, val expr: AstExpr, val args: List<AstExpr>) : AstExpr(location)
 
@@ -51,6 +53,9 @@ class AstDecl(location: Location, val kind:TokenKind, val name: String, val type
 class AstConst(location: Location, val name:String, val typeExpr:AstTypeExpr?, val expr:AstExpr) : AstStmt(location)
 class AstPrint(location: Location, val exprs: List<AstExpr>) : AstStmt(location)
 class AstFree(location: Location, val expr: AstExpr) : AstStmt(location)
+class AstEnum(location: Location, val name:String, val values: List<AstId>) : AstStmt(location) {
+    val enumType = TypeEnum(name)
+}
 
 // ================================================
 //                  Blocks
@@ -322,6 +327,17 @@ fun Ast.prettyPrint(sb: StringBuilder, indent:Int) {
         is AstFree -> {
             sb.append("Free\n")
             expr.prettyPrint(sb, indent+1)
+        }
+
+        is AstAbort -> {
+            sb.append("Abort\n")
+            expr.prettyPrint(sb, indent+1)
+        }
+
+        is AstEnum -> {
+            sb.append("Enum $name\n")
+            for (field in values)
+                field.prettyPrint(sb, indent+1)
         }
     }
 }

@@ -13,6 +13,7 @@ class TstReallit(location: Location, val value: Double, type:Type) : TstExpr(loc
 class TstStringlit(location: Location, val value: String, type:Type) : TstExpr(location, type)
 class TstVariable(location: Location, val symbol:SymbolVar, type:Type) : TstExpr(location, type)
 class TstGlobalVar(location: Location, val symbol:SymbolGlobal, type:Type) : TstExpr(location, type)
+class TstTypeName(location: Location, type:Type) : TstExpr(location, type)
 class TstFunctionName(location: Location, val symbol:SymbolFunction, type:Type) : TstExpr(location, type)
 class TstBinop(location: Location, val op: AluOp, val lhs: TstExpr, val rhs: TstExpr, type:Type) : TstExpr(location, type)
 class TstAnd(location: Location, val lhs: TstExpr, val rhs: TstExpr) : TstExpr(location, TypeBool)
@@ -26,17 +27,20 @@ class TstContinue(location: Location) : TstExpr(location, TypeNothing)
 class TstMinus(location: Location, val expr: TstExpr, type:Type) : TstExpr(location,type)
 class TstIfExpr(location: Location, val cond: TstExpr, val thenExpr: TstExpr, val elseExpr: TstExpr, type:Type) : TstExpr(location,type)
 class TstRange(location: Location, val start: TstExpr, val end: TstExpr, val op:AluOp,type:Type) : TstExpr(location,type)
-class TstCall(location: Location, val expr: TstExpr, val args: List<TstExpr>, type:Type) : TstExpr(location,type)
+class TstCall(location: Location, val func:Function, val args: List<TstExpr>, val thisArg: TstExpr?, type:Type) : TstExpr(location,type)
+class TstIndirectCall(location:Location, val expr:TstExpr, val args: List<TstExpr>, type:Type) : TstExpr(location,type)
 class TstNewArray(location: Location, val size: TstExpr, val initializer:TstLambda?, val local:Boolean, type:Type) : TstExpr(location,type)
 class TstNewArrayInitializer(location: Location, val initializer:List<TstExpr>, val local:Boolean, type:Type) : TstExpr(location,type)
 class TstNewObject(location: Location, val args:List<TstExpr>, type:TypeClass, val local: Boolean) : TstExpr(location,type)
 class TstLambda(location: Location, val params: List<SymbolVar>, val body: TstExpr, type:Type) : TstExpr(location,type)
 class TstMethod(location: Location, val thisExpr:TstExpr, val func:SymbolFunction, type:Type) : TstExpr(location,type)
 class TstCast(location: Location, val expr: TstExpr, type:Type) : TstExpr(location,type)
+class TstAbort(location: Location, val expr: TstExpr) : TstExpr(location, TypeNothing)
 
 class TstError(location: Location, val message: String) : TstExpr(location, TypeError) {
     init {
-        Log.error(location, message)
+        if (message != "")
+            Log.error(location, message)
     }
 }
 
@@ -91,8 +95,8 @@ fun Tst.prettyPrint(sb: StringBuilder, indent:Int) {
         }
 
         is TstCall -> {
-            sb.append("call ($type)\n")
-            expr.prettyPrint(sb, indent+1)
+            sb.append("call $func\n")
+            thisArg?.prettyPrint(sb, indent+1)
             args.forEach { it.prettyPrint(sb, indent+1) }
         }
 
@@ -298,6 +302,22 @@ fun Tst.prettyPrint(sb: StringBuilder, indent:Int) {
         is TstFree -> {
             sb.append("free\n")
             expr.prettyPrint(sb, indent+1)
+        }
+
+        is TstAbort -> {
+            sb.append("abort\n")
+            expr.prettyPrint(sb, indent+1)
+        }
+
+        is TstTypeName -> {
+            sb.append("type-name: $type\n")
+        }
+
+        is TstIndirectCall -> {
+            sb.append("indirect-call\n")
+            expr.prettyPrint(sb, indent+1)
+            for(arg in args)
+                arg.prettyPrint(sb, indent+1)
         }
     }
 }

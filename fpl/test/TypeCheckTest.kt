@@ -83,17 +83,16 @@ class TypeCheckTest {
         val expected = """
             top
               file: test
-                function: add
+                function: add(Int,Int)
                   expr-stmt
                     return (Nothing)
                       ADD_I (Int)
                         var: x (Int)
                         var: y (Int)
-                function: main
+                function: main()
                   expr-stmt
                     return (Nothing)
-                      call (Int)
-                        function: add ((Int,Int)->Int)
+                      call add(Int,Int)
                         int: 10 (Int)
                         int: 20 (Int)
 
@@ -114,7 +113,7 @@ class TypeCheckTest {
         val expected = """
             top
               file: test
-                function: sum
+                function: sum(Array<Int>)
                   decl: VAR:total:Int
                     int: 0 (Int)
                   for: i
@@ -155,7 +154,7 @@ class TypeCheckTest {
         val expected = """
             top
               file: test
-                function: sum
+                function: sum(Array<Int>)
                   decl: VAR:total:Int
                     int: 0 (Int)
                   for: i
@@ -172,7 +171,7 @@ class TypeCheckTest {
                   expr-stmt
                     return (Nothing)
                       var: total (Int)
-                function: main
+                function: main()
                   decl: VAR:a:Array<Int>
                     new-array (Array<Int>)
                       int: 10 (Int)
@@ -187,8 +186,7 @@ class TypeCheckTest {
                       var: i (Int)
                   expr-stmt
                     return (Nothing)
-                      call (Int)
-                        function: sum ((Array<Int>)->Int)
+                      call sum(Array<Int>)
                         var: a (Array<Int>)
 
         """.trimIndent()
@@ -211,7 +209,7 @@ class TypeCheckTest {
             top
               file: test
                 class: Cat
-                function: printCat
+                function: printCat(Cat)
                   print
                     member: name (String)
                       var: c (Cat)
@@ -250,21 +248,20 @@ class TypeCheckTest {
                     MUL_I (Int)
                       var: ageInYears (Int)
                       int: 12 (Int)
-                  function: Cat/greet
+                  function: Cat/greet()
                     print
                       member: name (String)
                         var: this (Cat)
                       string: " says hello
             " (String)
-                function: main
+                function: main()
                   decl: VAR:c:Cat
                     new-object (Cat)
                       string: "Tom" (String)
                       int: 3 (Int)
                   expr-stmt
-                    call (Unit)
-                      method: greet
-                        var: c (Cat)
+                    call Cat/greet()
+                      var: c (Cat)
 
         """.trimIndent()
         runTest(prog, expected)
@@ -292,7 +289,7 @@ class TypeCheckTest {
                     member: age (Int)
                       var: this (Cat)
                     var: age (Int)
-                function: main
+                function: main()
                   decl: VAR:c:Cat?
                     int: 0 (Null)
                   assign EQ_I
@@ -341,7 +338,7 @@ class TypeCheckTest {
                 null-stmt
                 null-stmt
                 null-stmt
-                function: main
+                function: main()
                   decl: VAR:a:Int
                     int: 22 (Int)
                   decl: VAR:b:String
@@ -369,7 +366,7 @@ class TypeCheckTest {
             top
               file: test
                 class: HwRegs
-                function: main
+                function: main()
                   decl: VAR:hwregs:HwRegs
                     cast (HwRegs)
                       int: -536870912 (Int)
@@ -394,7 +391,7 @@ class TypeCheckTest {
         val expected = """
             top
               file: test
-                function: main
+                function: main()
                   decl: VAR:x:Int
                     int: 5 (Int)
                   assign ADD_I
@@ -423,8 +420,12 @@ class TypeCheckTest {
         """.trimIndent()
 
         val expected = """
-            test.fpl:6.5-6.8: Got 0 arguments when expecting at least 1
-            test.fpl:7.18-7.20: Got type 'String' when expecting 'Int'
+            test.fpl:6.5-6.8: No functions match 'fred()'
+            Candidates are:-
+            fred(Int,Int...)
+            test.fpl:7.5-7.8: No functions match 'fred(Int, Int, Int, Int, String)'
+            Candidates are:-
+            fred(Int,Int...)
         """.trimIndent()
         runTest(prog, expected)
     }
@@ -445,7 +446,7 @@ class TypeCheckTest {
         val expected = """
             top
               file: test
-                function: fred
+                function: fred(Int)
                   when 
                     var: a (Int)
                     when-clause
@@ -527,7 +528,7 @@ class TypeCheckTest {
         val expected = """
             top
               file: test
-                function: fred
+                function: fred(Int)
                   expr-stmt
                     return (Nothing)
                       if-expr (String)
@@ -540,4 +541,27 @@ class TypeCheckTest {
         """.trimIndent()
         runTest(prog, expected)
     }
+
+    @Test
+    fun freeChecks() {
+        val prog = """
+            class Cat(val name:String, val age:Int)
+            
+            fun main(x:Int)
+                var c = new Cat("Fluffy", 3)
+                if x=1 then 
+                    free c
+                print(c.name)               # should warn of possible freed object
+                free c                      # should warn of double-free
+                c = new Cat("Monster", 10)  # reassign to 'c' - so now not pointing to freed object
+                print(c.name)               # should be OK
+        """.trimIndent()
+
+        val expected = """
+            test.fpl:7.11-7.11: Symbol 'c' may point to a freed object
+            test.fpl:8.5-8.8: Possible double free of 'c'
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
 }

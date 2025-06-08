@@ -3,6 +3,9 @@ const MAGIC_FREE_MEM_BLOCK = 0xF4EEB10C
 const HEAP_START = 0x1000
 const HEAP_END   = 0x3f80000
 
+const ERR_OUT_OF_MEMORY = 0xE01
+const ERR_DOUBLE_FREE = 0xE02
+
 # FreeMemBlock
 # Blocks are always a multiple of 16 bytes in size - this means the lower 4 bits are always 0
 # hence we can repurpose them to indicate the block status
@@ -66,9 +69,7 @@ fun mallocInternal(sizeReq:Int) -> FreeMemBlock?
     while p!=null and p.size<sizeReq
         prev = p
         p = p.next
-    if p=null
-        print("Out of memory")
-        return null
+    if p=null then abort ERR_OUT_OF_MEMORY
 
     # remove the block from the freelist
     if prev=null
@@ -87,18 +88,14 @@ end fun
 
 fun mallocObject(klass:ClassDescriptor) -> Int
     val size = (klass.size + 8 + 15) & 0xFFFFFFF0       # add 8 for the header, and round up to a multiple of 16
-    val ret = mallocInternal(size) as ObjectMemBlock?
-    if ret=null
-        return 0
+    val ret = mallocInternal(size) as ObjectMemBlock
     ret.size = size | BLOCK_OBJECT
     ret.type = klass
     return (ret as Int)+8       # Skip past the object's header
 
 fun mallocArray(numElements:Int, elementSize:Int, clear:Bool) -> Int
     val size = ((numElements * elementSize) + 8 + 15) & 0xfffffff0  # add 8 for header, and round up to multiple of 16
-    val ret = mallocInternal(size) as ArrayMemBlock?
-    if ret=null
-      return 0
+    val ret = mallocInternal(size) as ArrayMemBlock
     ret.size = size | BLOCK_ARRAY
     ret.numElements = numElements
     val retInt = (ret as Int)+8 # Skip past the object's header
@@ -113,13 +110,12 @@ fun free(ptr:Int)
     if ptr=0 then return        # do nothing for a null pointer
     val block = (ptr - 8) as FreeMemBlock
     val size = block.size
-    if (size & 0xF)=0
-        print("Double Free memory block")
-        return
+    if (size & 0xF)=0 then abort ERR_DOUBLE_FREE
     insertBlockIntoFreeList(block, size & 0xfffffff0)
 
 fun dumpMemorySystem()
     var p = HEAP_START
+    print("MEMORY DUMP\n")
     while p < HEAP_END
         val block = p as FreeMemBlock
         val sizeAndType = block.size

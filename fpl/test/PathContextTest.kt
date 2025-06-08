@@ -36,7 +36,7 @@ class PathContextTest {
         val expected = """
             top
               file: test
-                function: fred
+                function: fred()
                   decl: VAR:x:Int
                   assign EQ_I
                     var: x (Int)
@@ -81,7 +81,7 @@ class PathContextTest {
         val expected = """
             top
               file: test
-                function: fred
+                function: fred(Int)
                   decl: VAR:x:Int
                   if
                     if-clause
@@ -147,7 +147,7 @@ class PathContextTest {
                     member: age (Int)
                       var: this (Cat)
                     var: age (Int)
-                function: fred
+                function: fred(Cat?)
                   if
                     if-clause
                       NEQ_I (Bool)
@@ -229,7 +229,7 @@ class PathContextTest {
                     member: contents (Int)
                       var: this (Box)
                     var: contents (Int)
-                function: main
+                function: main()
                   decl: VAR:b:Box?
                     new-object (Box)
                       int: 10 (Int)
