@@ -21,6 +21,7 @@ if expressions
 destructors (free operator)
 abort instruction
 enums
+function overloading
 
 
 Short term:
@@ -29,7 +30,6 @@ unsafe blocks
 public/private
 static class fields
 static methods
-function overloading
 default arguments to functions
 
 Longer term:
