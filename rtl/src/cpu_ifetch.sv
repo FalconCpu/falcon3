@@ -28,7 +28,6 @@ logic        prev_stall;                   // Was pipeline stalled last cycle?
 logic [31:0] p2_instr_q;                   // Instruction we outputted last cycle
 logic        p2_instr_valid_q;             // Was the instruction we outputted last cycle valid?
 logic [31:0] p2_pc_q;                      // PC of instruction in decoder
-logic        invalidate, invalidate_q;     // The instruction being fetched has been invalidated
 
 logic        skid_valid, skid_valid_q;     // Are we skidding an instruction?
 logic [31:0] skid_instr, skid_instr_q;     // Instruction we are skidding
@@ -43,10 +42,8 @@ always_comb begin
     // Check for jumps
     if (p3_jump_taken && !stall) begin
         pc = p3_jump_addr;                 // Update the PC to the jump address
-        invalidate = in_progress;          // Kill the instruction we were about to fetch
     end else begin
         pc = pc_q;                         // The increment happens later
-        invalidate = invalidate_q;
     end
 
 
@@ -56,7 +53,7 @@ always_comb begin
     else
         in_progress = in_progress_q;
 
-    if (cpui_ack && !invalidate) begin
+    if (cpui_ack) begin
         if (prev_stall) begin                 
             // Pipeline is not ready to accept an instruction - so we need to skid the rx'd instruction
             error          = skid_valid;
@@ -120,7 +117,6 @@ always_comb begin
         cpui_request    = 1;
         cpui_addr       = pc;
         pc              = pc + 4;
-        invalidate      = 0;
         in_progress     = 1;
     end
 
@@ -145,7 +141,6 @@ always_ff @(posedge clock) begin
     skid_pc_q        <= skid_pc;
     skid_valid_q     <= skid_valid;
     prev_stall       <= stall ||  p2_bubble;
-    invalidate_q     <= invalidate;
 end
 
 always @(posedge clock) begin

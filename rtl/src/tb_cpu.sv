@@ -41,6 +41,19 @@ cpu_icache  cpu_icache_inst (
     .cpui_ack(cpui_ack)
   );
 
+  
+cpu_dcache  cpu_dcache_inst (
+    .clock(clock),
+    .reset(reset),
+    .cpud_request(cpud_request),
+    .cpud_addr(cpud_addr),
+    .cpud_write(cpud_write),
+    .cpud_byte_enable(cpud_byte_enable),
+    .cpud_wdata(cpud_wdata),
+    .cpud_rdata(cpud_rdata),
+    .cpud_ack(cpud_ack)
+  );
+
 always begin
     clock = 1'b0;
     #5;
@@ -53,7 +66,7 @@ initial begin
     reset = 1'b1;
     #10;
     reset = 1'b0;
-    #100;
+    #1000;
     $finish;
 end
 

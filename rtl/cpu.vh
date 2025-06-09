@@ -14,7 +14,8 @@
 `define  OP_BGE    6'b001_011
 `define  OP_BLTU   6'b001_100
 `define  OP_BGEU   6'b001_101
-`define  OP_JMP    6'b001_111
+`define  OP_JMP    6'b001_110
+`define  OP_JMPR   6'b001_111
 `define  OP_LDB    6'b010_000
 `define  OP_LDH    6'b010_001
 `define  OP_LDW    6'b010_010
@@ -32,6 +33,7 @@
 `define  OP_CFGW   6'b101_001
 `define  OP_RTE    6'b101_010
 `define  OP_SYS    6'b101_011
+`define  OP_LD     6'b110_000
 
 
 // KIND values for decode
@@ -41,7 +43,7 @@
 `define KIND_STORE 6'b010011
 `define KIND_BRA   6'b010100
 `define KIND_JMP   6'b010101
-`define KIND_JMP_R 6'b010110
+`define KIND_JMPR  6'b010110
 `define KIND_LDI   6'b010111
 `define KIND_LDPC  6'b011000
 `define KIND_MUL   6'b011001

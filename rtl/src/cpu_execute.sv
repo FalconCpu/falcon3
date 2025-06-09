@@ -10,47 +10,173 @@ module cpu_execute(
     input logic [7:0]  p3_opx,          // ALU operation specific parameters
     input logic [31:0] p3_data_a,       // ALU input A
     input logic [31:0] p3_data_b,       // ALU input B
+    input logic [31:0] p2_pc,           // PC of instruction being decoded
+    input logic [31:0] p3_literal,      // ALU literal value
 
-    output logic [31:0] p3_data_out,    // ALU output
+    // outputs to data bus
+    output logic        cpud_request,     // CPU requests a bus transaction. Asserts for one cycle.
+    output logic [31:0] cpud_addr,        // Address of data to read/write
+    output logic        cpud_write,       // 1 = write, 0 = read
+    output logic [3:0]  cpud_byte_enable, // For a write, which bytes to write.
+    output logic [31:0] cpud_wdata,       // Data to write
+    output logic [1:0]  cpud_size,        // 00 = byte, 01 = halfword, 10 = word
+
+
+    output logic [31:0] p3_alu_out,    // ALU output
     output logic        p3_jump_taken,  // ALU has taken a jump
     output logic [31:0] p3_jump_addr,   // ALU jump address
-    output logic [31:0] p4_data_out
+    output logic [31:0] p4_alu_out
 );
 
 wire [4:0] shift_amount = p3_data_b[4:0];
+wire [31:0] branch_target =  p2_pc + (p3_literal << 2);
 
+wire [31:0] mem_addr = p3_data_a + p3_literal;
+wire [1:0] address_lsb = mem_addr[1:0];
+assign cpud_addr = cpud_request ? mem_addr : 32'bx;
+
+logic misaligned_address;
 
 always_comb begin
     // default assignments
-    p3_data_out = 32'bx;
+    p3_alu_out = 32'bx;
     p3_jump_addr = 32'bx;
     p3_jump_taken = 0;
+    cpud_request = 0;
+    cpud_write = 0;
+    cpud_wdata = 32'bx;
+    cpud_byte_enable = 4'bx;
+    misaligned_address = 0;
 
 
     case(p3_op) 
-        `OP_AND:    p3_data_out = p3_data_a & p3_data_b;
-        `OP_OR:     p3_data_out = p3_data_a | p3_data_b;
-        `OP_XOR:    p3_data_out = p3_data_a ^ p3_data_b;
-        `OP_SHIFT:  p3_data_out = p3_data_a << shift_amount;   // Add other shift operations here
-        `OP_ADD:    p3_data_out = p3_data_a + p3_data_b;
-        `OP_SUB:    p3_data_out = p3_data_a - p3_data_b;
-        `OP_CLT:    p3_data_out = $signed(p3_data_a) < $signed(p3_data_b);
-        `OP_CLTU:   p3_data_out = $unsigned(p3_data_a) < $unsigned(p3_data_b);
-        `OP_BEQ:    begin end
-        `OP_BNE:    begin end
-        `OP_BLT:    begin end
-        `OP_BGE:    begin end
-        `OP_BLTU:    begin end
-        `OP_BGEU:    begin end
-        `OP_JMP:    begin end
-        `OP_LDB:    begin end
-        `OP_LDH:    begin end
-        `OP_LDW:    begin end
-        `OP_LDBU:    begin end
-        `OP_LDHU:    begin end
-        `OP_STB:    begin end
-        `OP_STH:    begin end
-        `OP_STW:    begin end
+        `OP_AND:    p3_alu_out = p3_data_a & p3_data_b;
+        `OP_OR:     p3_alu_out = p3_data_a | p3_data_b;
+        `OP_XOR:    p3_alu_out = p3_data_a ^ p3_data_b;
+        `OP_SHIFT:  p3_alu_out = p3_data_a << shift_amount;   // Add other shift operations here
+        `OP_ADD:    p3_alu_out = p3_data_a + p3_data_b;
+        `OP_SUB:    p3_alu_out = p3_data_a - p3_data_b;
+        `OP_CLT:    p3_alu_out = $signed(p3_data_a) < $signed(p3_data_b);
+        `OP_CLTU:   p3_alu_out = $unsigned(p3_data_a) < $unsigned(p3_data_b);
+        
+        `OP_BEQ: begin 
+            p3_jump_addr=branch_target;
+            p3_jump_taken = p3_data_a == p3_data_b;
+        end
+
+        `OP_BNE: begin 
+            p3_jump_addr=branch_target;
+            p3_jump_taken = p3_data_a != p3_data_b;
+        end
+
+        `OP_BLT: begin
+            p3_jump_addr=branch_target;
+            p3_jump_taken = $signed(p3_data_a) < $signed(p3_data_b);
+        end
+
+        `OP_BGE: begin
+            p3_jump_addr=branch_target;
+            p3_jump_taken = $signed(p3_data_a) >= $signed(p3_data_b);
+        end
+
+        `OP_BLTU: begin
+            p3_jump_addr=branch_target;
+            p3_jump_taken = $unsigned(p3_data_a) < $unsigned(p3_data_b);
+        end
+
+        `OP_BGEU: begin
+            p3_jump_addr=branch_target;
+            p3_jump_taken = $unsigned(p3_data_a) >= $unsigned(p3_data_b);
+        end
+
+        `OP_JMP: begin
+            p3_jump_addr = branch_target;
+            p3_alu_out = p2_pc;
+            p3_jump_taken = 1;
+        end
+
+        `OP_JMPR: begin
+            p3_jump_addr = p3_data_a + (p3_literal << 2);
+            p3_alu_out = p2_pc;
+            p3_jump_taken = 1;
+        end
+
+        `OP_LDB: begin 
+            cpud_request = 1;
+            cpud_write = 0;
+            cpud_size = 2'b00;
+        end
+
+        `OP_LDH: begin 
+            cpud_request = 1;
+            cpud_write = 0;
+            cpud_size = 2'b01;
+            misaligned_address = address_lsb[0];
+        end
+
+        `OP_LDW: begin
+            cpud_request = 1;
+            cpud_write = 0;
+            cpud_size = 2'b10;
+            misaligned_address = address_lsb[1] || address_lsb[0];
+         end
+
+        `OP_LDBU: begin
+            cpud_request = 1;
+            cpud_write = 0;
+            cpud_size = 2'b00;
+        end
+
+        `OP_LDHU: begin
+            cpud_request = 1;
+            cpud_write = 0;
+            cpud_size = 2'b01;
+            misaligned_address = address_lsb[0];
+         end
+
+        `OP_STB: begin
+            cpud_request = 1;
+            cpud_write = 1;
+            if (address_lsb == 2'b00) begin
+                cpud_byte_enable = 4'b0001;
+                cpud_wdata = {24'bx, p3_data_b[7:0]};
+            end else if (address_lsb == 2'b01) begin
+                cpud_byte_enable = 4'b0010;
+                cpud_wdata = {16'bx, p3_data_b[7:0], 8'bx};
+            end else if (address_lsb == 2'b10) begin
+                cpud_byte_enable = 4'b0100;
+                cpud_wdata = {8'bx, p3_data_b[7:0], 16'bx};
+            end else begin
+                cpud_byte_enable = 4'b1000;
+                cpud_wdata = {p3_data_b[7:0], 24'bx};
+            end
+         end
+
+        `OP_STH: begin 
+            cpud_request = 1;
+            cpud_write = 1;
+            if (address_lsb == 2'b00) begin
+                cpud_byte_enable = 4'b0011;
+                cpud_wdata = {16'bx, p3_data_b[15:0]};
+            end else if (address_lsb==2'b10) begin
+                cpud_byte_enable = 4'b1100;
+                cpud_wdata = {p3_data_b[15:0], 16'bx};
+            end else begin
+                misaligned_address = 1;
+            end
+        end
+
+        `OP_STW: begin 
+            cpud_request = 1;
+            cpud_write = 1;
+            if (address_lsb == 2'b00) begin
+                cpud_byte_enable = 4'b1111;
+                cpud_wdata = p3_data_b;
+            end else begin
+                misaligned_address = 1;
+            end
+        end
+
         `OP_MUL:    begin end
         `OP_DIVU:    begin end
         `OP_DIVS:    begin end
@@ -60,14 +186,20 @@ always_comb begin
         `OP_CFGW:    begin end
         `OP_RTE:    begin end
         `OP_SYS:    begin end
+        `OP_LD:  p3_alu_out = p3_data_b;
         default:    begin end
     endcase
+
+    // Do not send request if stalled or misaligned
+    if (stall || misaligned_address)
+        cpud_request = 0;
+
 end
 
 
 always_ff @(posedge clock) begin
     if(!stall) begin
-        p4_data_out <= p3_data_out;
+        p4_alu_out <= p3_alu_out;
     end
 end
 

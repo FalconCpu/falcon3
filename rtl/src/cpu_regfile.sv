@@ -2,6 +2,7 @@
 
 module cpu_regfile(
     input  logic clock,
+    input  logic stall,
 
     input  logic  [4:0] p2_reg_a,
     input  logic  [4:0] p2_reg_b,
@@ -13,19 +14,22 @@ module cpu_regfile(
     input logic [31:0]  p4_reg_data_d
 );    
 
+integer file;
+
 reg [31:0] regfile [0:31];
 
 initial begin
     regfile[0] = 32'b0;
+    file = $fopen("rtl_reg.log", "w");
 end
 
 assign p2_reg_data_a = regfile[p2_reg_a];
 assign p2_reg_data_b = regfile[p2_reg_b];
 
 always @(posedge clock) begin
-    if (p4_write_en && p4_reg_d != 0) begin
+    if (!stall && p4_write_en && p4_reg_d != 0) begin
         regfile[p4_reg_d] <= p4_reg_data_d;
-        $display("$%2d = %08x", p4_reg_d, p4_reg_data_d);
+        $fwrite(file, "$%2d = %08x\n", p4_reg_d, p4_reg_data_d);
     end
 end
 

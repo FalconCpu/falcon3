@@ -2,6 +2,7 @@
 
 module cpu_datamux(
     input logic clock,
+    input logic stall,
 
     input logic [4:0]  p2_reg_a,
     input logic [4:0]  p2_reg_b,
@@ -14,9 +15,10 @@ module cpu_datamux(
     input logic        p4_write_en,
     output logic [31:0] p3_data_a,
     output logic [31:0] p3_data_b,
+    output logic [31:0] p3_literal,
 
     input logic [31:0] p2_literal_value,
-    input logic [31:0] p3_data_out,
+    input logic [31:0] p3_alu_out,
     input logic [31:0] p4_data_out
 );
 
@@ -25,6 +27,7 @@ logic [31:0] p2_reg_data_b;
 
 cpu_regfile  cpu_regfile_inst (
     .clock(clock),
+    .stall(stall),
     .p2_reg_a(p2_reg_a),
     .p2_reg_b(p2_reg_b),
     .p2_reg_data_a(p2_reg_data_a),
@@ -35,20 +38,24 @@ cpu_regfile  cpu_regfile_inst (
   );
 
 always_ff @(posedge clock) begin
-    if (p2_bypass_4_a)
-        p3_data_a <= p4_data_out;
-    else if (p2_bypass_3_a)
-        p3_data_a <= p3_data_out;
-    else 
-        p3_data_a <= p2_reg_data_a;
+    if (!stall) begin
+        if (p2_bypass_4_a)
+            p3_data_a <= p4_data_out;
+        else if (p2_bypass_3_a)
+            p3_data_a <= p3_alu_out;
+        else 
+            p3_data_a <= p2_reg_data_a;
 
-    if (p2_literal_b)
-        p3_data_b <= p2_literal_value;
-    else if (p2_bypass_4_b)
-        p3_data_b <= p4_data_out;
-    else if (p2_bypass_3_b)
-        p3_data_b <= p3_data_out;   
-    else
-        p3_data_b <= p2_reg_data_b;
+        if (p2_literal_b)
+            p3_data_b <= p2_literal_value;
+        else if (p2_bypass_4_b)
+            p3_data_b <= p4_data_out;
+        else if (p2_bypass_3_b)
+            p3_data_b <= p3_alu_out;   
+        else
+            p3_data_b <= p2_reg_data_b;
+            
+        p3_literal <= p2_literal_value;
+    end
 end
 endmodule

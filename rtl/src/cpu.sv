@@ -30,6 +30,7 @@ logic        p2_instr_valid;
 // Signals from the datamux unit
 logic [31:0] p3_data_a;
 logic [31:0] p3_data_b;
+logic [31:0] p3_literal;
 
 // Signals from the decoder
 logic        p2_bubble;
@@ -45,16 +46,24 @@ logic        p4_write_en;
 logic [31:0] p2_literal_value;
 logic [5:0]  p3_op;
 logic [7:0]  p3_opx;
-logic [31:0] p4_op;
+logic [5:0]  p4_op;
 
 // Signals from the Execute stage
-logic [31:0] p3_data_out;
+logic [31:0] p3_alu_out;
 logic        p3_jump_taken;
 logic [31:0] p3_jump_addr;
-logic [31:0] p4_data_out;
+logic [31:0] p4_alu_out;
+logic [1:0]  cpud_size;
 
-// dummy for now
-logic        stall = 0;
+// Signals from the memory unit
+logic        p4_read_pending;
+logic        p4_write_pending;
+logic [31:0] p4_mem_rdata;
+
+// Signals from the completion unit
+logic [31:0] p4_data_out;
+logic stall;
+
 
 cpu_ifetch  cpu_ifetch_inst (
     .clock(clock),
@@ -74,6 +83,7 @@ cpu_ifetch  cpu_ifetch_inst (
 
 cpu_datamux  cpu_datamux_inst (
     .clock(clock),
+    .stall(stall),
     .p2_reg_a(p2_reg_a),
     .p2_reg_b(p2_reg_b),
     .p2_bypass_3_a(p2_bypass_3_a),
@@ -86,7 +96,8 @@ cpu_datamux  cpu_datamux_inst (
     .p3_data_a(p3_data_a),
     .p3_data_b(p3_data_b),
     .p2_literal_value(p2_literal_value),
-    .p3_data_out(p3_data_out),
+    .p3_alu_out(p3_alu_out),
+    .p3_literal(p3_literal),
     .p4_data_out(p4_data_out)
   );
 
@@ -122,11 +133,44 @@ cpu_execute  cpu_execute_inst (
     .p3_opx(p3_opx),
     .p3_data_a(p3_data_a),
     .p3_data_b(p3_data_b),
-    .p3_data_out(p3_data_out),
+    .p2_pc(p2_pc),
+    .p3_literal(p3_literal),
+    .cpud_request(cpud_request),
+    .cpud_addr(cpud_addr),
+    .cpud_write(cpud_write),
+    .cpud_byte_enable(cpud_byte_enable),
+    .cpud_wdata(cpud_wdata),
+    .cpud_size(cpud_size),
+    .p3_alu_out(p3_alu_out),
     .p3_jump_taken(p3_jump_taken),
     .p3_jump_addr(p3_jump_addr),
-    .p4_data_out(p4_data_out)
+    .p4_alu_out(p4_alu_out)
   );
 
+cpu_memif  cpu_memif_inst (
+    .clock(clock),
+    .reset(reset),
+    .cpud_request(cpud_request),
+    .cpud_addr(cpud_addr[1:0]),
+    .cpud_size(cpud_size),
+    .cpud_write(cpud_write),
+    .cpud_rdata(cpud_rdata),
+    .cpud_ack(cpud_ack),
+    .p4_write_pending(p4_write_pending),
+    .p4_read_pending(p4_read_pending),
+    .p4_mem_rdata(p4_mem_rdata)
+  );
+
+cpu_completion  cpu_completion_inst (
+    .clock(clock),
+    .reset(reset),
+    .p4_op(p4_op),
+    .p4_alu_out(p4_alu_out),
+    .p4_write_pending(p4_write_pending),
+    .p4_read_pending(p4_read_pending),
+    .p4_mem_rdata(p4_mem_rdata),
+    .p4_data_out(p4_data_out),
+    .stall(stall)
+  );  
 
 endmodule
