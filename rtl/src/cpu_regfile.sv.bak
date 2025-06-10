@@ -14,39 +14,23 @@ module cpu_regfile(
     input logic [31:0]  p4_reg_data_d
 );    
 
-wire wren = !stall && p4_write_en && p4_reg_d!=0;
-
-regfile_ram  regfile_ram_A (
-    .clock(clock),
-    .data(p4_reg_data_d),
-    .rdaddress(p2_reg_a),
-    .wraddress(p4_reg_d),
-    .wren(wren),
-    .q(p2_reg_data_a)
-  );
-
-regfile_ram  regfile_ram_B (
-    .clock(clock),
-    .data(p4_reg_data_d),
-    .rdaddress(p2_reg_b),
-    .wraddress(p4_reg_d),
-    .wren(wren),
-    .q(p2_reg_data_b)
-  );
-
-
-// synthesis translate_off
 integer file;
 
+reg [31:0] regfile [0:31];
+
 initial begin
+    regfile[0] = 32'b0;
     file = $fopen("rtl_reg.log", "w");
 end
 
+assign p2_reg_data_a = regfile[p2_reg_a];
+assign p2_reg_data_b = regfile[p2_reg_b];
+
 always @(posedge clock) begin
-    if (wren) begin
+    if (!stall && p4_write_en && p4_reg_d != 0) begin
+        regfile[p4_reg_d] <= p4_reg_data_d;
         $fwrite(file, "$%2d = %08x\n", p4_reg_d, p4_reg_data_d);
     end
 end
-// synthesis translate_on
 
 endmodule

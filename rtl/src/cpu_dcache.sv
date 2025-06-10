@@ -14,7 +14,10 @@ module cpu_dcache(
     output logic        cpud_ack          // Memory has responded to the request.
 );
 
-reg [31:0] mem [0:16383];               // 64KB of memory
+reg [7:0] mem0 [0:16383];               // 64KB of memory
+reg [7:0] mem1 [0:16383];               
+reg [7:0] mem2 [0:16383];               
+reg [7:0] mem3 [0:16383];               
 reg [31:0] mem_q;
 
 assign cpud_rdata = cpud_ack ? mem_q : 32'hx;
@@ -22,16 +25,16 @@ assign cpud_rdata = cpud_ack ? mem_q : 32'hx;
 always @(posedge clock) begin
     if (cpud_request && cpud_write) begin
         if (cpud_byte_enable[0])
-            mem[cpud_addr[15:2]][7:0] = cpud_wdata[7:0];
+            mem0[cpud_addr[15:2]] = cpud_wdata[7:0];
         if (cpud_byte_enable[1])
-            mem[cpud_addr[15:2]][15:8] = cpud_wdata[15:8];
+            mem1[cpud_addr[15:2]] = cpud_wdata[15:8];
         if (cpud_byte_enable[2])
-            mem[cpud_addr[15:2]][23:16] = cpud_wdata[23:16];
+            mem2[cpud_addr[15:2]]= cpud_wdata[23:16];
         if (cpud_byte_enable[3])
-            mem[cpud_addr[15:2]][31:24] = cpud_wdata[31:24];
+            mem3[cpud_addr[15:2]] = cpud_wdata[31:24];
         $display("[%08x] = %08x", cpud_addr, cpud_wdata);
     end
-    mem_q <= mem[cpud_addr[15:2]];
+    mem_q <= {mem3[cpud_addr[15:2]],mem2[cpud_addr[15:2]],mem1[cpud_addr[15:2]],mem0[cpud_addr[15:2]]};
     cpud_ack <= cpud_request;
 end
 

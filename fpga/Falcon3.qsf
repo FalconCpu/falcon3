@@ -6,12 +6,11 @@ set_global_assignment -name FAMILY "Cyclone V"
 set_global_assignment -name DEVICE 5CSEMA5F31C6
 set_global_assignment -name TOP_LEVEL_ENTITY "Falcon3"
 set_global_assignment -name ORIGINAL_QUARTUS_VERSION "15.1.0"
-set_global_assignment -name LAST_QUARTUS_VERSION "15.1.0"
+set_global_assignment -name LAST_QUARTUS_VERSION "23.1std.0 Lite Edition"
 set_global_assignment -name PROJECT_CREATION_TIME_DATE "21:17:03 JUNE 09,2025"
 set_global_assignment -name DEVICE_FILTER_PACKAGE FBGA
 set_global_assignment -name DEVICE_FILTER_PIN_COUNT 896
 set_global_assignment -name DEVICE_FILTER_SPEED_GRADE 6
-set_global_assignment -name SDC_FILE Falcon3.SDC
 
 #============================================================
 # Audio
@@ -509,3 +508,30 @@ set_location_assignment PIN_AC22 -to GPIO_1[35]
 # End of pin assignments by Terasic System Builder
 #============================================================
 
+
+set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/src/seven_seg.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/src/hwregs.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/src/Falcon3.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/src/cpu_regfile.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/src/cpu_memif.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/src/cpu_ifetch.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/src/cpu_icache.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/src/cpu_execute.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/src/cpu_decode.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/src/cpu_dcache.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/src/cpu_datamux.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/src/cpu_completion.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/src/cpu.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/src/address_decoder.sv
+set_global_assignment -name SDC_FILE Falcon3.SDC
+set_global_assignment -name MIN_CORE_JUNCTION_TEMP 0
+set_global_assignment -name MAX_CORE_JUNCTION_TEMP 85
+set_global_assignment -name POWER_PRESET_COOLING_SOLUTION "23 MM HEAT SINK WITH 200 LFPM AIRFLOW"
+set_global_assignment -name POWER_BOARD_THERMAL_MODEL "NONE (CONSERVATIVE)"
+set_global_assignment -name PARTITION_NETLIST_TYPE SOURCE -section_id Top
+set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT_AND_ROUTING -section_id Top
+set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
+set_global_assignment -name QIP_FILE pll.qip
+set_global_assignment -name SIP_FILE pll.sip
+set_global_assignment -name QIP_FILE regfile_ram.qip
+set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top

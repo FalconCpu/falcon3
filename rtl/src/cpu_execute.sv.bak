@@ -47,7 +47,6 @@ always_comb begin
     cpud_wdata = 32'bx;
     cpud_byte_enable = 4'bx;
     misaligned_address = 0;
-	 cpud_size = 2'b0;
 
 
     case(p3_op) 
