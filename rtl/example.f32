@@ -1,17 +1,18 @@
-HWREGS_BASE = 0xE0000000
-HWREGS_SEVENSEG = 0x0000
 
-ld $1, HWREGS_BASE
-ld $2, 0
+ld $1, 0x3f80000   # start of display memory
+ld $2, 0x3fcb000   # end of display memory
 
-loop1:
-stw $2, $1[HWREGS_SEVENSEG]
-add $2, $2, 1
+ld $3, 0           # value to write
+ld $4, 160         # number of words in a line
 
-ld $3, 1000000
-loop2:
-sub $3, 1
-bne $3, 0, loop2
+clearLoop:
+stw $3, $1[0]
+add $1, 4
+add $3, 1
+bne $3, $4, .skip
+ld $3, 0
+.skip:
+bne $1, $2, clearLoop
 
-jmp loop1
-
+forever:
+jmp forever

@@ -11,10 +11,10 @@ module pll (
 always begin
     outclk_0 = 0;
     outclk_1 = 0;
-    #3750;
+    #5000;
     outclk_0 = 1;
     outclk_1 = 1;
-    #3750;
+    #5000;
 end
 
 initial begin

@@ -9,9 +9,9 @@ module address_decoder(
     output logic        cpud_ack,
 
     // connections to the SRAM
-    output logic        cpu_sram_req,
-    input  logic        cpu_sram_ack,
-    input  logic [31:0] cpu_sram_rdata,
+    output logic        cpu_dcache_req,
+    input  logic        cpu_dcache_ack,
+    input  logic [31:0] cpu_dcache_rdata,
 
     // connections to the HWREGS
     output logic        cpu_hwregs_req,
@@ -22,14 +22,14 @@ module address_decoder(
 logic invalid_addr, invalid_addr_ack;
 
 always_comb begin
-    cpu_sram_req = 1'b0;
+    cpu_dcache_req = 1'b0;
     cpu_hwregs_req = 1'b0;
 	 invalid_addr = 1'b0;
 
     // Route the request to the correct device
     if (cpud_request) begin
         if (cpud_addr[31:26] == 6'h0)
-            cpu_sram_req = 1'b1;
+            cpu_dcache_req = 1'b1;
         else if (cpud_addr[31:16] == 16'hE000)
             cpu_hwregs_req = 1'b1;
         else
@@ -37,8 +37,8 @@ always_comb begin
     end
 
     // Merge the ack signals
-    cpud_ack = cpu_sram_ack || cpu_hwregs_ack || invalid_addr_ack;
-    cpud_rdata = cpu_sram_rdata | cpu_hwregs_rdata;
+    cpud_ack = cpu_dcache_ack || cpu_hwregs_ack || invalid_addr_ack;
+    cpud_rdata = cpu_dcache_rdata | cpu_hwregs_rdata;
 end
 
 always_ff @(posedge clock) begin

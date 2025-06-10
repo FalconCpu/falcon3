@@ -96,14 +96,51 @@ logic cpui_request;
 logic [31:0] cpui_addr;
 logic [31:0] cpui_rdata;
 logic cpui_ack;
-logic        cpu_sram_req;
-logic        cpu_sram_ack;
-logic [31:0] cpu_sram_rdata;
+logic        cpu_dcache_req;
+logic        cpu_dcache_ack;
+logic [31:0] cpu_dcache_rdata;
 logic        cpu_hwregs_req;
 logic        cpu_hwregs_ack;
 logic [31:0] cpu_hwregs_rdata;
 logic        UART_RX, UART_TX;
 logic locked;
+
+logic [2:0]  sdram_req;
+logic [25:0] sdram_addr;
+logic        sdram_write;
+logic        sdram_burst;
+logic [3:0]  sdram_byte_enable;
+logic [31:0] sdram_wdata;
+logic        sdram_ack;
+logic [31:0] sdram_rdata;
+logic [2:0]  sdram_rdvalid;
+logic        sdram_complete;
+
+logic        cpu_sdram_request;
+logic [25:0] cpu_sdram_addr;
+logic        cpu_sdram_write;
+logic [3:0]  cpu_sdram_byte_enable;
+logic [31:0] cpu_sdram_wdata;
+logic        cpu_sdram_ack;
+logic [31:0] cpu_sdram_rdata;
+logic        cpu_sdram_rdvalid;
+
+logic        dcache_sdram_request;
+logic [25:0] dcache_sdram_addr;
+logic        dcache_sdram_write;
+logic [3:0]  dcache_sdram_byte_enable;
+logic [31:0] dcache_sdram_wdata;
+logic        dcache_sdram_ack;
+logic [31:0] dcache_sdram_rdata;
+logic        dcache_sdram_rdvalid;
+
+logic        vga_sdram_request;
+logic [25:0] vga_sdram_addr;
+logic        vga_sdram_ack;
+logic [31:0] vga_sdram_rdata;
+logic        vga_sdram_rdvalid;
+logic        vga_sdram_complete;
+
 
 pll  pll_inst (
     .refclk(CLOCK_50),
@@ -136,9 +173,9 @@ address_decoder  address_decoder_inst (
     .cpud_addr(cpud_addr),
     .cpud_rdata(cpud_rdata),
     .cpud_ack(cpud_ack),
-    .cpu_sram_req(cpu_sram_req),
-    .cpu_sram_ack(cpu_sram_ack),
-    .cpu_sram_rdata(cpu_sram_rdata),
+    .cpu_dcache_req(cpu_dcache_req),
+    .cpu_dcache_ack(cpu_dcache_ack),
+    .cpu_dcache_rdata(cpu_dcache_rdata),
     .cpu_hwregs_req(cpu_hwregs_req),
     .cpu_hwregs_ack(cpu_hwregs_ack),
     .cpu_hwregs_rdata(cpu_hwregs_rdata)
@@ -157,13 +194,22 @@ cpu_icache  cpu_icache_inst (
 cpu_dcache  cpu_dcache_inst (
     .clock(clock),
     .reset(reset),
-    .cpud_request(cpu_sram_req),
+    .cpud_request(cpud_request),
     .cpud_addr(cpud_addr),
     .cpud_write(cpud_write),
     .cpud_byte_enable(cpud_byte_enable),
     .cpud_wdata(cpud_wdata),
-    .cpud_rdata(cpu_sram_rdata),
-    .cpud_ack(cpu_sram_ack)
+    .cpud_rdata(cpu_dcache_rdata),
+    .cpud_ack(cpu_dcache_ack),
+
+    .dcache_sdram_request(dcache_sdram_request),
+    .dcache_sdram_addr(dcache_sdram_addr),
+    .dcache_sdram_write(dcache_sdram_write),
+    .dcache_sdram_byte_enable(dcache_sdram_byte_enable),
+    .dcache_sdram_wdata(dcache_sdram_wdata),
+    .dcache_sdram_ack(dcache_sdram_ack),
+    .dcache_sdram_rdata(dcache_sdram_rdata),
+    .dcache_sdram_rdvalid(dcache_sdram_rdvalid)
   );
 
   hwregs  hwregs_inst (
@@ -187,7 +233,95 @@ cpu_dcache  cpu_dcache_inst (
     .SW(SW),
     .UART_TX(UART_TX),
     .UART_RX(UART_RX)
+);
+
+sdram_arbiter  sdram_arbiter_inst (
+    .clock(clock),
+    .reset(reset),
+    .sdram_req(sdram_req),
+    .sdram_addr(sdram_addr),
+    .sdram_write(sdram_write),
+    .sdram_burst(sdram_burst),
+    .sdram_byte_enable(sdram_byte_enable),
+    .sdram_wdata(sdram_wdata),
+    .sdram_ack(sdram_ack),
+    .sdram_rdata(sdram_rdata),
+    .sdram_rdvalid(sdram_rdvalid),
+    .sdram_complete(sdram_complete),
+    .bus1_request(vga_sdram_request),
+    .bus1_addr(vga_sdram_addr),
+    .bus1_write(1'b0),
+    .bus1_burst(1'b1),
+    .bus1_byte_enable(4'bx),
+    .bus1_wdata(32'bx),
+    .bus1_ack(vga_sdram_ack),
+    .bus1_rdata(vga_sdram_rdata),
+    .bus1_rdvalid(vga_sdram_rdvalid),
+    .bus1_complete(vga_sdram_complete),
+    .bus2_request(dcache_sdram_request),
+    .bus2_addr(dcache_sdram_addr),
+    .bus2_write(dcache_sdram_write),
+    .bus2_burst(1'b0),
+    .bus2_byte_enable(dcache_sdram_byte_enable),
+    .bus2_wdata(dcache_sdram_wdata),
+    .bus2_ack(dcache_sdram_ack),
+    .bus2_rdata(dcache_sdram_rdata),
+    .bus2_rdvalid(dcache_sdram_rdvalid),
+    .bus2_complete(),
+    .bus3_request(1'b0),
+    .bus3_addr(26'bx),
+    .bus3_write(1'bx),
+    .bus3_burst(1'b0),
+    .bus3_byte_enable(4'bx),
+    .bus3_wdata(32'bx),
+    .bus3_ack(),
+    .bus3_rdata(),
+    .bus3_rdvalid(),
+    .bus3_complete()
   );
 
+sdram_controller  sdram_controller_inst (
+  .clock(clock),
+  .reset(reset),
+  .sdram_req(sdram_req),
+  .sdram_addr(sdram_addr),
+  .sdram_write(sdram_write),
+  .sdram_burst(sdram_burst),
+  .sdram_byte_enable(sdram_byte_enable),
+  .sdram_wdata(sdram_wdata),
+  .sdram_ack(sdram_ack),
+  .sdram_rdata(sdram_rdata),
+  .sdram_rdvalid(sdram_rdvalid),
+  .sdram_complete(sdram_complete),
+  .DRAM_ADDR(DRAM_ADDR),
+  .DRAM_BA(DRAM_BA),
+  .DRAM_CAS_N(DRAM_CAS_N),
+  .DRAM_CKE(DRAM_CKE),
+  .DRAM_CS_N(DRAM_CS_N),
+  .DRAM_DQ(DRAM_DQ),
+  .DRAM_LDQM(DRAM_LDQM),
+  .DRAM_RAS_N(DRAM_RAS_N),
+  .DRAM_UDQM(DRAM_UDQM),
+  .DRAM_WE_N(DRAM_WE_N)
+);
+
+vga  vga_inst (
+    .clock(clock),
+    .reset(reset),
+    .VGA_BLANK_N(VGA_BLANK_N),
+    .VGA_B(VGA_B),
+    .VGA_CLK(VGA_CLK),
+    .VGA_G(VGA_G),
+    .VGA_HS(VGA_HS),
+    .VGA_R(VGA_R),
+    .VGA_SYNC_N(VGA_SYNC_N),
+    .VGA_VS(VGA_VS),
+    .vga_sdram_request(vga_sdram_request),
+    .vga_sdram_addr(vga_sdram_addr),
+    .vga_sdram_ack(vga_sdram_ack),
+    .vga_sdram_rdata(vga_sdram_rdata),
+    .vga_sdram_rdvalid(vga_sdram_rdvalid),
+    .vga_sdram_complete(vga_sdram_complete)
+  );
 
 endmodule

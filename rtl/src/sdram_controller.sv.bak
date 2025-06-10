@@ -8,13 +8,11 @@ module sdram_controller(
     input  logic [2:0]  sdram_req,          // Which bus master requests SDRAM access
     input  logic [25:0] sdram_addr,         // Address of data to read/write
     input  logic        sdram_write,        // 1 = write, 0 = read
-    input  logic        sdram_burst,        // 1 = burst, 0 = single
     input  logic [3:0]  sdram_byte_enable,  // For a write, which bytes to write.
     input  logic [31:0] sdram_wdata,        // Data to write
     output logic        sdram_ack,          // SDRAM has responded to the request.
     output logic [31:0] sdram_rdata,        // Data read from SDRAM
     output logic [2:0]  sdram_rdvalid,      // Which bus master to send data to
-    output logic        sdram_complete,     // SDRAM controller is done with the current burst
   
     // SDRAM interface
     output logic [12:0] DRAM_ADDR,
@@ -46,7 +44,6 @@ module sdram_controller(
 `define STATE_PRECHARGE   3'h4
 `define STATE_REFRESH     3'h5
 `define STATE_ACTIVATE    3'h6
-`define STATE_READ_BURST  3'h7
 
 logic [2:0] this_state, next_state;
 logic [12:0] next_addr;
@@ -92,11 +89,8 @@ assign DRAM_CKE  = 1'b1;
 assign DRAM_CS_N = 1'b0;
 assign DRAM_DQ   = this_oe ? this_data : 16'hzzzz;
 
-logic [1:0] write_pipeline, next_write_pipeline;        // Count clock cycles since last write
-logic [14:0] read_pipeline, next_read_pipeline;         // Pipeline showing which master each slot belongs to.
-logic [3:0] complete_pipeline, next_complete_pipeline;  // Pipeline showing which master each slot belongs to.
-logic [2:0] next_read_master, this_read_master;
-logic [8:0] next_burst_addr, this_burst_addr;
+logic [1:0] write_pipeline;     // Count clock cycles since last write
+logic [4:0] read_pipeline;      // Count clock cycles since last read
 
 
 always_comb begin
@@ -105,28 +99,18 @@ always_comb begin
     next_bank  = 2'bxx;
     next_data  = 16'hx;
     next_oe    = 1'b0;
-    next_dqm   = (read_pipeline[5:0]!=0) ? 2'b00 : 2'bxx;
+    next_dqm   = read_pipeline[1] ? 2'b00 : 2'bxx;
     next_cmd   = `CMD_NOP;
     next_bank_open = bank_open;
     next_bank0_row = bank0_row;
     next_bank1_row = bank1_row;
     next_bank2_row = bank2_row;
     next_bank3_row = bank3_row;
-    next_read_master = this_read_master;
     sdram_ack  = 1'b0;
-    sdram_complete = complete_pipeline[3]; 
-	next_woe   = 2'bx;
-	next_wdata = 16'bx;
-	next_refresh_needed = refresh_needed;
     next_count = count+1'b1;        // Counter is reset when in STATE_READY, and incremented in all other states
-    next_read_pipeline = {read_pipeline[11:0], 3'b0};
-    next_complete_pipeline = {complete_pipeline[2:0], 1'b0};
-    next_write_pipeline = {write_pipeline[0], 1'b0};
-    next_burst_addr = this_burst_addr;
-
 
     // Timer for refreshing SDRAM
-    next_refresh_count = referesh_count +1'b1;
+    next_refresh_count = referesh_count +1;
     next_refresh_needed = refresh_needed;
     if (referesh_count == 780) begin
         next_refresh_count = 0;
@@ -181,7 +165,6 @@ always_comb begin
                 if (sdram_write && read_pipeline==0) begin
                     // The addressed bank is open at the row we want to access - write to it
                     next_cmd  = `CMD_WRITE;
-                    next_write_pipeline[0] = 1'b1;
                     next_addr = {addr_col,1'b0};
                     next_bank = addr_bank;
                     next_data = sdram_wdata[15:0];
@@ -197,12 +180,8 @@ always_comb begin
                     next_addr = {addr_col,1'b0};
                     next_bank = addr_bank;
                     next_dqm  = 0;
-                    next_state = sdram_burst ? `STATE_READ_BURST : `STATE_READ;      // ***
+                    next_state = `STATE_READ;
                     sdram_ack  = 1'b1;
-                    next_read_pipeline[2:0] = sdram_req;
-                    next_read_master = sdram_req;
-                    next_complete_pipeline[0] = !sdram_burst;        // ***
-                    next_burst_addr = addr_col;
                 end
             end
         end
@@ -212,30 +191,13 @@ always_comb begin
             next_state = `STATE_READY;
         end
 
-        `STATE_READ_BURST: begin
-            next_dqm  = 0;
-            next_bank = DRAM_BA;
-            if (count==31) begin
-                next_state = `STATE_READY;
-                next_complete_pipeline[0] = 1'b1;
-            end
-            else if (count[0]==1'b1) begin
-                next_cmd = `CMD_READ;
-                next_burst_addr = {this_burst_addr[8:4], this_burst_addr[3:0]+1'b1};
-                next_addr = {next_burst_addr,1'b0};
-                next_read_pipeline[2:0] = this_read_master;
-            end
-        end
-
-
-
         `STATE_WRITE: begin 
             next_cmd = `CMD_NOP;
             //next_addr = {DRAM_ADDR[12:1],1'b1};
             //next_bank = DRAM_BA;
             next_data = this_wdata;
             next_oe   = 1'b1;
-            next_dqm  = ~this_woe;
+            next_dqm  = ~next_woe;
             next_state = `STATE_READY;
         end
 
@@ -286,8 +248,8 @@ always_comb begin
     if (reset) begin
         next_state = `STATE_INITIALIZE;
         next_count = 8'h00;
-        next_refresh_count = 10'h000;
-        next_refresh_needed = 1'b0;
+        referesh_count = 10'h000;
+        refresh_needed = 1'b0;
     end
 end
 
@@ -314,16 +276,13 @@ always_ff @(posedge clock) begin
     this_wdata <= next_wdata;
     this_woe <= next_woe;
 
-    if (read_pipeline[11:9]!=0)
+    if (read_pipeline[3])
         sdram_rdata[15:0] <= DRAM_DQ;
-    if (read_pipeline[14:12]!=0)   
+    if (read_pipeline[4])   
         sdram_rdata[31:16] <= DRAM_DQ;
-    sdram_rdvalid <= read_pipeline[14:12];
-    write_pipeline <= next_write_pipeline;
-    read_pipeline <= next_read_pipeline;
-    complete_pipeline <= next_complete_pipeline;
-    this_burst_addr <= next_burst_addr;
-    this_read_master <= next_read_master;
+    sdram_rdvalid <= read_pipeline[4];
+    write_pipeline <= {write_pipeline[0], (next_cmd==`CMD_WRITE)};
+    read_pipeline <= {read_pipeline[3:0], (next_cmd==`CMD_READ)};
 end
 
 

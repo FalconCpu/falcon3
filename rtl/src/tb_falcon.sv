@@ -101,10 +101,23 @@ module tb_falcon;
     .GPIO_1(GPIO_1)
   );
 
+micron_sdram  micron_sdram_inst (
+    .Clk(DRAM_CLK),
+    .Cke(DRAM_CKE),
+    .Cs_n(DRAM_CS_N),
+    .Ras_n(DRAM_RAS_N),
+    .Cas_n(DRAM_CAS_N),
+    .We_n(DRAM_WE_N),
+    .Addr(DRAM_ADDR),
+    .Ba(DRAM_BA),
+    .Dq(DRAM_DQ),
+    .Dqm({DRAM_UDQM, DRAM_LDQM})
+  );
+
 initial begin
-    $dumpvars(0, tb_falcon);
     $dumpfile("dump.vcd");
-    # 1000;
+    $dumpvars(0, tb_falcon);
+    # 300000;
     $finish;
 end
 

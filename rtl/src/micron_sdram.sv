@@ -126,7 +126,7 @@ module micron_sdram (Dq, Addr, Ba, Clk, Cke, Cs_n, Ras_n, Cas_n, We_n, Dqm);
     // Write Burst Mode
     wire      Write_burst_mode = Mode_reg[9];
     
-    wire      Debug            = 1'b0;                          // Debug messages : 1 = On
+    wire      Debug            = 1'b1;                          // Debug messages : 1 = On
     wire      Dq_chk           = Sys_clk & Data_in_enable;      // Check setup/hold time for DQ
     
     assign    Dq               = Dq_reg;                        // DQ buffer
@@ -154,15 +154,15 @@ module micron_sdram (Dq, Addr, Ba, Clk, Cke, Cs_n, Ras_n, Cas_n, We_n, Dqm);
     time  RP_chk0, RP_chk1, RP_chk2, RP_chk3;
 
     // initialze the ram for debug
-    integer i;
-    initial begin
-        for(i=0; i<mem_sizes; i=i+1) begin
-            Bank0[i] = 0;
-            Bank1[i] = 0;
-            Bank2[i] = 0;
-            Bank3[i] = 0;
-        end
-    end
+    // integer i;
+    // initial begin
+    //     for(i=0; i<mem_sizes; i=i+1) begin
+    //         Bank0[i] = 0;
+    //         Bank1[i] = 0;
+    //         Bank2[i] = 0;
+    //         Bank3[i] = 0;
+    //     end
+    // end
 
 
     initial begin

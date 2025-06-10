@@ -38,6 +38,7 @@ logic        error;
 
 always_comb begin
     error = 0;
+    skid_valid = skid_valid_q;
 
     // Check for jumps
     if (p3_jump_taken && !stall) begin
