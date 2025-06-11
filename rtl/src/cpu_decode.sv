@@ -84,7 +84,7 @@ always_comb begin
     p2_use_b         = 1'b0;
     p2_op            = 6'b0;
     p2_latent        = 1'b0;
-	 p2_opx           = 8'h0;
+	p2_opx           = 8'h0;
 
     if (reset || p3_jump_taken || !p2_instr_valid) begin
         // Do nothing this cycle  (default assignments)
@@ -95,6 +95,7 @@ always_comb begin
             p2_use_b    = 1'b1;
             p2_op       = {3'b000,  ins_op};
             p2_reg_d    = ins_d;
+            p2_opx      = ins_c;
             p2_write_en = 1'b1;
         end
         
@@ -104,6 +105,7 @@ always_comb begin
             p2_literal_value = {{19{ins_sign}}, ins_c, ins_b};
             p2_op            = {3'b000, ins_op};
             p2_reg_d         = ins_d;
+            p2_opx           = ins_c;
             p2_write_en      = 1'b1;
         end
 
@@ -153,6 +155,26 @@ always_comb begin
             p2_write_en      = 1'b1;
         end
 
+        `KIND_MUL: begin        // Multiply or divide ops
+            p2_use_a    = 1'b1;
+            p2_use_b    = 1'b1;
+            p2_op       = {3'b100,  ins_op};
+            p2_reg_d    = ins_d;
+            p2_opx      = ins_c;
+            p2_write_en = 1'b1;
+            p2_latent   = 1'b1;
+        end
+
+        `KIND_MUL_I: begin
+            p2_use_a         = 1'b1;
+            p2_literal_b     = 1'b1;
+            p2_literal_value = {{19{ins_sign}}, ins_c, ins_b};
+            p2_op            = {3'b100, ins_op};
+            p2_reg_d         = ins_d;
+            p2_write_en      = 1'b1;
+            p2_latent        = 1'b1;
+        end
+
         default: begin
             // Not yet implemented
         end
@@ -193,7 +215,7 @@ always_ff @(posedge clock) begin
         p3_write_en <= p2_write_en;
         p3_op       <= p2_op;
         p3_latent   <= p2_latent;
-		  p3_opx      <= p2_opx;
+		p3_opx      <= p2_opx;
         p4_reg_d    <= p3_reg_d;
         p4_write_en <= p3_write_en;
         p4_op       <= p3_op;

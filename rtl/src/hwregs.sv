@@ -74,7 +74,10 @@ always_ff @(posedge clock) begin
                 if (cpud_byte_enable[1])  LEDR[9:8] <= cpud_wdata[9:8];
                 $display("[%t] LED = %03X", $time, cpud_wdata[10:0]);
             end
-            16'h0010: begin end // Writes to UART TX are handled by the FIFO module below
+            16'h0010: begin 
+                // Writes to the UART TX are handled by the FIFO
+                $write("%c", cpud_wdata[7:0]);
+            end 
             16'h0014: begin end // Writes to the UART RX are ignored
             16'h0018: begin
                 if (cpud_byte_enable[0])  GPIO_0[7:0] <= cpud_wdata[7:0];

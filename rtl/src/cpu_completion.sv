@@ -10,8 +10,12 @@ module cpu_completion(
     input logic        p4_write_pending,
     input logic        p4_read_pending, 
     input logic [31:0] p4_mem_rdata,
+    input logic [31:0] p4_quotient,
+    input logic [31:0] p4_remainder,
+    input logic        p4_divider_done,
 
     output logic [31:0] p4_data_out,
+    input  logic [31:0] p4_mult,
     output logic stall
 );
 
@@ -53,11 +57,17 @@ always_comb begin
         `OP_STW:
             stall = p4_write_pending;
         
-        `OP_MUL,
+        `OP_MUL: p4_data_out = p4_mult;
         `OP_DIVU,
-        `OP_DIVS,
+        `OP_DIVS: begin
+            p4_data_out = p4_quotient;
+            stall = !p4_divider_done;
+        end
         `OP_MODU,
-        `OP_MODS,
+        `OP_MODS: begin
+            p4_data_out = p4_remainder;
+            stall = !p4_divider_done;
+        end
         `OP_CFGR,
         `OP_CFGW,
         `OP_RTE,

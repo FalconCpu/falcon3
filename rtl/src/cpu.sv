@@ -53,6 +53,7 @@ logic [31:0] p3_alu_out;
 logic        p3_jump_taken;
 logic [31:0] p3_jump_addr;
 logic [31:0] p4_alu_out;
+logic [31:0] p4_mult;
 logic [1:0]  cpud_size;
 
 // Signals from the memory unit
@@ -144,7 +145,23 @@ cpu_execute  cpu_execute_inst (
     .p3_alu_out(p3_alu_out),
     .p3_jump_taken(p3_jump_taken),
     .p3_jump_addr(p3_jump_addr),
-    .p4_alu_out(p4_alu_out)
+    .p4_alu_out(p4_alu_out),
+    .p4_mult(p4_mult)
+  );
+
+wire divider_start = (p3_op[5:2]==4'b1001) && !stall;
+wire [31:0] p4_quotient; 
+wire [31:0] p4_remainder;
+wire        p4_divider_done;
+cpu_divider  cpu_divider_inst (
+    .clock(clock),
+    .start(divider_start),
+    .data_a(p3_data_a),
+    .data_b(p3_data_b),
+    .signed_div(p3_op[0]),
+    .quotient(p4_quotient),
+    .remainder(p4_remainder),
+    .done(p4_divider_done)
   );
 
 cpu_memif  cpu_memif_inst (
@@ -170,6 +187,10 @@ cpu_completion  cpu_completion_inst (
     .p4_read_pending(p4_read_pending),
     .p4_mem_rdata(p4_mem_rdata),
     .p4_data_out(p4_data_out),
+    .p4_mult(p4_mult),
+    .p4_quotient(p4_quotient),
+    .p4_remainder(p4_remainder),
+    .p4_divider_done(p4_divider_done),
     .stall(stall)
   );  
 

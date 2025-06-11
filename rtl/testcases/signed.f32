@@ -1,0 +1,58 @@
+
+HWREGS_BASE = 0xE0000000
+SEVENSEG = 0x0000
+LEDS    = 0x0004
+UART_TX = 0x0010
+UART_RX = 0x0014
+
+ld $8, -8
+ld $7,  5
+lsr $10,  $8, 4      # logical shift right
+lsl $11, $8, 4       # logical shift left
+asr $12, $8, 4       # arithmetic shift right
+clt $13, $8, $7      # compare less than signed
+cltu $14, $8, $7     # colpare less than unsigned
+
+ld $1, $10
+jsr printHex
+
+ld $1, $11
+jsr printHex
+
+ld $1, $12
+jsr printHex
+
+ld $1, $13
+jsr printHex
+
+ld $1, $14
+jsr printHex
+
+stop:
+jmp stop
+
+
+printHex:
+# number to print in $1
+ld $7, HWREGS_BASE
+ld $6, 8
+
+.loop:
+lsr $2, $1, 28      # Get the leftmost digit
+ld  $3,10
+blt $2, $3, .digit
+add $2, 7
+
+.digit:
+add $2, '0'
+stw $2, $7[UART_TX]
+lsl $1, 4
+sub $6, 1
+bne $6, 0, .loop
+
+ld $1, 10
+stw $1, $7[UART_TX]
+ret
+
+
+

@@ -25,7 +25,8 @@ module cpu_execute(
     output logic [31:0] p3_alu_out,    // ALU output
     output logic        p3_jump_taken,  // ALU has taken a jump
     output logic [31:0] p3_jump_addr,   // ALU jump address
-    output logic [31:0] p4_alu_out
+    output logic [31:0] p4_alu_out,
+    output logic [31:0] p4_mult
 );
 
 wire [4:0] shift_amount = p3_data_b[4:0];
@@ -35,6 +36,10 @@ wire [31:0] mem_addr = p3_data_a + p3_literal;
 wire [1:0] address_lsb = mem_addr[1:0];
 assign cpud_addr = cpud_request ? mem_addr : 32'bx;
 
+
+logic signed [31:0] signed_a;
+logic signed [31:0] asr;
+logic [31:0] p3_mult;
 logic misaligned_address;
 
 always_comb begin
@@ -47,17 +52,22 @@ always_comb begin
     cpud_wdata = 32'bx;
     cpud_byte_enable = 4'bx;
     misaligned_address = 0;
-	 cpud_size = 2'b0;
-
+	cpud_size = 2'b0;
+    signed_a = $signed(p3_data_a);
+    asr = signed_a >>> shift_amount;
+    p3_mult = 32'bx;
 
     case(p3_op) 
         `OP_AND:    p3_alu_out = p3_data_a & p3_data_b;
         `OP_OR:     p3_alu_out = p3_data_a | p3_data_b;
         `OP_XOR:    p3_alu_out = p3_data_a ^ p3_data_b;
-        `OP_SHIFT:  p3_alu_out = p3_data_a << shift_amount;   // Add other shift operations here
+        `OP_SHIFT:  p3_alu_out = (p3_opx==8'h00) ? p3_data_a << shift_amount :      // logical shift left
+                                 (p3_opx==8'hfe) ? p3_data_a >> shift_amount :       // logical shift right
+                                 (p3_opx==8'hff) ? asr :      // arithmetic shift right
+                                 32'bx;
         `OP_ADD:    p3_alu_out = p3_data_a + p3_data_b;
         `OP_SUB:    p3_alu_out = p3_data_a - p3_data_b;
-        `OP_CLT:    p3_alu_out = $signed(p3_data_a) < $signed(p3_data_b);
+        `OP_CLT:    p3_alu_out = signed_a < $signed(p3_data_b);
         `OP_CLTU:   p3_alu_out = $unsigned(p3_data_a) < $unsigned(p3_data_b);
         
         `OP_BEQ: begin 
@@ -178,7 +188,10 @@ always_comb begin
             end
         end
 
-        `OP_MUL:    begin end
+        `OP_MUL: begin 
+            p3_mult = p3_data_a * p3_data_b;
+        end
+
         `OP_DIVU:    begin end
         `OP_DIVS:    begin end
         `OP_MODU:    begin end
@@ -201,6 +214,7 @@ end
 always_ff @(posedge clock) begin
     if(!stall) begin
         p4_alu_out <= p3_alu_out;
+        p4_mult <= p3_mult;
     end
 end
 
