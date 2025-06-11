@@ -121,6 +121,48 @@ initial begin
     $finish;
 end
 
+logic       uart_clock;
+logic       uart_reset;
+logic       uart_rx_complete;
+logic [7:0] uart_rx_data;
+logic       uart_tx_valid;
+logic [7:0] uart_tx_data;
+logic       uart_tx_complete;
+
+always begin
+   uart_clock = 0;
+   # 5;
+   uart_clock = 1;
+   # 5;
+end
+
+initial begin
+  uart_reset = 1;
+  uart_tx_data = 8'h15;
+  uart_tx_valid = 0;
+  @ (posedge uart_clock);
+  @ (posedge uart_clock);
+  uart_reset = 0;
+  @ (posedge uart_clock);
+  @ (posedge uart_clock);
+  @ (posedge uart_clock);
+  uart_tx_valid = 1;
+  @ (posedge uart_clock);
+  uart_tx_valid = 0;
+end
+
+uart  uart_inst (
+    .clock(uart_clock),
+    .reset(uart_reset),
+    .UART_RX(GPIO_0[0]),
+    .UART_TX(GPIO_0[1]),
+    .rx_complete(uart_rx_complete),
+    .rx_data(uart_rx_data),
+    .tx_valid(uart_tx_valid),
+    .tx_data(uart_tx_data),
+    .tx_complete(uart_tx_complete)
+  );
+
 //always #5  clk = ! clk ;
 
 endmodule

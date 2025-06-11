@@ -105,6 +105,11 @@ logic [31:0] cpu_hwregs_rdata;
 logic        UART_RX, UART_TX;
 logic locked;
 
+logic        cpu_iram_req;
+logic        cpu_iram_ack;
+logic [31:0] cpu_iram_rdata;
+
+
 logic [2:0]  sdram_req;
 logic [25:0] sdram_addr;
 logic        sdram_write;
@@ -141,6 +146,9 @@ logic [31:0] vga_sdram_rdata;
 logic        vga_sdram_rdvalid;
 logic        vga_sdram_complete;
 
+assign GPIO_0[35:1] = 35'hzzzzzzzzzzzzzzzzz;
+assign GPIO_0[0] = UART_TX;
+assign UART_RX = GPIO_0[1];
 
 pll  pll_inst (
     .refclk(CLOCK_50),
@@ -176,6 +184,9 @@ address_decoder  address_decoder_inst (
     .cpu_dcache_req(cpu_dcache_req),
     .cpu_dcache_ack(cpu_dcache_ack),
     .cpu_dcache_rdata(cpu_dcache_rdata),
+    .cpu_iram_req(cpu_iram_req),
+    .cpu_iram_ack(cpu_iram_ack),
+    .cpu_iram_rdata(cpu_iram_rdata),
     .cpu_hwregs_req(cpu_hwregs_req),
     .cpu_hwregs_ack(cpu_hwregs_ack),
     .cpu_hwregs_rdata(cpu_hwregs_rdata)
@@ -187,14 +198,20 @@ cpu_icache  cpu_icache_inst (
     .cpui_request(cpui_request),
     .cpui_addr(cpui_addr),
     .cpui_rdata(cpui_rdata),
-    .cpui_ack(cpui_ack)
+    .cpui_ack(cpui_ack),
+    .cpud_request(cpu_iram_req),
+    .cpud_addr(cpud_addr[15:0]),
+    .cpud_write(cpud_write),
+    .cpud_byte_enable(cpud_byte_enable),
+    .cpud_wdata(cpud_wdata),
+    .cpud_rdata(cpu_iram_rdata),
+    .cpud_ack(cpu_iram_ack)
   );
-
   
 cpu_dcache  cpu_dcache_inst (
     .clock(clock),
     .reset(reset),
-    .cpud_request(cpud_request),
+    .cpud_request(cpu_dcache_req),
     .cpud_addr(cpud_addr),
     .cpud_write(cpud_write),
     .cpud_byte_enable(cpud_byte_enable),

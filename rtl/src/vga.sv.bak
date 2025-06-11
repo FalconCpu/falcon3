@@ -101,7 +101,7 @@ always_comb begin
                                          fifo_read_data[31:24];
 
     if (count_x[1:0]==2'b11 && count_c==2'b11 && in_visible_area)
-        next_fifo_read_pointer = fifo_read_pointer + 1'b1;
+        next_fifo_read_pointer = fifo_read_pointer + 1;
 
     // Determine the RGB values
     if (count_x<640 && count_y<480) begin

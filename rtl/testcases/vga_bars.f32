@@ -1,0 +1,18 @@
+
+ld $1, 0x3f80000   # start of display memory
+ld $2, 0x3fcb000   # end of display memory
+
+ld $3, 0           # value to write
+ld $4, 160         # number of words in a line
+
+clearLoop:
+stw $3, $1[0]
+add $1, 4
+add $3, 1
+bne $3, $4, .skip
+ld $3, 0
+.skip:
+bne $1, $2, clearLoop
+
+forever:
+jmp forever

@@ -40,6 +40,16 @@ module hwregs (
 );
 
 logic [23:0] seven_seg;
+logic [7:0]  fifo_tx_data;
+logic        fifo_tx_complete;
+logic        fifo_tx_not_empty;
+logic [9:0]  fifo_tx_slots_free;
+logic [7:0]  fifo_rx_data;
+logic        fifo_rx_not_empty;
+logic [7:0]  uart_rx_data;
+logic        uart_rx_complete;
+
+
 
 always_ff @(posedge clock) begin
     cpud_ack <= cpud_request;
@@ -48,9 +58,17 @@ always_ff @(posedge clock) begin
     if (cpud_request && cpud_write) begin
         // Write to hardware registers
         case(cpud_addr)
-            16'h0000: seven_seg <= cpud_wdata[23:0];
-            16'h0004: LEDR <= cpud_wdata[9:0];
-            16'h0010: begin end // UART not yet implemented
+            16'h0000: begin
+                if (cpud_byte_enable[0]) seven_seg[7:0] <= cpud_wdata[7:0];
+                if (cpud_byte_enable[1]) seven_seg[15:8] <= cpud_wdata[15:8];
+                if (cpud_byte_enable[2]) seven_seg[23:16] <= cpud_wdata[23:16];
+            end
+            16'h0004: begin
+                if (cpud_byte_enable[0])  LEDR[7:0] <= cpud_wdata[7:0];
+                if (cpud_byte_enable[1])  LEDR[9:8] <= cpud_wdata[9:8];
+            end
+            16'h0010: begin end // Writes to UART TX are handled by the FIFO module below
+            16'h0014: begin end // Writes to the UART RX are ignored
         endcase
 
     end else begin
@@ -60,8 +78,8 @@ always_ff @(posedge clock) begin
             16'h0004: cpud_rdata <= {22'b0, LEDR};
             16'h0008: cpud_rdata <= {22'b0, SW};
             16'h000C: cpud_rdata <= {28'b0, KEY};
-            16'h0010: begin end // UART not yet implemented
-            16'h0014: begin end // UART not yet implemented
+            16'h0010: cpud_rdata <= {24'b0, fifo_tx_slots_free};
+            16'h0014: cpud_rdata <= fifo_rx_not_empty ? {24'b0, fifo_rx_data} : 32'hffffffff;
         endcase
     end
 
@@ -81,5 +99,44 @@ seven_seg  seven_seg_inst (
     .HEX4(HEX4),
     .HEX5(HEX5)
   );
+
+uart  uart_inst (
+    .clock(clock),
+    .reset(reset),
+    .UART_RX(UART_RX),
+    .UART_TX(UART_TX),
+    .rx_complete(uart_rx_complete),
+    .rx_data(uart_rx_data),
+    .tx_valid(fifo_tx_not_empty),
+    .tx_data(fifo_tx_data),
+    .tx_complete(fifo_tx_complete)
+  );
+
+wire tx_strobe = cpud_request && cpud_write && cpud_addr[15:0] == 16'h0010;
+
+byte_fifo  uart_tx_fifo (
+    .clk(clock),
+    .reset(reset),
+    .write_enable(tx_strobe),
+    .write_data(cpud_wdata[7:0]),
+    .read_enable(fifo_tx_complete),
+    .read_data(fifo_tx_data),
+    .slots_free(fifo_tx_slots_free),
+    .not_empty(fifo_tx_not_empty)
+  );
+
+wire rx_strobe = cpud_request && !cpud_write && cpud_addr[15:0] == 16'h0014;
+
+byte_fifo  uart_rx_fifo (
+    .clk(clock),
+    .reset(reset),
+    .write_enable(uart_rx_complete),
+    .write_data(uart_rx_data),
+    .read_enable(rx_strobe),
+    .read_data(fifo_rx_data),
+    .slots_free(),
+    .not_empty(fifo_rx_not_empty)
+  );
+
 
 endmodule

@@ -29,7 +29,7 @@ module cpu_dcache(
 
 // We send the ack to the CPU immediately for a write, 
 assign cpud_ack = (dcache_sdram_ack && dcache_sdram_write) || dcache_sdram_rdvalid;
-assign cpud_rdata = dcache_sdram_rdata;
+assign cpud_rdata = dcache_sdram_rdvalid ? dcache_sdram_rdata : 32'b0;
 
 always_ff @(posedge clock) begin
     if (dcache_sdram_ack) begin
