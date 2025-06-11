@@ -122,6 +122,7 @@ always_comb begin
         end
     
         `KIND_JMPR: begin
+            p2_use_a         = 1'b1;
             p2_literal_value = {{19{ins_sign}}, ins_c, ins_b};
             p2_op            = `OP_JMPR;
             p2_reg_d         = ins_d;

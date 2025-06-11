@@ -35,9 +35,10 @@ assign cpui_rdata = cpui_ack ? mem_q : 32'bx;
 
 always_ff @(posedge clock) begin
     if (cpud_request && cpud_write) begin
-        mem[cpui_addr[15:2]] = cpud_wdata;
+        mem[cpud_addr[15:2]] = cpud_wdata;
         if (cpud_byte_enable!=4'hf)
             $display("Only word access support for instruction ram");
+        $display("IRAM: [%x] = %x", cpud_addr, cpud_wdata);
     end
     mem_data_q <= mem[cpud_addr[15:2]];
     cpud_read  <= cpud_request && !cpud_write;

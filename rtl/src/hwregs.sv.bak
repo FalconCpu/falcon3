@@ -67,12 +67,10 @@ always_ff @(posedge clock) begin
                 if (cpud_byte_enable[0]) seven_seg[7:0] <= cpud_wdata[7:0];
                 if (cpud_byte_enable[1]) seven_seg[15:8] <= cpud_wdata[15:8];
                 if (cpud_byte_enable[2]) seven_seg[23:16] <= cpud_wdata[23:16];
-                $display("[%t] 7SEG = %06X", $time, cpud_wdata[23:0]);
             end
             16'h0004: begin
                 if (cpud_byte_enable[0])  LEDR[7:0] <= cpud_wdata[7:0];
                 if (cpud_byte_enable[1])  LEDR[9:8] <= cpud_wdata[9:8];
-                $display("[%t] LED = %03X", $time, cpud_wdata[10:0]);
             end
             16'h0010: begin end // Writes to UART TX are handled by the FIFO module below
             16'h0014: begin end // Writes to the UART RX are ignored
@@ -84,9 +82,9 @@ always_ff @(posedge clock) begin
             end
             16'h001C: begin
                 if (cpud_byte_enable[0])  GPIO_1[7:0] <= cpud_wdata[7:0];
-                if (cpud_byte_enable[1])  GPIO_1[15:8] <= cpud_wdata[15:8];
-                if (cpud_byte_enable[2])  GPIO_1[23:16] <= cpud_wdata[23:16];
-                if (cpud_byte_enable[3])  GPIO_1[31:24] <= cpud_wdata[31:24];
+                if (cpud_byte_enable[1])  GPIO_1[7:4] <= cpud_wdata[7:4];
+                if (cpud_byte_enable[2])  GPIO_1[11:8] <= cpud_wdata[11:8];
+                if (cpud_byte_enable[3])  GPIO_1[15:12] <= cpud_wdata[15:12];
             end
 
             16'h0020: begin
@@ -101,7 +99,7 @@ always_ff @(posedge clock) begin
             16'h0004: cpud_rdata <= {22'b0, LEDR};
             16'h0008: cpud_rdata <= {22'b0, SW};
             16'h000C: cpud_rdata <= {28'b0, KEY};
-            16'h0010: cpud_rdata <= {22'b0, fifo_tx_slots_free};
+            16'h0010: cpud_rdata <= {24'b0, fifo_tx_slots_free};
             16'h0014: cpud_rdata <= fifo_rx_not_empty ? {24'b0, fifo_rx_data} : 32'hffffffff;
         endcase
     end

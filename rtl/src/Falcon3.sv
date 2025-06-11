@@ -146,7 +146,7 @@ logic [31:0] vga_sdram_rdata;
 logic        vga_sdram_rdvalid;
 logic        vga_sdram_complete;
 
-assign GPIO_0[35:1] = 35'hzzzzzzzzzzzzzzzzz;
+assign GPIO_0[3:1] = 3'bzzz;
 assign GPIO_0[0] = UART_TX;
 assign UART_RX = GPIO_0[1];
 
@@ -249,7 +249,9 @@ cpu_dcache  cpu_dcache_inst (
     .LEDR(LEDR),
     .SW(SW),
     .UART_TX(UART_TX),
-    .UART_RX(UART_RX)
+    .UART_RX(UART_RX),
+    .GPIO_0(GPIO_0[35:4]),
+    .GPIO_1(GPIO_1)
 );
 
 sdram_arbiter  sdram_arbiter_inst (

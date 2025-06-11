@@ -6,3 +6,5 @@ asm.hex
 asm.labels
 
 fpga/
+binutils/build/
+

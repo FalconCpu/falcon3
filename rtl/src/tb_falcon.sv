@@ -117,7 +117,7 @@ micron_sdram  micron_sdram_inst (
 initial begin
     $dumpfile("dump.vcd");
     $dumpvars(0, tb_falcon);
-    # 300000;
+    # 500000;
     $finish;
 end
 
@@ -136,19 +136,29 @@ always begin
    # 5;
 end
 
+reg [7:0] tx_data[0:1023];
+integer tx_pointer;
+
 initial begin
+  $readmemh("uart.txt", tx_data);
+  tx_pointer = 0;
+
   uart_reset = 1;
-  uart_tx_data = 8'h15;
   uart_tx_valid = 0;
   @ (posedge uart_clock);
   @ (posedge uart_clock);
   uart_reset = 0;
   @ (posedge uart_clock);
   @ (posedge uart_clock);
-  @ (posedge uart_clock);
-  uart_tx_valid = 1;
-  @ (posedge uart_clock);
-  uart_tx_valid = 0;
+
+  for(tx_pointer = 0; tx_pointer < 1024; tx_pointer = tx_pointer + 1) begin
+    uart_tx_data = tx_data[tx_pointer];
+    uart_tx_valid = 1;
+    @ (posedge uart_clock);
+    while(!uart_tx_complete) begin
+      @ (posedge uart_clock);
+    end
+  end
 end
 
 uart  uart_inst (
