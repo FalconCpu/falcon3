@@ -54,7 +54,12 @@ logic        fifo_rx_not_empty;
 logic [7:0]  uart_rx_data;
 logic        uart_rx_complete;
 
+// synthesis translate_off
+integer fh;
+initial 
+   fh =  $fopen("rtl_uart.log", "w");
 
+// synthesis translate_on
 
 always_ff @(posedge clock) begin
     cpud_ack <= cpud_request;
@@ -76,7 +81,10 @@ always_ff @(posedge clock) begin
             end
             16'h0010: begin 
                 // Writes to the UART TX are handled by the FIFO
+                // synthesis translate_off
                 $write("%c", cpud_wdata[7:0]);
+                $fwrite(fh, "%c", cpud_wdata[7:0]);
+                // synthesis translate_on
             end 
             16'h0014: begin end // Writes to the UART RX are ignored
             16'h0018: begin

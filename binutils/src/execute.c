@@ -464,11 +464,11 @@ static int read_cfg(int cfg_reg) {
 static void write_cfg(int cfg_reg, int value) {
     switch(cfg_reg) {
         case CFG_REG_EPC:      epc      = value;            break;
-        case CFG_REG_ECAUSE:   ecause   = value & 0x15;     break;
+        case CFG_REG_ECAUSE:   ecause   = value & 0xFF;     break;
         case CFG_REG_EDATA:    edata    = value;            break;
-        case CFG_REG_ESTATUS:  estatus  = value & 0x15;     break;
+        case CFG_REG_ESTATUS:  estatus  = value & 0xFF;     break;
         case CFG_REG_ESCRATCH: escratch = value;            break;
-        case CFG_REG_STATUS:   status   = value & 0x15;     break;
+        case CFG_REG_STATUS:   status   = value & 0xFF;     break;
     }
 }
 
@@ -533,7 +533,7 @@ static void execute_instruction(int instr) {
                         }
                         break;
         case KIND_IDX:  set_reg(d, idx_op(i, reg[a], reg[b])); break;
-        default: break;
+        default: raise_exception(CAUSE_ILLEGAAL_INSTRUCTION, instr);
     }
 }
 

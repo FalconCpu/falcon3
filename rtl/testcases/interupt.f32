@@ -1,0 +1,47 @@
+HWREGS_BASE = 0xE0000000
+SEVENSEG = 0x0000
+LEDS    = 0x0004
+UART_TX = 0x0010
+UART_RX = 0x0014
+
+
+EntryPoint:
+jmp start
+
+
+start:
+
+ld $11, HWREGS_BASE
+
+ld $1, interupt_handler     # setup the interupt vector
+cfg !intvec, $1
+
+ld $1, 100                  # request a timer interupt in 100 clock cycles
+cfg !timer, $1
+
+ld $9,  'A'
+ld $10, 'Z'
+ld $19, '0'                 # store a value in $19 - which will get overwritten by the interrupt handler
+
+mainloop:
+ld $1,$9
+stw $1, $11[UART_TX]
+ld $1,10
+stw $1, $11[UART_TX]
+add $9, 1
+bne $9, $10, mainloop
+
+# now print the contents of $19
+# which should have been incremented once by the interrupt handler during the loop
+stw $19, $11[UART_TX]
+ld $1,10
+stw $1, $11[UART_TX]
+
+ld $30,0                    # end the program
+ret
+
+
+
+interupt_handler:
+add $19, 1              # increment the contents of $19
+rti

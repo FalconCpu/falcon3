@@ -17,8 +17,13 @@ module cpu_ifetch(
     output logic        p2_instr_valid,   // Instruction is valid
     input  logic        p2_bubble,        // Decoder is not ready to accept an instruction
 
-    input  logic [31:0] p3_jump_addr,     // Jump address
-    input  logic        p3_jump_taken     // Jump is valid
+    // Outputs to the exception unit
+    output logic [31:0] p3_pc,
+    output logic [31:0] p4_pc,
+    output logic [31:0] p4_instr,
+
+    input  logic [31:0] p4_jump_addr,     // Jump address
+    input  logic        p4_jump_taken     // Jump is valid
 );
 
 logic [31:0] pc, pc_q;                     // PC
@@ -32,6 +37,7 @@ logic [31:0] p2_pc_q;                      // PC of instruction in decoder
 logic        skid_valid, skid_valid_q;     // Are we skidding an instruction?
 logic [31:0] skid_instr, skid_instr_q;     // Instruction we are skidding
 logic [31:0] skid_pc, skid_pc_q;           // PC of instruction we are skidding
+logic [31:0] p3_instr;
 
 logic        error;
 
@@ -41,8 +47,8 @@ always_comb begin
     skid_valid = skid_valid_q;
 
     // Check for jumps
-    if (p3_jump_taken && !stall) begin
-        pc = p3_jump_addr;                 // Update the PC to the jump address
+    if (p4_jump_taken && !stall) begin
+        pc = p4_jump_addr;                 // Update the PC to the jump address
     end else begin
         pc = pc_q;                         // The increment happens later
     end
@@ -142,6 +148,19 @@ always_ff @(posedge clock) begin
     skid_pc_q        <= skid_pc;
     skid_valid_q     <= skid_valid;
     prev_stall       <= stall ||  p2_bubble;
+
+    if (!stall) begin
+        p3_pc    <= p2_pc;
+        p3_instr <= p2_instr;
+        p4_pc    <= p3_pc;
+        p4_instr <= p3_instr;
+    end
+
+    // synthesis translate_off
+    if (p2_pc==32'h0) begin
+        $finish();
+    end
+    // synthesis translate_on
 end
 
 always @(posedge clock) begin

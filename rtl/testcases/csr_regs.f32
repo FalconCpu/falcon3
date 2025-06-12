@@ -1,0 +1,90 @@
+
+# write some values to the CSR registers
+
+ld $1, 0x12345678
+cfg !epc, $1
+
+ld $1, 0x87654321
+cfg !edata, $1
+
+ld $1, 0x23
+cfg !ecause, $1
+
+ld $1, 0xCAFEF00D
+cfg !escratch, $1
+
+ld $1, 0x19
+cfg !status, $1
+
+ld $1, 0x37
+cfg !estatus, $1
+
+
+
+# read them back and print
+cfg $1, !epc
+jsr printHex
+
+cfg $1, !edata
+jsr printHex
+
+cfg $1, !ecause
+jsr printHex
+
+cfg $1, !escratch
+jsr printHex
+
+cfg $1, !status
+jsr printHex
+
+cfg $1, !estatus
+jsr printHex
+
+# Do read and write op
+ld $1, 0xFEEDF00D
+cfg $9, !epc, $1        # $9 = old value of !epc (0x12345678), epc gets new value 0xFEEDF00D
+
+ld $1, $9
+jsr printHex
+cfg $1, !epc
+jsr printHex
+
+
+
+ld $30,0
+ret
+
+
+
+
+HWREGS_BASE = 0xE0000000
+SEVENSEG = 0x0000
+LEDS    = 0x0004
+UART_TX = 0x0010
+UART_RX = 0x0014
+
+
+printHex:
+# number to print in $1
+ld $7, HWREGS_BASE
+ld $6, 8
+
+.loop:
+lsr $2, $1, 28      # Get the leftmost digit
+ld  $3,10
+blt $2, $3, .digit
+add $2, 7
+
+.digit:
+add $2, '0'
+stw $2, $7[UART_TX]
+lsl $1, 4
+sub $6, 1
+bne $6, 0, .loop
+
+ld $1, 10
+stw $1, $7[UART_TX]
+ret
+
+
+

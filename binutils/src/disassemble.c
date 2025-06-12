@@ -120,7 +120,12 @@ string cfg_name[] = {
     "!edata", 
     "!estatus",
     "!escratch",
-    "!status"
+    "!status",
+    "!ipc",
+    "!icause",
+    "istatus",
+    "!intvec",
+    "!timer"
 };
 
 string idx_name[] = {

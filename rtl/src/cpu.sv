@@ -26,6 +26,9 @@ module cpu(
 logic [31:0] p2_instr;
 logic [31:0] p2_pc;
 logic        p2_instr_valid;
+logic [31:0] p3_pc;
+logic [31:0] p4_pc;
+logic [31:0] p4_instr;
 
 // Signals from the datamux unit
 logic [31:0] p3_data_a;
@@ -47,6 +50,7 @@ logic [31:0] p2_literal_value;
 logic [5:0]  p3_op;
 logic [7:0]  p3_opx;
 logic [5:0]  p4_op;
+logic        p4_illegal_ins;
 
 // Signals from the Execute stage
 logic [31:0] p3_alu_out;
@@ -55,11 +59,17 @@ logic [31:0] p3_jump_addr;
 logic [31:0] p4_alu_out;
 logic [31:0] p4_mult;
 logic [1:0]  cpud_size;
+logic        p4_misaligned_addr;
 
 // Signals from the memory unit
 logic        p4_read_pending;
 logic        p4_write_pending;
 logic [31:0] p4_mem_rdata;
+
+// Signals from the exception unit
+logic [31:0] p4_csr_out;
+logic        p4_jump_taken;
+logic [31:0] p4_jump_addr;
 
 // Signals from the completion unit
 logic [31:0] p4_data_out;
@@ -78,8 +88,11 @@ cpu_ifetch  cpu_ifetch_inst (
     .p2_pc(p2_pc),
     .p2_instr_valid(p2_instr_valid),
     .p2_bubble(p2_bubble),
-    .p3_jump_addr(p3_jump_addr),
-    .p3_jump_taken(p3_jump_taken)
+    .p4_jump_addr(p4_jump_addr),
+    .p4_jump_taken(p4_jump_taken),
+    .p3_pc(p3_pc),
+    .p4_pc(p4_pc),
+    .p4_instr(p4_instr)
   );
 
 cpu_datamux  cpu_datamux_inst (
@@ -122,8 +135,9 @@ cpu_decode  cpu_decode_inst (
     .p2_literal_value(p2_literal_value),
     .p3_op(p3_op),
     .p3_opx(p3_opx),
-    .p3_jump_taken(p3_jump_taken),
-    .p4_op(p4_op)
+    .p4_jump_taken(p4_jump_taken),
+    .p4_op(p4_op),
+    .p4_illegal_ins(p4_illegal_ins)
   );
   
 cpu_execute  cpu_execute_inst (
@@ -136,6 +150,7 @@ cpu_execute  cpu_execute_inst (
     .p3_data_b(p3_data_b),
     .p2_pc(p2_pc),
     .p3_literal(p3_literal),
+    .p4_jump_taken(p4_jump_taken),
     .cpud_request(cpud_request),
     .cpud_addr(cpud_addr),
     .cpud_write(cpud_write),
@@ -146,10 +161,11 @@ cpu_execute  cpu_execute_inst (
     .p3_jump_taken(p3_jump_taken),
     .p3_jump_addr(p3_jump_addr),
     .p4_alu_out(p4_alu_out),
+    .p4_misaligned_addr(p4_misaligned_addr),
     .p4_mult(p4_mult)
   );
 
-wire divider_start = (p3_op[5:2]==4'b1001) && !stall;
+wire divider_start = (p3_op[5:2]==4'b1001) && !stall && !p4_jump_taken;
 wire [31:0] p4_quotient; 
 wire [31:0] p4_remainder;
 wire        p4_divider_done;
@@ -178,6 +194,28 @@ cpu_memif  cpu_memif_inst (
     .p4_mem_rdata(p4_mem_rdata)
   );
 
+cpu_exception  cpu_exception_inst (
+    .clock(clock),
+    .reset(reset),
+    .stall(stall),
+    .p3_op(p3_op),
+    .p4_op(p4_op),
+    .p3_literal(p3_literal[12:0]),
+    .p3_data_a(p3_data_a),
+    .p4_csr_out(p4_csr_out),
+    .p4_illegal_ins(p4_illegal_ins),
+    .p3_jump_taken(p3_jump_taken),
+    .p3_jump_addr(p3_jump_addr),
+    .p4_jump_taken(p4_jump_taken),
+    .p4_jump_addr(p4_jump_addr),
+    .p4_misaligned_addr(p4_misaligned_addr),
+    .cpud_addr(cpud_addr),
+    .p3_pc(p3_pc),
+    .p4_pc(p4_pc),
+    .p4_instr(p4_instr)
+
+  );
+
 cpu_completion  cpu_completion_inst (
     .clock(clock),
     .reset(reset),
@@ -190,6 +228,7 @@ cpu_completion  cpu_completion_inst (
     .p4_mult(p4_mult),
     .p4_quotient(p4_quotient),
     .p4_remainder(p4_remainder),
+    .p4_csr_out(p4_csr_out),
     .p4_divider_done(p4_divider_done),
     .stall(stall)
   );  

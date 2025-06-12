@@ -23,17 +23,17 @@ add $1, 4
 cfg !epc, $1
 rte
 
-
 # Start of the program
 
 start:
-ld $1, 0x12345678
-dcw 0xBAADF00D          # trigger the exception
+ld $1, 0x12345
+ld $2, 0xCAFEF00D
+stw $2, $1[0]           # store word from address 0x12345 - misaligned load exception
 ld $1, string4
 jsr printString
 
-forever:
-jmp forever
+ld $30,0                # jump to address zero ends the program
+ret
 
 
 

@@ -28,8 +28,8 @@ jsr printHex
 ld $1, $14
 jsr printHex
 
-stop:
-jmp stop
+ld $30,0
+ret
 
 
 printHex:

@@ -27,9 +27,12 @@ module cpu_decode(
     // Signals to the ALU
     output logic [5:0]  p3_op,
     output logic [7:0]  p3_opx,
-    input  logic        p3_jump_taken,
+    input  logic        p4_jump_taken,
 
-    // Signals to the MemAccess Stage
+    // Signals to excepption unit
+    output logic        p4_illegal_ins,
+
+    // Signals to the Completion Stage
     output logic [5:0]  p4_op
 ); 
 
@@ -40,6 +43,7 @@ reg [5:0] p2_op;
 reg       p2_latent, p3_latent;         // The instruction may take more than one cycle to execute.
 reg [7:0] p2_opx;
 reg       p2_use_a, p2_use_b;
+logic     p2_illegal_ins, p3_illegal_ins;
 
 // Instruction Formats:-
 // 109876 543 21098 76543 21098765 43210   
@@ -85,8 +89,10 @@ always_comb begin
     p2_op            = 6'b0;
     p2_latent        = 1'b0;
 	p2_opx           = 8'h0;
+    p2_illegal_ins = 1'b0;
 
-    if (reset || p3_jump_taken || !p2_instr_valid) begin
+
+    if (reset || p4_jump_taken || !p2_instr_valid) begin
         // Do nothing this cycle  (default assignments)
 
     end else case(ins_kind) 
@@ -114,6 +120,7 @@ always_comb begin
             p2_use_b         = 1'b1;
             p2_literal_value = {{19{ins_sign}}, ins_c, ins_d};
             p2_op            = {3'b001, ins_op};
+            p2_illegal_ins   = (ins_op==3'b110 || ins_op==3'b111);
         end
 
         `KIND_JMP: begin
@@ -129,6 +136,7 @@ always_comb begin
             p2_op            = `OP_JMPR;
             p2_reg_d         = ins_d;
             p2_write_en      = 1'b1;
+            p2_illegal_ins   = (ins_op!=3'b000);
         end
 
         `KIND_LOAD: begin
@@ -138,6 +146,7 @@ always_comb begin
             p2_reg_d         = ins_d;
             p2_write_en      = 1'b1;
             p2_latent        = 1'b1;
+            p2_illegal_ins   = (ins_op!=3'b000 && ins_op!=3'b001 && ins_op!=3'b010);
         end
 
         `KIND_STORE: begin
@@ -145,6 +154,7 @@ always_comb begin
             p2_use_b         = 1'b1;
             p2_op            = {3'b011, ins_op};
             p2_literal_value = {{19{ins_sign}}, ins_c, ins_d};
+            p2_illegal_ins   = (ins_op!=3'b000 && ins_op!=3'b001 && ins_op!=3'b010);
         end
 
         `KIND_LDI: begin
@@ -155,6 +165,28 @@ always_comb begin
             p2_write_en      = 1'b1;
         end
 
+        `KIND_LDPC: begin
+            p2_literal_value = {{11{ins_sign}}, ins_c, ins_op, ins_a, ins_b};
+            p2_op            = `OP_LDPC;
+            p2_reg_d         = ins_d;
+            p2_write_en      = 1'b1;
+        end
+
+        `KIND_CFG: begin
+            p2_use_a         = 1'b1;
+            p2_literal_value = {{19{ins_sign}}, ins_c, ins_b};
+            p2_op            = {3'b101, ins_op};
+            if (ins_op==3'b000 || ins_op==3'b001) begin
+                // Read or write CSR
+                p2_reg_d         = ins_d;
+                p2_write_en      = 1'b1;
+            end else if (ins_op==3'b010 || ins_op==3'b011) begin
+                // rte or sys instructions
+            end else 
+                p2_illegal_ins   = 1'b1;
+            p2_latent        = 1'b1;
+        end
+
         `KIND_MUL: begin        // Multiply or divide ops
             p2_use_a    = 1'b1;
             p2_use_b    = 1'b1;
@@ -162,6 +194,7 @@ always_comb begin
             p2_reg_d    = ins_d;
             p2_opx      = ins_c;
             p2_write_en = 1'b1;
+            p2_illegal_ins= (ins_op!=3'b000 && ins_op!=3'b100 && ins_op!=3'b101 && ins_op!=3'b110 && ins_op!=3'b111);
             p2_latent   = 1'b1;
         end
 
@@ -172,10 +205,12 @@ always_comb begin
             p2_op            = {3'b100, ins_op};
             p2_reg_d         = ins_d;
             p2_write_en      = 1'b1;
+            p2_illegal_ins   = (ins_op!=3'b000 && ins_op!=3'b100 && ins_op!=3'b101 && ins_op!=3'b110 && ins_op!=3'b111);
             p2_latent        = 1'b1;
         end
 
         default: begin
+            p2_illegal_ins = 1'b1;
             // Not yet implemented
         end
     endcase
@@ -216,9 +251,11 @@ always_ff @(posedge clock) begin
         p3_op       <= p2_op;
         p3_latent   <= p2_latent;
 		p3_opx      <= p2_opx;
-        p4_reg_d    <= p3_reg_d;
-        p4_write_en <= p3_write_en;
-        p4_op       <= p3_op;
+        p4_reg_d    <= p4_jump_taken ? 5'b0 : p3_reg_d;
+        p4_write_en <= p4_jump_taken ? 1'b0 : p3_write_en;
+        p4_op       <= p4_jump_taken ? 6'b0 : p3_op;
+        p3_illegal_ins <= p4_jump_taken ? 1'b0 : p2_illegal_ins;
+        p4_illegal_ins <= p4_jump_taken ? 1'b0 : p3_illegal_ins;
     end
 end
 

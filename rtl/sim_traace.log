@@ -1,0 +1,413 @@
+ffff0000: jmp start                               -> start
+ffff0044: ld $1, 0x12345000                       $ 1 = 12345000
+ffff0048: or $1, $1, 0x678                        $ 1 = 12345678
+ffff004c: undefined                               EXCEPTION: 2 baadf00d
+
+ffff0004: ldpc $1, string1                        $ 1 = ffff00b4
+ffff0008: jsr printString                         $30 = ffff000c-> printString
+ffff008c: ld $7, 0xe0000000                       $ 7 = e0000000
+ffff0090: ldb $2, $1[0]                           $ 2 = 00000045
+ffff0094: beq $2, 0, printString.done             
+ffff0098: stw $2, $7[16]                          [e0000010] = 00000045
+ffff009c: add $1, $1, 0x1                         $ 1 = ffff00b5
+ffff00a0: jmp printString.loop                    -> printString.loop
+ffff0090: ldb $2, $1[0]                           $ 2 = 00000058
+ffff0094: beq $2, 0, printString.done             
+ffff0098: stw $2, $7[16]                          [e0000010] = 00000058
+ffff009c: add $1, $1, 0x1                         $ 1 = ffff00b6
+ffff00a0: jmp printString.loop                    -> printString.loop
+ffff0090: ldb $2, $1[0]                           $ 2 = 00000043
+ffff0094: beq $2, 0, printString.done             
+ffff0098: stw $2, $7[16]                          [e0000010] = 00000043
+ffff009c: add $1, $1, 0x1                         $ 1 = ffff00b7
+ffff00a0: jmp printString.loop                    -> printString.loop
+ffff0090: ldb $2, $1[0]                           $ 2 = 00000045
+ffff0094: beq $2, 0, printString.done             
+ffff0098: stw $2, $7[16]                          [e0000010] = 00000045
+ffff009c: add $1, $1, 0x1                         $ 1 = ffff00b8
+ffff00a0: jmp printString.loop                    -> printString.loop
+ffff0090: ldb $2, $1[0]                           $ 2 = 00000050
+ffff0094: beq $2, 0, printString.done             
+ffff0098: stw $2, $7[16]                          [e0000010] = 00000050
+ffff009c: add $1, $1, 0x1                         $ 1 = ffff00b9
+ffff00a0: jmp printString.loop                    -> printString.loop
+ffff0090: ldb $2, $1[0]                           $ 2 = 00000054
+ffff0094: beq $2, 0, printString.done             
+ffff0098: stw $2, $7[16]                          [e0000010] = 00000054
+ffff009c: add $1, $1, 0x1                         $ 1 = ffff00ba
+ffff00a0: jmp printString.loop                    -> printString.loop
+ffff0090: ldb $2, $1[0]                           $ 2 = 00000049
+ffff0094: beq $2, 0, printString.done             
+ffff0098: stw $2, $7[16]                          [e0000010] = 00000049
+ffff009c: add $1, $1, 0x1                         $ 1 = ffff00bb
+ffff00a0: jmp printString.loop                    -> printString.loop
+ffff0090: ldb $2, $1[0]                           $ 2 = 0000004f
+ffff0094: beq $2, 0, printString.done             
+ffff0098: stw $2, $7[16]                          [e0000010] = 0000004f
+ffff009c: add $1, $1, 0x1                         $ 1 = ffff00bc
+ffff00a0: jmp printString.loop                    -> printString.loop
+ffff0090: ldb $2, $1[0]                           $ 2 = 0000004e
+ffff0094: beq $2, 0, printString.done             
+ffff0098: stw $2, $7[16]                          [e0000010] = 0000004e
+ffff009c: add $1, $1, 0x1                         $ 1 = ffff00bd
+ffff00a0: jmp printString.loop                    -> printString.loop
+ffff0090: ldb $2, $1[0]                           $ 2 = 00000020
+ffff0094: beq $2, 0, printString.done             
+ffff0098: stw $2, $7[16]                          [e0000010] = 00000020
+ffff009c: add $1, $1, 0x1                         $ 1 = ffff00be
+ffff00a0: jmp printString.loop                    -> printString.loop
+ffff0090: ldb $2, $1[0]                           $ 2 = 00000043
+ffff0094: beq $2, 0, printString.done             
+ffff0098: stw $2, $7[16]                          [e0000010] = 00000043
+ffff009c: add $1, $1, 0x1                         $ 1 = ffff00bf
+ffff00a0: jmp printString.loop                    -> printString.loop
+ffff0090: ldb $2, $1[0]                           $ 2 = 00000041
+ffff0094: beq $2, 0, printString.done             
+ffff0098: stw $2, $7[16]                          [e0000010] = 00000041
+ffff009c: add $1, $1, 0x1                         $ 1 = ffff00c0
+ffff00a0: jmp printString.loop                    -> printString.loop
+ffff0090: ldb $2, $1[0]                           $ 2 = 00000055
+ffff0094: beq $2, 0, printString.done             
+ffff0098: stw $2, $7[16]                          [e0000010] = 00000055
+ffff009c: add $1, $1, 0x1                         $ 1 = ffff00c1
+ffff00a0: jmp printString.loop                    -> printString.loop
+ffff0090: ldb $2, $1[0]                           $ 2 = 00000053
+ffff0094: beq $2, 0, printString.done             
+ffff0098: stw $2, $7[16]                          [e0000010] = 00000053
+ffff009c: add $1, $1, 0x1                         $ 1 = ffff00c2
+ffff00a0: jmp printString.loop                    -> printString.loop
+ffff0090: ldb $2, $1[0]                           $ 2 = 00000045
+ffff0094: beq $2, 0, printString.done             
+ffff0098: stw $2, $7[16]                          [e0000010] = 00000045
+ffff009c: add $1, $1, 0x1                         $ 1 = ffff00c3
+ffff00a0: jmp printString.loop                    -> printString.loop
+ffff0090: ldb $2, $1[0]                           $ 2 = 0000003d
+ffff0094: beq $2, 0, printString.done             
+ffff0098: stw $2, $7[16]                          [e0000010] = 0000003d
+ffff009c: add $1, $1, 0x1                         $ 1 = ffff00c4
+ffff00a0: jmp printString.loop                    -> printString.loop
+ffff0090: ldb $2, $1[0]                           $ 2 = 00000020
+ffff0094: beq $2, 0, printString.done             
+ffff0098: stw $2, $7[16]                          [e0000010] = 00000020
+ffff009c: add $1, $1, 0x1                         $ 1 = ffff00c5
+ffff00a0: jmp printString.loop                    -> printString.loop
+ffff0090: ldb $2, $1[0]                           $ 2 = 00000045
+ffff0094: beq $2, 0, printString.done             
+ffff0098: stw $2, $7[16]                          [e0000010] = 00000045
+ffff009c: add $1, $1, 0x1                         $ 1 = ffff00c6
+ffff00a0: jmp printString.loop                    -> printString.loop
+ffff0090: ldb $2, $1[0]                           $ 2 = 00000050
+ffff0094: beq $2, 0, printString.done             
+ffff0098: stw $2, $7[16]                          [e0000010] = 00000050
+ffff009c: add $1, $1, 0x1                         $ 1 = ffff00c7
+ffff00a0: jmp printString.loop                    -> printString.loop
+ffff0090: ldb $2, $1[0]                           $ 2 = 00000043
+ffff0094: beq $2, 0, printString.done             
+ffff0098: stw $2, $7[16]                          [e0000010] = 00000043
+ffff009c: add $1, $1, 0x1                         $ 1 = ffff00c8
+ffff00a0: jmp printString.loop                    -> printString.loop
+ffff0090: ldb $2, $1[0]                           $ 2 = 0000003d
+ffff0094: beq $2, 0, printString.done             
+ffff0098: stw $2, $7[16]                          [e0000010] = 0000003d
+ffff009c: add $1, $1, 0x1                         $ 1 = ffff00c9
+ffff00a0: jmp printString.loop                    -> printString.loop
+ffff0090: ldb $2, $1[0]                           $ 2 = 00000000
+ffff0094: beq $2, 0, printString.done             -> printString.done
+ffff00a4: ret                                     -> 0xffff000c
+ffff000c: cfg $1,!ecause                          $ 1 = 00000002
+ffff0010: jsr printHex                            $30 = ffff0014-> printHex
+ffff005c: ld $7, 0xe0000000                       $ 7 = e0000000
+ffff0060: ld $6, 8                                $ 6 = 00000008
+ffff0064: lsr $2, $1, 0xffffffdc                  $ 2 = 00000000
+ffff0068: ld $3, 10                               $ 3 = 0000000a
+ffff006c: blt $2, $3, printHex.digit              -> printHex.digit
+ffff0074: add $2, $2, 0x30                        $ 2 = 00000030
+ffff0078: stw $2, $7[16]                          [e0000010] = 00000030
+ffff007c: lsl $1, $1, 0x4                         $ 1 = 00000020
+ffff0080: sub $6, $6, 0x1                         $ 6 = 00000007
+ffff0084: bne $6, 0, printHex.loop                -> printHex.loop
+ffff0064: lsr $2, $1, 0xffffffdc                  $ 2 = 00000000
+ffff0068: ld $3, 10                               $ 3 = 0000000a
+ffff006c: blt $2, $3, printHex.digit              -> printHex.digit
+ffff0074: add $2, $2, 0x30                        $ 2 = 00000030
+ffff0078: stw $2, $7[16]                          [e0000010] = 00000030
+ffff007c: lsl $1, $1, 0x4                         $ 1 = 00000200
+ffff0080: sub $6, $6, 0x1                         $ 6 = 00000006
+ffff0084: bne $6, 0, printHex.loop                -> printHex.loop
+ffff0064: lsr $2, $1, 0xffffffdc                  $ 2 = 00000000
+ffff0068: ld $3, 10                               $ 3 = 0000000a
+ffff006c: blt $2, $3, printHex.digit              -> printHex.digit
+ffff0074: add $2, $2, 0x30                        $ 2 = 00000030
+ffff0078: stw $2, $7[16]                          [e0000010] = 00000030
+ffff007c: lsl $1, $1, 0x4                         $ 1 = 00002000
+ffff0080: sub $6, $6, 0x1                         $ 6 = 00000005
+ffff0084: bne $6, 0, printHex.loop                -> printHex.loop
+ffff0064: lsr $2, $1, 0xffffffdc                  $ 2 = 00000000
+ffff0068: ld $3, 10                               $ 3 = 0000000a
+ffff006c: blt $2, $3, printHex.digit              -> printHex.digit
+ffff0074: add $2, $2, 0x30                        $ 2 = 00000030
+ffff0078: stw $2, $7[16]                          [e0000010] = 00000030
+ffff007c: lsl $1, $1, 0x4                         $ 1 = 00020000
+ffff0080: sub $6, $6, 0x1                         $ 6 = 00000004
+ffff0084: bne $6, 0, printHex.loop                -> printHex.loop
+ffff0064: lsr $2, $1, 0xffffffdc                  $ 2 = 00000000
+ffff0068: ld $3, 10                               $ 3 = 0000000a
+ffff006c: blt $2, $3, printHex.digit              -> printHex.digit
+ffff0074: add $2, $2, 0x30                        $ 2 = 00000030
+ffff0078: stw $2, $7[16]                          [e0000010] = 00000030
+ffff007c: lsl $1, $1, 0x4                         $ 1 = 00200000
+ffff0080: sub $6, $6, 0x1                         $ 6 = 00000003
+ffff0084: bne $6, 0, printHex.loop                -> printHex.loop
+ffff0064: lsr $2, $1, 0xffffffdc                  $ 2 = 00000000
+ffff0068: ld $3, 10                               $ 3 = 0000000a
+ffff006c: blt $2, $3, printHex.digit              -> printHex.digit
+ffff0074: add $2, $2, 0x30                        $ 2 = 00000030
+ffff0078: stw $2, $7[16]                          [e0000010] = 00000030
+ffff007c: lsl $1, $1, 0x4                         $ 1 = 02000000
+ffff0080: sub $6, $6, 0x1                         $ 6 = 00000002
+ffff0084: bne $6, 0, printHex.loop                -> printHex.loop
+ffff0064: lsr $2, $1, 0xffffffdc                  $ 2 = 00000000
+ffff0068: ld $3, 10                               $ 3 = 0000000a
+ffff006c: blt $2, $3, printHex.digit              -> printHex.digit
+ffff0074: add $2, $2, 0x30                        $ 2 = 00000030
+ffff0078: stw $2, $7[16]                          [e0000010] = 00000030
+ffff007c: lsl $1, $1, 0x4                         $ 1 = 20000000
+ffff0080: sub $6, $6, 0x1                         $ 6 = 00000001
+ffff0084: bne $6, 0, printHex.loop                -> printHex.loop
+ffff0064: lsr $2, $1, 0xffffffdc                  $ 2 = 00000002
+ffff0068: ld $3, 10                               $ 3 = 0000000a
+ffff006c: blt $2, $3, printHex.digit              -> printHex.digit
+ffff0074: add $2, $2, 0x30                        $ 2 = 00000032
+ffff0078: stw $2, $7[16]                          [e0000010] = 00000032
+ffff007c: lsl $1, $1, 0x4                         $ 1 = 00000000
+ffff0080: sub $6, $6, 0x1                         $ 6 = 00000000
+ffff0084: bne $6, 0, printHex.loop                
+ffff0088: ret                                     -> 0xffff0014
+ffff0014: ldpc $1, string2                        $ 1 = ffff00c4
+ffff0018: jsr printString                         $30 = ffff001c-> printString
+ffff008c: ld $7, 0xe0000000                       $ 7 = e0000000
+ffff0090: ldb $2, $1[0]                           $ 2 = 00000020
+ffff0094: beq $2, 0, printString.done             
+ffff0098: stw $2, $7[16]                          [e0000010] = 00000020
+ffff009c: add $1, $1, 0x1                         $ 1 = ffff00c5
+ffff00a0: jmp printString.loop                    -> printString.loop
+ffff0090: ldb $2, $1[0]                           $ 2 = 00000045
+ffff0094: beq $2, 0, printString.done             
+ffff0098: stw $2, $7[16]                          [e0000010] = 00000045
+ffff009c: add $1, $1, 0x1                         $ 1 = ffff00c6
+ffff00a0: jmp printString.loop                    -> printString.loop
+ffff0090: ldb $2, $1[0]                           $ 2 = 00000050
+ffff0094: beq $2, 0, printString.done             
+ffff0098: stw $2, $7[16]                          [e0000010] = 00000050
+ffff009c: add $1, $1, 0x1                         $ 1 = ffff00c7
+ffff00a0: jmp printString.loop                    -> printString.loop
+ffff0090: ldb $2, $1[0]                           $ 2 = 00000043
+ffff0094: beq $2, 0, printString.done             
+ffff0098: stw $2, $7[16]                          [e0000010] = 00000043
+ffff009c: add $1, $1, 0x1                         $ 1 = ffff00c8
+ffff00a0: jmp printString.loop                    -> printString.loop
+ffff0090: ldb $2, $1[0]                           $ 2 = 0000003d
+ffff0094: beq $2, 0, printString.done             
+ffff0098: stw $2, $7[16]                          [e0000010] = 0000003d
+ffff009c: add $1, $1, 0x1                         $ 1 = ffff00c9
+ffff00a0: jmp printString.loop                    -> printString.loop
+ffff0090: ldb $2, $1[0]                           $ 2 = 00000000
+ffff0094: beq $2, 0, printString.done             -> printString.done
+ffff00a4: ret                                     -> 0xffff001c
+ffff001c: cfg $1,!epc                             $ 1 = ffff004c
+ffff0020: jsr printHex                            $30 = ffff0024-> printHex
+ffff005c: ld $7, 0xe0000000                       $ 7 = e0000000
+ffff0060: ld $6, 8                                $ 6 = 00000008
+ffff0064: lsr $2, $1, 0xffffffdc                  $ 2 = 0000000f
+ffff0068: ld $3, 10                               $ 3 = 0000000a
+ffff006c: blt $2, $3, printHex.digit              
+ffff0070: add $2, $2, 0x7                         $ 2 = 00000016
+ffff0074: add $2, $2, 0x30                        $ 2 = 00000046
+ffff0078: stw $2, $7[16]                          [e0000010] = 00000046
+ffff007c: lsl $1, $1, 0x4                         $ 1 = fff004c0
+ffff0080: sub $6, $6, 0x1                         $ 6 = 00000007
+ffff0084: bne $6, 0, printHex.loop                -> printHex.loop
+ffff0064: lsr $2, $1, 0xffffffdc                  $ 2 = 0000000f
+ffff0068: ld $3, 10                               $ 3 = 0000000a
+ffff006c: blt $2, $3, printHex.digit              
+ffff0070: add $2, $2, 0x7                         $ 2 = 00000016
+ffff0074: add $2, $2, 0x30                        $ 2 = 00000046
+ffff0078: stw $2, $7[16]                          [e0000010] = 00000046
+ffff007c: lsl $1, $1, 0x4                         $ 1 = ff004c00
+ffff0080: sub $6, $6, 0x1                         $ 6 = 00000006
+ffff0084: bne $6, 0, printHex.loop                -> printHex.loop
+ffff0064: lsr $2, $1, 0xffffffdc                  $ 2 = 0000000f
+ffff0068: ld $3, 10                               $ 3 = 0000000a
+ffff006c: blt $2, $3, printHex.digit              
+ffff0070: add $2, $2, 0x7                         $ 2 = 00000016
+ffff0074: add $2, $2, 0x30                        $ 2 = 00000046
+ffff0078: stw $2, $7[16]                          [e0000010] = 00000046
+ffff007c: lsl $1, $1, 0x4                         $ 1 = f004c000
+ffff0080: sub $6, $6, 0x1                         $ 6 = 00000005
+ffff0084: bne $6, 0, printHex.loop                -> printHex.loop
+ffff0064: lsr $2, $1, 0xffffffdc                  $ 2 = 0000000f
+ffff0068: ld $3, 10                               $ 3 = 0000000a
+ffff006c: blt $2, $3, printHex.digit              
+ffff0070: add $2, $2, 0x7                         $ 2 = 00000016
+ffff0074: add $2, $2, 0x30                        $ 2 = 00000046
+ffff0078: stw $2, $7[16]                          [e0000010] = 00000046
+ffff007c: lsl $1, $1, 0x4                         $ 1 = 004c0000
+ffff0080: sub $6, $6, 0x1                         $ 6 = 00000004
+ffff0084: bne $6, 0, printHex.loop                -> printHex.loop
+ffff0064: lsr $2, $1, 0xffffffdc                  $ 2 = 00000000
+ffff0068: ld $3, 10                               $ 3 = 0000000a
+ffff006c: blt $2, $3, printHex.digit              -> printHex.digit
+ffff0074: add $2, $2, 0x30                        $ 2 = 00000030
+ffff0078: stw $2, $7[16]                          [e0000010] = 00000030
+ffff007c: lsl $1, $1, 0x4                         $ 1 = 04c00000
+ffff0080: sub $6, $6, 0x1                         $ 6 = 00000003
+ffff0084: bne $6, 0, printHex.loop                -> printHex.loop
+ffff0064: lsr $2, $1, 0xffffffdc                  $ 2 = 00000000
+ffff0068: ld $3, 10                               $ 3 = 0000000a
+ffff006c: blt $2, $3, printHex.digit              -> printHex.digit
+ffff0074: add $2, $2, 0x30                        $ 2 = 00000030
+ffff0078: stw $2, $7[16]                          [e0000010] = 00000030
+ffff007c: lsl $1, $1, 0x4                         $ 1 = 4c000000
+ffff0080: sub $6, $6, 0x1                         $ 6 = 00000002
+ffff0084: bne $6, 0, printHex.loop                -> printHex.loop
+ffff0064: lsr $2, $1, 0xffffffdc                  $ 2 = 00000004
+ffff0068: ld $3, 10                               $ 3 = 0000000a
+ffff006c: blt $2, $3, printHex.digit              -> printHex.digit
+ffff0074: add $2, $2, 0x30                        $ 2 = 00000034
+ffff0078: stw $2, $7[16]                          [e0000010] = 00000034
+ffff007c: lsl $1, $1, 0x4                         $ 1 = c0000000
+ffff0080: sub $6, $6, 0x1                         $ 6 = 00000001
+ffff0084: bne $6, 0, printHex.loop                -> printHex.loop
+ffff0064: lsr $2, $1, 0xffffffdc                  $ 2 = 0000000c
+ffff0068: ld $3, 10                               $ 3 = 0000000a
+ffff006c: blt $2, $3, printHex.digit              
+ffff0070: add $2, $2, 0x7                         $ 2 = 00000013
+ffff0074: add $2, $2, 0x30                        $ 2 = 00000043
+ffff0078: stw $2, $7[16]                          [e0000010] = 00000043
+ffff007c: lsl $1, $1, 0x4                         $ 1 = 00000000
+ffff0080: sub $6, $6, 0x1                         $ 6 = 00000000
+ffff0084: bne $6, 0, printHex.loop                
+ffff0088: ret                                     -> 0xffff0024
+ffff0024: ldpc $1, string3                        $ 1 = ffff00cc
+ffff0028: jsr printString                         $30 = ffff002c-> printString
+ffff008c: ld $7, 0xe0000000                       $ 7 = e0000000
+ffff0090: ldb $2, $1[0]                           $ 2 = 00000020
+ffff0094: beq $2, 0, printString.done             
+ffff0098: stw $2, $7[16]                          [e0000010] = 00000020
+ffff009c: add $1, $1, 0x1                         $ 1 = ffff00cd
+ffff00a0: jmp printString.loop                    -> printString.loop
+ffff0090: ldb $2, $1[0]                           $ 2 = 00000045
+ffff0094: beq $2, 0, printString.done             
+ffff0098: stw $2, $7[16]                          [e0000010] = 00000045
+ffff009c: add $1, $1, 0x1                         $ 1 = ffff00ce
+ffff00a0: jmp printString.loop                    -> printString.loop
+ffff0090: ldb $2, $1[0]                           $ 2 = 00000044
+ffff0094: beq $2, 0, printString.done             
+ffff0098: stw $2, $7[16]                          [e0000010] = 00000044
+ffff009c: add $1, $1, 0x1                         $ 1 = ffff00cf
+ffff00a0: jmp printString.loop                    -> printString.loop
+ffff0090: ldb $2, $1[0]                           $ 2 = 00000041
+ffff0094: beq $2, 0, printString.done             
+ffff0098: stw $2, $7[16]                          [e0000010] = 00000041
+ffff009c: add $1, $1, 0x1                         $ 1 = ffff00d0
+ffff00a0: jmp printString.loop                    -> printString.loop
+ffff0090: ldb $2, $1[0]                           $ 2 = 00000054
+ffff0094: beq $2, 0, printString.done             
+ffff0098: stw $2, $7[16]                          [e0000010] = 00000054
+ffff009c: add $1, $1, 0x1                         $ 1 = ffff00d1
+ffff00a0: jmp printString.loop                    -> printString.loop
+ffff0090: ldb $2, $1[0]                           $ 2 = 00000041
+ffff0094: beq $2, 0, printString.done             
+ffff0098: stw $2, $7[16]                          [e0000010] = 00000041
+ffff009c: add $1, $1, 0x1                         $ 1 = ffff00d2
+ffff00a0: jmp printString.loop                    -> printString.loop
+ffff0090: ldb $2, $1[0]                           $ 2 = 0000003d
+ffff0094: beq $2, 0, printString.done             
+ffff0098: stw $2, $7[16]                          [e0000010] = 0000003d
+ffff009c: add $1, $1, 0x1                         $ 1 = ffff00d3
+ffff00a0: jmp printString.loop                    -> printString.loop
+ffff0090: ldb $2, $1[0]                           $ 2 = 00000000
+ffff0094: beq $2, 0, printString.done             -> printString.done
+ffff00a4: ret                                     -> 0xffff002c
+ffff002c: cfg $1,!edata                           $ 1 = baadf00d
+ffff0030: jsr printHex                            $30 = ffff0034-> printHex
+ffff005c: ld $7, 0xe0000000                       $ 7 = e0000000
+ffff0060: ld $6, 8                                $ 6 = 00000008
+ffff0064: lsr $2, $1, 0xffffffdc                  $ 2 = 0000000b
+ffff0068: ld $3, 10                               $ 3 = 0000000a
+ffff006c: blt $2, $3, printHex.digit              
+ffff0070: add $2, $2, 0x7                         $ 2 = 00000012
+ffff0074: add $2, $2, 0x30                        $ 2 = 00000042
+ffff0078: stw $2, $7[16]                          [e0000010] = 00000042
+ffff007c: lsl $1, $1, 0x4                         $ 1 = aadf00d0
+ffff0080: sub $6, $6, 0x1                         $ 6 = 00000007
+ffff0084: bne $6, 0, printHex.loop                -> printHex.loop
+ffff0064: lsr $2, $1, 0xffffffdc                  $ 2 = 0000000a
+ffff0068: ld $3, 10                               $ 3 = 0000000a
+ffff006c: blt $2, $3, printHex.digit              
+ffff0070: add $2, $2, 0x7                         $ 2 = 00000011
+ffff0074: add $2, $2, 0x30                        $ 2 = 00000041
+ffff0078: stw $2, $7[16]                          [e0000010] = 00000041
+ffff007c: lsl $1, $1, 0x4                         $ 1 = adf00d00
+ffff0080: sub $6, $6, 0x1                         $ 6 = 00000006
+ffff0084: bne $6, 0, printHex.loop                -> printHex.loop
+ffff0064: lsr $2, $1, 0xffffffdc                  $ 2 = 0000000a
+ffff0068: ld $3, 10                               $ 3 = 0000000a
+ffff006c: blt $2, $3, printHex.digit              
+ffff0070: add $2, $2, 0x7                         $ 2 = 00000011
+ffff0074: add $2, $2, 0x30                        $ 2 = 00000041
+ffff0078: stw $2, $7[16]                          [e0000010] = 00000041
+ffff007c: lsl $1, $1, 0x4                         $ 1 = df00d000
+ffff0080: sub $6, $6, 0x1                         $ 6 = 00000005
+ffff0084: bne $6, 0, printHex.loop                -> printHex.loop
+ffff0064: lsr $2, $1, 0xffffffdc                  $ 2 = 0000000d
+ffff0068: ld $3, 10                               $ 3 = 0000000a
+ffff006c: blt $2, $3, printHex.digit              
+ffff0070: add $2, $2, 0x7                         $ 2 = 00000014
+ffff0074: add $2, $2, 0x30                        $ 2 = 00000044
+ffff0078: stw $2, $7[16]                          [e0000010] = 00000044
+ffff007c: lsl $1, $1, 0x4                         $ 1 = f00d0000
+ffff0080: sub $6, $6, 0x1                         $ 6 = 00000004
+ffff0084: bne $6, 0, printHex.loop                -> printHex.loop
+ffff0064: lsr $2, $1, 0xffffffdc                  $ 2 = 0000000f
+ffff0068: ld $3, 10                               $ 3 = 0000000a
+ffff006c: blt $2, $3, printHex.digit              
+ffff0070: add $2, $2, 0x7                         $ 2 = 00000016
+ffff0074: add $2, $2, 0x30                        $ 2 = 00000046
+ffff0078: stw $2, $7[16]                          [e0000010] = 00000046
+ffff007c: lsl $1, $1, 0x4                         $ 1 = 00d00000
+ffff0080: sub $6, $6, 0x1                         $ 6 = 00000003
+ffff0084: bne $6, 0, printHex.loop                -> printHex.loop
+ffff0064: lsr $2, $1, 0xffffffdc                  $ 2 = 00000000
+ffff0068: ld $3, 10                               $ 3 = 0000000a
+ffff006c: blt $2, $3, printHex.digit              -> printHex.digit
+ffff0074: add $2, $2, 0x30                        $ 2 = 00000030
+ffff0078: stw $2, $7[16]                          [e0000010] = 00000030
+ffff007c: lsl $1, $1, 0x4                         $ 1 = 0d000000
+ffff0080: sub $6, $6, 0x1                         $ 6 = 00000002
+ffff0084: bne $6, 0, printHex.loop                -> printHex.loop
+ffff0064: lsr $2, $1, 0xffffffdc                  $ 2 = 00000000
+ffff0068: ld $3, 10                               $ 3 = 0000000a
+ffff006c: blt $2, $3, printHex.digit              -> printHex.digit
+ffff0074: add $2, $2, 0x30                        $ 2 = 00000030
+ffff0078: stw $2, $7[16]                          [e0000010] = 00000030
+ffff007c: lsl $1, $1, 0x4                         $ 1 = d0000000
+ffff0080: sub $6, $6, 0x1                         $ 6 = 00000001
+ffff0084: bne $6, 0, printHex.loop                -> printHex.loop
+ffff0064: lsr $2, $1, 0xffffffdc                  $ 2 = 0000000d
+ffff0068: ld $3, 10                               $ 3 = 0000000a
+ffff006c: blt $2, $3, printHex.digit              
+ffff0070: add $2, $2, 0x7                         $ 2 = 00000014
+ffff0074: add $2, $2, 0x30                        $ 2 = 00000044
+ffff0078: stw $2, $7[16]                          [e0000010] = 00000044
+ffff007c: lsl $1, $1, 0x4                         $ 1 = 00000000
+ffff0080: sub $6, $6, 0x1                         $ 6 = 00000000
+ffff0084: bne $6, 0, printHex.loop                
+ffff0088: ret                                     -> 0xffff0034
+ffff0034: ld $1, 10                               $ 1 = 0000000a
+ffff0038: jsr printChar                           $30 = ffff003c-> printChar
+ffff00a8: ld $7, 0xe0000000                       $ 7 = e0000000
+ffff00ac: stw $1, $7[16]                          [e0000010] = 0000000a
+ffff00b0: ret                                     -> 0xffff003c
+ffff003c: ld $30, 0                               $30 = 00000000
+ffff0040: ret                                     -> 0x00000000

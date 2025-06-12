@@ -32,8 +32,8 @@ dcw 0xBAADF00D          # trigger the exception
 ld $1, string4
 jsr printString
 
-forever:
-jmp forever
+ld $30,0                # jump to address zero ends the program
+ret
 
 
 

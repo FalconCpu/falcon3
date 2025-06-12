@@ -29,11 +29,12 @@
 `define  OP_DIVS   6'b100_101
 `define  OP_MODU   6'b100_110
 `define  OP_MODS   6'b100_111
-`define  OP_CFGR   6'b101_000
-`define  OP_CFGW   6'b101_001
+`define  OP_CSRR   6'b101_000
+`define  OP_CSRW   6'b101_001
 `define  OP_RTE    6'b101_010
 `define  OP_SYS    6'b101_011
 `define  OP_LD     6'b110_000
+`define  OP_LDPC   6'b110_001
 
 
 // KIND values for decode
@@ -50,6 +51,36 @@
 `define KIND_MUL_I 6'b011010
 `define KIND_CFG   6'b011011
 `define KIND_IDX   6'b011100
+
+// CSR registers
+`define CSR_EPC      8'h1
+`define CSR_ECAUSE   8'h2
+`define CSR_EDATA    8'h3
+`define CSR_ESTATUS  8'h4
+`define CSR_ESCRATCH 8'h5
+`define CSR_STATUS   8'h6
+`define CSR_IPC      8'h7
+`define CSR_ICAUSE   8'h8
+`define CSR_ISTATUS  8'h9
+`define CSR_INTVEC   8'hA
+
+`define EXCEPTION_VECTOR 32'hffff0004
+`define INTERUPT_VECTOR 32'hffff0008
+
+`define CAUSE_INSTRUCTION_ACCESS_FAULT   1
+`define CAUSE_ILLEGAL_INSTRUCTION        2
+`define CAUSE_BREAKPOINT                 3
+`define CAUSE_LOAD_ADDRESS_MISALIGNED    4
+`define CAUSE_LOAD_ACCESS_FAULT          5
+`define CAUSE_STORE_ADDRESS_MISALIGNED   6
+`define CAUSE_STORE_ACCESS_FAULT         7
+`define CAUSE_SYSTEM_CALL                8
+`define CAUSE_INDEX_OVERFLOW             9
+
+`define FLAG_SUPERVISOR              8'h01
+`define FLAG_INTERRUPT               8'h02
+
+
 
 
 

@@ -143,6 +143,7 @@ static struct Token predefined_tokens[] = {
 
     { 'C', 0, "cfg",      0, 0},
     { 'Z', 0, "rte",      0, 0},
+    { 'Z', 0, "rti",      1, 0},
     { 'Y', 0, "sys",      0, 0},
     { '!', 0, "!version", 0, 0},
     { '!', 0, "!epc",     1, 0},
@@ -151,6 +152,11 @@ static struct Token predefined_tokens[] = {
     { '!', 0, "!estatus", 4, 0},
     { '!', 0, "!escratch",5, 0},
     { '!', 0, "!status",  6, 0},
+    { '!', 0, "!ipc",      7, 0},
+    { '!', 0, "!icause",   8, 0},
+    { '!', 0, "!istatus",  9, 0},
+    { '!', 0, "!intvec",   10, 0},
+    { '!', 0, "!timer",   11, 0},
 
     { 'd', 0, "dcb",  0 , 0},
     { 'd', 0, "dch",  1 , 0},

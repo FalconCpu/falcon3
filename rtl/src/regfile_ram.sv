@@ -21,6 +21,7 @@ end
 
 initial begin
     mem[0] = 0;
+	mem[30] = 0;
 end
 
 endmodule

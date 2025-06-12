@@ -1,0 +1,61 @@
+
+HWREGS_BASE = 0xE0000000
+SEVENSEG = 0x0000
+LEDS    = 0x0004
+UART_TX = 0x0010
+UART_RX = 0x0014
+
+ld $1, 123
+ld $2, 234
+mul $10, $1, $2         # Start a multiplication
+mul $11, $10, 3         # next multiply attempts to use the result of the first multiply - 
+                        # this will cause the hazard detection logic to need to insert a NOP
+divs $12, $11, 3        # Do a division
+ld $13, $12             # attempt to access the result of the division immediately
+mods $14, $11, 3        # Do a modulus using the same arguments as the division - this should
+                        # complete quickly as it hits the `cache` in the divider. 
+
+
+ld $1, $10
+jsr printHex
+
+ld $1, $11
+jsr printHex
+
+ld $1, $12
+jsr printHex
+
+ld $1, $13
+jsr printHex
+
+ld $1, $14
+jsr printHex
+
+
+ld $30, 0
+ret
+
+printHex:
+# number to print in $1
+ld $7, HWREGS_BASE
+ld $6, 8
+
+.loop:
+lsr $2, $1, 28      # Get the leftmost digit
+ld  $3,10
+blt $2, $3, .digit
+add $2, 7
+
+.digit:
+add $2, '0'
+stw $2, $7[UART_TX]
+lsl $1, 4
+sub $6, 1
+bne $6, 0, .loop
+
+ld $1, 10
+stw $1, $7[UART_TX]
+ret
+
+
+

@@ -13,6 +13,7 @@ module cpu_completion(
     input logic [31:0] p4_quotient,
     input logic [31:0] p4_remainder,
     input logic        p4_divider_done,
+    input logic [31:0] p4_csr_out,
 
     output logic [31:0] p4_data_out,
     input  logic [31:0] p4_mult,
@@ -40,7 +41,8 @@ always_comb begin
         `OP_BGEU,
         `OP_JMP,
         `OP_JMPR,
-        `OP_LD:
+        `OP_LD,
+        `OP_LDPC:
             p4_data_out = p4_alu_out;
 
         `OP_LDB,
@@ -68,8 +70,9 @@ always_comb begin
             p4_data_out = p4_remainder;
             stall = !p4_divider_done;
         end
-        `OP_CFGR,
-        `OP_CFGW,
+        `OP_CSRR,
+        `OP_CSRW: p4_data_out = p4_csr_out;
+
         `OP_RTE,
         `OP_SYS: begin 
             // NOT YET IMPLEMENTED

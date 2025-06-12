@@ -109,7 +109,7 @@ jmp start
 
 uart_read_byte:
 ld $8,1
-ld $2, 1000000        # timeout value
+ld $2, 100000        # timeout value
 
 .loop:
 ldw $7, $20[UART_RX]
@@ -169,10 +169,13 @@ ret
 uart_read_command_word:
 ld $27, $30           # save link pointer
 ld $8,1
+ld $13, 100           # timeout counter
 
 .loop:
 jsr uart_read_byte    # read the first byte
 ld $4, 0xB0
 beq $4, $7, uart_read_word_second
+sub $13,1
+beq $13, 0, start
 jmp .loop
 

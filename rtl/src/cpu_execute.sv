@@ -12,6 +12,7 @@ module cpu_execute(
     input logic [31:0] p3_data_b,       // ALU input B
     input logic [31:0] p2_pc,           // PC of instruction being decoded
     input logic [31:0] p3_literal,      // ALU literal value
+    input logic        p4_jump_taken,   // nullify this instruction if previous instruction jumped
 
     // outputs to data bus
     output logic        cpud_request,     // CPU requests a bus transaction. Asserts for one cycle.
@@ -23,10 +24,11 @@ module cpu_execute(
 
 
     output logic [31:0] p3_alu_out,    // ALU output
-    output logic        p3_jump_taken,  // ALU has taken a jump
+    output logic        p3_jump_taken,
     output logic [31:0] p3_jump_addr,   // ALU jump address
     output logic [31:0] p4_alu_out,
-    output logic [31:0] p4_mult
+    output logic [31:0] p4_mult,
+    output logic        p4_misaligned_addr
 );
 
 wire [4:0] shift_amount = p3_data_b[4:0];
@@ -34,7 +36,6 @@ wire [31:0] branch_target =  p2_pc + (p3_literal << 2);
 
 wire [31:0] mem_addr = p3_data_a + p3_literal;
 wire [1:0] address_lsb = mem_addr[1:0];
-assign cpud_addr = cpud_request ? mem_addr : 32'bx;
 
 
 logic signed [31:0] signed_a;
@@ -192,22 +193,35 @@ always_comb begin
             p3_mult = p3_data_a * p3_data_b;
         end
 
-        `OP_DIVU:    begin end
-        `OP_DIVS:    begin end
-        `OP_MODU:    begin end
-        `OP_MODS:    begin end
-        `OP_CFGR:    begin end
-        `OP_CFGW:    begin end
-        `OP_RTE:    begin end
-        `OP_SYS:    begin end
-        `OP_LD:  p3_alu_out = p3_data_b;
+        `OP_DIVU,
+        `OP_DIVS,
+        `OP_MODU,
+        `OP_MODS: begin end  // These are handled by the separate divider module
+
+        `OP_CSRR,   
+        `OP_CSRW,    
+        `OP_RTE,    
+        `OP_SYS:    begin end // These are handled by the separate exception module
+
+        `OP_LD:     p3_alu_out = p3_data_b;
+        `OP_LDPC:   p3_alu_out = branch_target;
         default:    begin end
     endcase
 
+
+    cpud_addr = cpud_request ? mem_addr : 32'bx;
+    
     // Do not send request if stalled or misaligned
     if (stall || misaligned_address)
         cpud_request = 0;
 
+
+    // nullify this instruction if the previous one is a jump
+    if (p4_jump_taken) begin
+        cpud_request = 0;
+        p3_alu_out = 32'bx;
+        p3_jump_taken = 0;
+    end
 end
 
 
@@ -215,7 +229,9 @@ always_ff @(posedge clock) begin
     if(!stall) begin
         p4_alu_out <= p3_alu_out;
         p4_mult <= p3_mult;
+        p4_misaligned_addr <= misaligned_address;
     end
+
 end
 
 endmodule

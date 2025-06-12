@@ -368,7 +368,7 @@ static void assemble_line(Token* line) {
     CASE("C$,!")            { add_instr(fmt_i(KIND_CFG, 0, V1, 0, V3)); }
     CASE("C!,$")            { add_instr(fmt_i(KIND_CFG, 1, 0, V3, V1)); }       // CFG
     CASE("C$,!,$")          { add_instr(fmt_i(KIND_CFG, 1, V1, V5, V3)); }
-    CASE("Z")               { add_instr(fmt_i(KIND_CFG, 2, 0, 0, 0)); }         // RTE
+    CASE("Z")               { add_instr(fmt_i(KIND_CFG, 2, 0, 0, V0)); }         // RTE
     CASE("X$,$,$")          { add_instr(fmt_r(KIND_IDX, V0, V1, V3, V5)); }
     CASE("Yi")              { add_instr(fmt_i(KIND_CFG, 3, 0, 0, V1)); }        // SYSCALL
     else                    { error("Unrecognized instruction"); for(int k=0; line[k]; k++) printf("%s ", line[k]->text); printf("\n"); }
