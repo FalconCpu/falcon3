@@ -439,8 +439,10 @@ static void write_memory(unsigned int addr, int value, int mask) {
 // ================================================
 
 static void write_memory_size(unsigned int addr, int value, int size) {
-    if (!check_dmpu(DMPU_WRITE, addr))
+    if (!check_dmpu(DMPU_WRITE, addr)) {
         raise_exception(CAUSE_STORE_ACCESS_FAULT, addr);
+        return;
+    }
 
     int mask = 0;
     int shift = (addr & 3) * 8;

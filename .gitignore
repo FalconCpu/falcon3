@@ -8,3 +8,5 @@ asm.labels
 fpga/
 binutils/build/
 
+*.log
+rtl/uart.txt

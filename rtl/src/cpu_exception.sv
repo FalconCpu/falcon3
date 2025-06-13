@@ -95,7 +95,7 @@ always_comb begin
     p4_jump_addr = p4_jump_addr_q;
 
     // Handle writing to CSR regs
-    if (p3_op == `OP_CSRW) begin
+    if (p3_op == `OP_CSRW && !p4_jump_taken) begin
         case (p3_literal)
             `CSR_EPC:      next_csr_epc      = p3_data_a;
             `CSR_ECAUSE:   next_csr_ecause   = p3_data_a[7:0];

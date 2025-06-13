@@ -16,6 +16,23 @@ class ExecuteTest {
     }
 
     @Test
+    fun helloWorld() {
+        val prog = """
+            fun main()
+                print("Hello, world!\n")
+                while true
+                    val a = 0   # Dummy
+        """.trimIndent()
+
+        val expected = """
+            Hello, world!
+
+            """.trimIndent()
+        runTest(prog, expected)
+    }
+
+
+        @Test
     fun whileLoop() {
         val prog = """
             fun main()

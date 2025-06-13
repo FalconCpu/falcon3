@@ -81,7 +81,7 @@ class AstWhen(location: Location, val expr:AstExpr, body:List<AstWhenClause>) : 
 class AstWhenClause(location: Location, val clauses:List<AstExpr>, body:List<AstStmt>) : AstBlock(location,body)
 class AstLambda(location: Location, val expr:AstExpr) : AstBlock(location, emptyList())
 
-class AstFunction(location: Location, val name: String, val params: AstParameterList, val retType:AstTypeExpr?, body:List<AstStmt>)
+class AstFunction(location: Location, val name: String, val params: AstParameterList, val retType:AstTypeExpr?, body:List<AstStmt>, val extern:Boolean=false)
     : AstBlock(location, body) {
     lateinit var function : Function
 }

@@ -1,6 +1,6 @@
 val allFunctions = mutableListOf<Function>()
 
-class Function(val name:String, val parameters:List<SymbolVar>, val thisSymbol : SymbolVar?, val isVararg:Boolean, val returnType:Type) {
+class Function(val name:String, val parameters:List<SymbolVar>, val thisSymbol : SymbolVar?, val isVararg:Boolean, val returnType:Type, val extern:Boolean=false) {
     val code = mutableListOf<Instr>()
     val regs = allMachineRegs.toMutableList<Reg>()
     val labels = mutableListOf<Label>()

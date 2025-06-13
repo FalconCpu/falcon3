@@ -1,0 +1,250 @@
+# ################################################################
+#                     Task Control Block
+# ################################################################
+TCB_PC   = 0x00
+TCB_REG1 = 0x04
+TCB_REG2 = 0x08
+TCB_REG3 = 0x0C
+TCB_REG4 = 0x10
+TCB_REG5 = 0x14
+TCB_REG6 = 0x18
+TCB_REG7 = 0x1C
+TCB_REG8 = 0x20
+TCB_REG9 = 0x24
+TCB_REG10 = 0x28
+TCB_REG11 = 0x2C
+TCB_REG12 = 0x30
+TCB_REG13 = 0x34
+TCB_REG14 = 0x38
+TCB_REG15 = 0x3C
+TCB_REG16 = 0x40
+TCB_REG17 = 0x44
+TCB_REG18 = 0x48
+TCB_REG19 = 0x4C
+TCB_REG20 = 0x50
+TCB_REG21 = 0x54
+TCB_REG22 = 0x58
+TCB_REG23 = 0x5C
+TCB_REG24 = 0x60
+TCB_REG25 = 0x64
+TCB_REG26 = 0x68
+TCB_REG27 = 0x6C
+TCB_REG28 = 0x70
+TCB_REG29 = 0x74
+TCB_REG30 = 0x78
+TCB_REGSP = 0x7C
+TCB_STATUS = 0x80
+TCB_DMPU0 = 0x84
+TCB_DMPU1 = 0x88
+TCB_DMPU2 = 0x8C
+TCB_DMPU3 = 0x90
+TCB_DMPU4 = 0x94
+TCB_DMPU5 = 0x98
+TCB_DMPU6 = 0x9C
+TCB_DMPU7 = 0xA0
+
+
+# ################################################################
+#                     Sys Calls
+# ################################################################
+
+SYSCALL_END   = 0
+SYSCALL_PRINT_CHAR = 1          # $1 = char to print
+SYSCALL_PRINT_STRING = 2        # $1 = pointer to string, $2 = length
+
+
+
+# ################################################################
+#                     Entry Point
+# ################################################################
+# This is the entry point after CPU reset
+
+jmp start
+
+# ################################################################
+#                     Exception Handler
+# ################################################################
+# Hardware calls this location when an exception occurs
+# !ecause will contain the causeof the exception
+# !epc will be the address of the instruction that caused the exception
+# !edata may contain extra information about the exception (e.g. memory address)
+# !escratch will contain the TaskControlBlock of the task that was running
+
+/exception_handler:
+cfg $1, !escratch, $1         # Swap the TCB with register 29. $1 is now TCB of the task that was running
+                                # and !escratch is the task's $1
+stw $2, $1[TCB_REG2]           # Store the contents of register 1 in the TCB
+stw $3, $1[TCB_REG3]
+stw $4, $1[TCB_REG4]
+stw $5, $1[TCB_REG5]
+stw $6, $1[TCB_REG6]
+stw $7, $1[TCB_REG7]
+stw $8, $1[TCB_REG8]
+stw $9, $1[TCB_REG9]
+stw $10, $1[TCB_REG10]
+stw $11, $1[TCB_REG11]
+stw $12, $1[TCB_REG12]
+stw $13, $1[TCB_REG13]
+stw $14, $1[TCB_REG14]
+stw $15, $1[TCB_REG15]
+stw $16, $1[TCB_REG16]
+stw $17, $1[TCB_REG17]
+stw $18, $1[TCB_REG18]
+stw $19, $1[TCB_REG19]
+stw $20, $1[TCB_REG20]
+stw $21, $1[TCB_REG21]
+stw $22, $1[TCB_REG22]
+stw $23, $1[TCB_REG23]
+stw $24, $1[TCB_REG24]
+stw $25, $1[TCB_REG25]
+stw $26, $1[TCB_REG26]
+stw $27, $1[TCB_REG27]
+stw $28, $1[TCB_REG28]
+stw $29, $1[TCB_REG29]
+stw $30, $1[TCB_REG30]
+stw $sp, $1[TCB_REGSP]
+
+cfg $2, !escratch, 0
+stw $2, $1[TCB_REG1]
+cfg $2, !estatus
+stw $2, $1[TCB_STATUS]
+cfg $2, !epc
+stw $2, $1[TCB_PC]
+
+# prepare to call the fpl handler routine: handle_exception(TCB, exception_number, exception_data)
+cfg $2, !ecause
+cfg $3, !edata
+
+ld $sp, 0x4000000       # Set the supervisor stack pointer
+ld $29, 0x1000          # Set the globals pointer to the kernal space
+jmp /handle_exception(TCB,ExceptionCause,Int)   # jump to fpl handler code
+
+# ################################################################
+#                     Resume Task
+# ################################################################
+# resume a task
+# $1 = TCB of the task to resume
+
+/resumeTask(TCB):
+ldw $2, $1[TCB_PC]
+cfg !epc, $2
+ldw $2, $1[TCB_STATUS]
+cfg !estatus, $2
+ldw $2, $1[TCB_DMPU0]
+cfg !dmpu0 , $2
+ldw $2, $1[TCB_DMPU1]
+cfg !dmpu1 , $2
+ldw $2, $1[TCB_DMPU2]
+cfg !dmpu2 , $2
+ldw $2, $1[TCB_DMPU3]
+cfg !dmpu3 , $2
+ldw $2, $1[TCB_DMPU4]
+cfg !dmpu4 , $2
+ldw $2, $1[TCB_DMPU5]
+cfg !dmpu5 , $2
+ldw $2, $1[TCB_DMPU6]
+cfg !dmpu6 , $2
+ldw $2, $1[TCB_DMPU7]
+cfg !dmpu7 , $2
+
+ldw $2, $1[TCB_REG1]
+cfg !escratch, $2       # !escratch now holds the Running task's $1
+ldw $2, $1[TCB_REG2]
+ldw $3, $1[TCB_REG3]
+ldw $4, $1[TCB_REG4]
+ldw $5, $1[TCB_REG5]
+ldw $6, $1[TCB_REG6]
+ldw $7, $1[TCB_REG7]
+ldw $8, $1[TCB_REG8]
+ldw $9, $1[TCB_REG9]
+ldw $10, $1[TCB_REG10]
+ldw $11, $1[TCB_REG11]
+ldw $12, $1[TCB_REG12]
+ldw $13, $1[TCB_REG13]
+ldw $14, $1[TCB_REG14]
+ldw $15, $1[TCB_REG15]
+ldw $16, $1[TCB_REG16]
+ldw $17, $1[TCB_REG17]
+ldw $18, $1[TCB_REG18]
+ldw $19, $1[TCB_REG19]
+ldw $20, $1[TCB_REG20]
+ldw $21, $1[TCB_REG21]
+ldw $22, $1[TCB_REG22]
+ldw $23, $1[TCB_REG23]
+ldw $24, $1[TCB_REG24]
+ldw $25, $1[TCB_REG25]
+ldw $26, $1[TCB_REG26]
+ldw $27, $1[TCB_REG27]
+ldw $28, $1[TCB_REG28]
+ldw $29, $1[TCB_REG29]
+ldw $30, $1[TCB_REG30]
+ldw $sp, $1[TCB_REGSP]
+cfg $1, !escratch, $1       # swap $1 and !escratch. !escratch now holds the TCB, and $1 holds the Running task's $1
+rte
+
+# ######################################################################################
+#                               Start
+# ######################################################################################
+# Prepare to call the fpl start routine
+start:
+
+ld $sp, 0x4000000       # Set stack pointer to top of memory
+ld $29, 0x1000          # Set globals pointer to near bottom of memory
+jmp /startup()
+
+
+# ################################################################
+#                   end_task
+# ################################################################
+
+/endTask():
+sys SYSCALL_END
+
+
+HWREGS_BASE = 0xE0000000
+HWREGS_UART_TX = 0x10
+
+
+# ==========================================================
+#                     printString
+# ==========================================================
+# $1 = string to print
+
+/printString:
+    ldw $2, $1[-4]             # Fetch the length
+    sys SYSCALL_PRINT_STRING
+    ret
+
+# ==========================================================
+#                     printInt
+# ==========================================================
+# $1 = value to print
+
+/printInt:
+    sub $31, 16                # Allocate 16 bytes of stack space
+    ld $7, HWREGS_BASE         # Load base address of hardware registers
+    bge $1, 0, .positive       # If value is positive, skip
+    ld  $2, '-'                # Print the '-' character
+    stw $2, $7[HWREGS_UART_TX]
+    sub $1, 0, $1              # Negate the value
+
+.positive:
+    ld $6, $31                 # $6 = pointer to work space
+
+.loop:
+    modu $2, $1, 10            # $2 = $1 % 10
+    divu $1, $1, 10            # $1 = $1 / 10
+    add $2, '0'                # Convert digit to ASCII
+    stb $2, $6[0]              # Store digit in work space
+    add $6, 1                  # Increment work space pointer
+    bne $1, 0, .loop           # Repeat until $1 is 0
+
+.print:
+    sub $6, 1                   # Decrement work space pointer
+    ldb $1, $6[0]               # Load digit from work space
+    sys SYSCALL_PRINT_CHAR
+    bne $6, $31, .print         # Repeat until work space pointer is at base
+
+.end:
+    add $31, 16
+    ret

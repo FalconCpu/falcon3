@@ -425,14 +425,15 @@ class Parser(val lexer: Lexer) {
     }
 
     private fun parseFunction() : AstFunction {
+        val isExtern = canTake(EXTERN)
         val loc = match(FUN).location
         val name = match(ID,FREE)
         val params = parseParamList()
         val retType = if (canTake(ARROW)) parseTypeExpr() else null
         expectEol()
-        val body = parseStatementBlock()
+        val body = if (isExtern) emptyList() else  parseStatementBlock()
         checkEnd(FUN)
-        return AstFunction(loc, name.text, params, retType, body)
+        return AstFunction(loc, name.text, params, retType, body, isExtern)
     }
 
     private fun parseExpressionStatement() : AstStmt  {
@@ -600,6 +601,7 @@ class Parser(val lexer: Lexer) {
                 REPEAT -> parseRepeat()
                 FOR -> parseFor()
                 FUN -> parseFunction()
+                EXTERN -> parseFunction()
                 PRINT -> parsePrint()
                 WHEN -> parseWhen()
                 FREE -> parseFree()

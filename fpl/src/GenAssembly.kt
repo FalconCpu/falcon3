@@ -111,7 +111,8 @@ private fun Instr.genAssembly() = when(this) {
     is InstrMovImm -> "ld $dest, $src"
     is InstrStoreMem -> "${size.storeOp()} $src, $addr[$offset]"
     is InstrLea -> "ld $dest, $value"
-    is InstrIndex -> "${scale.idxOp()} $dest, $src, $limit"
+    is InstrIndex -> //"${scale.idxOp()} $dest, $src, $limit"
+                       "lsl $dest, $src, $scale  # IDX"
     is InstrLoadField -> "${size.loadOp()} $dest, $addr[${offset.offset}]"
     is InstrStoreField -> "${size.storeOp()} $src, $addr[${offset.offset}]"
     is InstrLoadGlobal -> "ldw $dest, R29[${global.offset}]"
@@ -120,6 +121,9 @@ private fun Instr.genAssembly() = when(this) {
 }
 
 fun Function.genAssembly(sb:StringBuilder) {
+    if (extern)
+        return
+
     if (name=="<TopLevel>")
         sb.append("init:\n")
     else

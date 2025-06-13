@@ -9,7 +9,17 @@ GPIO_1  = 0x001C
 # CPU reset vector starts at address 0xFFFF0000
 # so put a jump here to the start of the bootloader
 
-jmp start
+# fill the memory with BAADFOOD
+ld $1, 0xBAADF00D
+ld $2, 0
+ld $3, 0x4000000
+fillLoop:
+stw $1, $2[0]
+add $2, $2, 4
+bne $2, $3, fillLoop
+
+
+jmp bootloader_start
 ds 65024        # 64kb-512b of space for the image 
 
 
@@ -20,7 +30,7 @@ ds 65024        # 64kb-512b of space for the image
 # Followed by the image data
 # Finally a CRC of the image (sum of all words in the image)
 
-start:
+bootloader_start:
 ld $20, HWREGS_BASE          # Keep HWREGS_BASE in $20 throughout the bootloader
 ld $1, 0x1                   # display 0x000001 on the 7SEG to indicate we starting
 stw $1, $20[SEVENSEG]
@@ -97,7 +107,7 @@ ld $1, 10000000
 sub $1, 1
 bne $1, 0, .delay
 stw 0, $20[LEDS]
-jmp start
+jmp bootloader_start
 
 
 # ############################################################
@@ -176,6 +186,6 @@ jsr uart_read_byte    # read the first byte
 ld $4, 0xB0
 beq $4, $7, uart_read_word_second
 sub $13,1
-beq $13, 0, start
+beq $13, 0, bootloader_start
 jmp .loop
 

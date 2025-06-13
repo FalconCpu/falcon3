@@ -240,7 +240,7 @@ always_comb begin
         end
 
         `STATE_PRECHARGE: begin 
-            if (count==2)
+            if (count==3)
                 next_state = `STATE_READY;
         end
 

@@ -56,6 +56,13 @@ logic        p3_load_access_fault, p3_store_access_fault;
 
 logic        qualified_request;
 
+// synthesis translate_off
+integer fh;
+initial begin
+    fh = $fopen("rtl_mem.log", "w");
+end
+// synthesis translate_on
+
 always_comb begin
     next_cpud_request  = 1'b0;
     next_cpud_addr     = 32'bx;
@@ -146,6 +153,12 @@ always_ff @(posedge clock) begin
     p4_store_access_fault <= p3_store_access_fault;
     read_size     <= read_size_d;
     addr_lsb_q    <= addr_lsb_d;
+
+	 // synthesis translate_off
+    if (next_cpud_request)
+        $fwrite(fh,"[%x]=%x\n",next_cpud_addr,next_cpud_wdata);
+	// synthesis translate_on
+
 end
 
 endmodule

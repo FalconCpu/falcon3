@@ -18,7 +18,7 @@ fun runAssembler(filenames:List<String>) {
 }
 
 fun runProgram() : String {
-    val process = ProcessBuilder("f32sim", "-a", "-t", "asm.hex")
+    val process = ProcessBuilder("f32sim", "-t", "asm.hex")
         .redirectError(ProcessBuilder.Redirect.INHERIT)
         .start()
     val exitCode = process.waitFor()

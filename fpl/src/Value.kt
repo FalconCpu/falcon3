@@ -46,11 +46,19 @@ class ValueString private constructor(val value:String, index:Int, type:Type) : 
 }
 
 // Class descriptors are also a special case, as they are generated separately. We just need to reference them
-class ValueClassDescriptor(val value:TypeClass) : Value(-1, value) {
+class ValueClassDescriptor(val value:Type) : Value(-1, value) {
     override fun toString() = "$value/class"
 
     override fun emit(sb: StringBuilder) {
         error("ValueClassDescriptor should not be in allValues list")
+    }
+}
+
+class ValueFunctionName(val value:SymbolFunction) : Value(-1, value.type) {
+    override fun toString() = "/${value.functions[0]}"
+
+    override fun emit(sb: StringBuilder) {
+        error("ValueFunctionName should not be in allValues list")
     }
 }
 

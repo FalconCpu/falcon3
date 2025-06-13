@@ -1,0 +1,282 @@
+
+class HwRegs
+    var SEVEN_SEG: Int   # 6 digit hexadecimal seven segment display
+    var LEDR     : Int   # 10 LEDs
+    var SW       : Int   # 10 Switches
+    var KEY      : Int   # 4 Push buttons
+    var UART_TX  : Int   # Write = byte of data to transmit, read = number of slots free in fifo
+    var UART_RX  : Int   # 1 byte of data from the uart, -1 if no data
+    var GPIO0    : Int   # 32 bits of GPIO0
+    var GPIO1    : Int   # 32 bits of GPIO1
+    var GPIO1A   : Int   # 4  bits of GPIO1A
+    var IS_SIM   : Int   # Reads 1 in simulation, 0 in hardware
+
+const hwRegs = 0xE0000000 as HwRegs
+
+const DMPU_ENABLE_RX = 0x000000B
+const DMPU_ENABLE_RW = 0x000000D
+const DMPU_ENABLE_RO = 0x0000009
+
+const DMPU_4k      =  0x00000000
+const DMPU_8k      =  0x00000100
+const DMPU_16k     =  0x00000200
+const DMPU_32k     =  0x00000300
+const DMPU_64k     =  0x00000400
+const DMPU_128k    =  0x00000500
+const DMPU_256k    =  0x00000600
+const DMPU_512k    =  0x00000700
+
+
+
+class TCB
+    var pc   : Int
+    var reg1 : Int
+    var reg2 : Int
+    var reg3 : Int
+    var reg4 : Int
+    var reg5 : Int
+    var reg6 : Int
+    var reg7 : Int
+    var reg8 : Int
+    var reg9 : Int
+    var reg10 : Int
+    var reg11 : Int
+    var reg12 : Int
+    var reg13 : Int
+    var reg14 : Int
+    var reg15 : Int
+    var reg16 : Int
+    var reg17 : Int
+    var reg18 : Int
+    var reg19 : Int
+    var reg20 : Int
+    var reg21 : Int
+    var reg22 : Int
+    var reg23 : Int
+    var reg24 : Int
+    var reg25 : Int
+    var reg26 : Int
+    var reg27 : Int
+    var reg28 : Int
+    var reg29 : Int
+    var reg30 : Int
+    var regsp : Int
+    var status : Int
+    var dmpu0 : Int
+    var dmpu1 : Int
+    var dmpu2 : Int
+    var dmpu3 : Int
+    var dmpu4 : Int
+    var dmpu5 : Int
+    var dmpu6 : Int
+    var dmpu7 : Int
+
+enum ExceptionCause[NONE,
+    INSTRUCTION_ACCESS_FAULT,
+    ILLEGAL_INSTRUCTION,
+    BREAKPOINT,
+    LOAD_ADDRESS_MISALIGNED,
+    LOAD_ACCESS_FAULT,
+    STORE_ADDRESS_MISALIGNED,
+    STORE_ACCESS_FAULT,
+    SYSTEM_CALL,
+    INDEX_OVERFLOW]
+
+enum SysCall[
+    ABORT,
+    PRINT_CHAR,
+    PRINT_STRING]
+
+extern fun resumeTask(tcb:TCB)
+extern fun endTask()
+
+fun kPrintHex8(a:Int)
+    var x = a
+    for i in 0..7
+        while hwRegs.UART_TX = 0
+            val dummy = 0
+        val n = x >> 28
+        x = x << 4
+        if n <= 9
+            hwRegs.UART_TX = '0' + n
+        else
+            hwRegs.UART_TX = 'A' - 10 + n
+end fun
+
+fun kPrintInt2(a:Int)
+    val tens = a / 10
+    val units = a % 10
+
+    while hwRegs.UART_TX <3
+        val dummy = 0
+
+    if tens=0
+        hwRegs.UART_TX = ' ' as Int
+    else
+        hwRegs.UART_TX = '0'+tens
+    hwRegs.UART_TX = '0' + units
+end fun
+
+fun kPrintChar(a:Int)
+    while hwRegs.UART_TX = 0
+        val dummy = 0
+    hwRegs.UART_TX = a
+end fun
+
+
+fun kPrintString(s:String)
+    for a in s
+        while hwRegs.UART_TX = 0
+            val dummy = 0
+        hwRegs.UART_TX = a as Int
+end fun
+
+fun kPrintBlock(ptr:Array<Char>, size:Int)
+    for i in 0..<size
+        while hwRegs.UART_TX = 0
+            val dummy = 0
+        hwRegs.UART_TX = ptr[i] as Int
+
+fun dumpAndTerminate(tcb:TCB, data:Int)
+    kPrintString("DATA=")
+    kPrintHex8(data)
+    kPrintString(" PC=")
+    val ary = tcb as Array<Int>
+    kPrintHex8(ary[0])
+    kPrintString("\n")
+    for i in 1..31
+        kPrintInt2(i)
+        kPrintString("=")
+        kPrintHex8(ary[i])
+        if (i&7)=7
+            kPrintString("\n")
+        else
+            kPrintString(" ")
+    terminate()
+end fun
+
+fun terminate()
+    while true
+        hwRegs.LEDR = 0
+        for i in 0..5000000
+            val dummy = 0
+        hwRegs.LEDR = 0xFFF
+        for i in 0..5000000
+            val dummy = 0
+end fun
+
+
+
+fun handle_exception(tcb:TCB, cause:ExceptionCause, data:Int)
+    when cause
+        ExceptionCause.INSTRUCTION_ACCESS_FAULT ->
+            kPrintString("INSTRUCTION_ACCESS_FAULT   ")
+            dumpAndTerminate(tcb, data)
+
+        ExceptionCause.ILLEGAL_INSTRUCTION ->
+            kPrintString("ILLEGAL INSTRUCTION        ")
+            dumpAndTerminate(tcb, data)
+
+        ExceptionCause.BREAKPOINT ->
+            kPrintString("BREAKPOINT                 ")
+            dumpAndTerminate(tcb, data)
+
+        ExceptionCause.LOAD_ADDRESS_MISALIGNED ->
+            kPrintString("LOAD ADDRESS MISALIGNED    ")
+            dumpAndTerminate(tcb, data)
+
+        ExceptionCause.LOAD_ACCESS_FAULT ->
+            kPrintString("LOAD ACCESS FAULT          ")
+            dumpAndTerminate(tcb, data)
+
+        ExceptionCause.STORE_ADDRESS_MISALIGNED ->
+            kPrintString("STORE ADDRESS MISALIGNED   ")
+            dumpAndTerminate(tcb, data)
+
+        ExceptionCause.STORE_ACCESS_FAULT ->
+            kPrintString("STORE ACCESS FAULT         ")
+            dumpAndTerminate(tcb, data)
+
+        ExceptionCause.SYSTEM_CALL ->
+            when data as SysCall
+                SysCall.ABORT ->
+                    kPrintString("Program completed\n")
+                    dumpAndTerminate(tcb,data)
+
+                SysCall.PRINT_CHAR ->
+                    kPrintChar(tcb.reg1)
+
+                SysCall.PRINT_STRING ->
+                    kPrintBlock(tcb.reg1 as Array<Char>, tcb.reg2)
+
+                else ->
+                    kPrintString("Unknown system call ")
+                    dumpAndTerminate(tcb, data)
+
+        ExceptionCause.INDEX_OVERFLOW ->
+            kPrintString("INDEX OVERFLOW             ")
+            dumpAndTerminate(tcb, data)
+
+        else ->
+            kPrintString("OTHER ")
+            kPrintInt2(cause as Int)
+            dumpAndTerminate(tcb, data)
+
+    tcb.pc += 4     # resume at the next instruction
+    resumeTask(tcb)
+
+# ==========================================================================
+#                     Memory allocation
+# ==========================================================================
+# For now a very simple bump allocator for memory
+
+var kMemPointer : Int           # Space for kernal private data
+var bMemPointer : Int           # Space for user tasks
+
+fun initializeMemory()
+    kMemPointer = 0x2000        # Allow almost 64k of space for kernal
+    bMemPointer = 0x10000       # Allow rest of space for general use
+
+fun kMemAlloc(size:Int) -> Int
+    val ret = kMemPointer
+    kMemPointer += size
+    return ret
+
+fun bMemAlloc(size:Int) -> Int
+    val ret = bMemPointer
+    bMemPointer += size
+    return ret
+
+# ==========================================================================
+#                      startup
+# ==========================================================================
+# This routine gets called from the boot assembly routine
+
+fun startup()
+    kPrintString("OS Starting up\n")
+#    val mem = 0 as Array<Int>
+#    for i in 0..0x2000
+#        mem[i] = 0xBAADF00D
+    initializeMemory()
+    kPrintString("Beginning task\n")
+
+    # Create our first task  (We can't use new() yet as proper memory allocator not yet implemented)
+    val task = kMemAlloc(256) as TCB
+
+    task.pc = myFirstTask as Int
+    val taskStack = bMemAlloc(4096)  # Allocate some space for the new task
+    task.regsp = taskStack + 4096    # Set the new task's Stack pointer to the end of the task
+    task.dmpu0 = taskStack | DMPU_4k | DMPU_ENABLE_RW # Give the task access to its stack
+
+    val taskGlobals = bMemAlloc(4096)  # Allocate some space for the new task's global area
+    task.reg29 = taskGlobals
+    task.dmpu1 = taskGlobals | DMPU_4k | DMPU_ENABLE_RW   # Give the task access to its globals area
+    task.dmpu2 = 0xFFFF0000 | DMPU_64k | DMPU_ENABLE_RX   # Give the task access to its program area (actually the whole of the ROM)
+    task.reg30 = endTask as Int        # Set the tasks return address to be the endTask() routine in the assembly stub
+
+    resumeTask(task)
+
+
+fun myFirstTask()
+    print("Hello world\n")
+

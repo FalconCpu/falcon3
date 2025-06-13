@@ -82,6 +82,7 @@ enum class TokenKind(val text:String, val lineContinues:Boolean) {
     WHEN       ("when", false),
     PRINT      ("print", false),
     ENUM       ("enum", false),
+    EXTERN     ("extern", false),
     ERROR      ("<error>", false);
 
     companion object {

@@ -22,7 +22,6 @@ module cpu_execute(
     output logic [31:0] p3_wdata,       // Data to write
     output logic [1:0]  p3_size,        // 00 = byte, 01 = halfword, 10 = word
 
-
     output logic [31:0] p3_alu_out,    // ALU output
     output logic        p3_jump_taken,
     output logic [31:0] p3_jump_addr,   // ALU jump address
@@ -215,6 +214,7 @@ always_comb begin
         p3_request = 0;
         p3_alu_out = 32'bx;
         p3_jump_taken = 0;
+        p3_misaligned_address = 0;
     end
 end
 

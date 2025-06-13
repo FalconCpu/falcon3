@@ -111,7 +111,9 @@ fun TstExpr.codeGenRvalue() : Reg {
             regZero   // dummy return value
         }
         is TstError -> TODO()
-        is TstFunctionName -> TODO()
+        is TstFunctionName -> {
+            currentFunc.addLea(ValueFunctionName(symbol))
+        }
 
         is TstGlobalVar -> {
             currentFunc.addLoadGlobal(symbol)
@@ -774,6 +776,7 @@ private fun branchIfEqual(a:Reg, b:Reg, label:Label, type:Type) {
     when(type) {
         TypeInt,
         TypeBool,
+        is TypeEnum,
         TypeChar -> currentFunc.addBranch(AluOp.EQ_I, a, b, label)
         TypeString -> {
             currentFunc.addMov(allMachineRegs[1], a)

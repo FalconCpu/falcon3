@@ -60,6 +60,7 @@ logic [31:0] p4_alu_out;
 logic [31:0] p4_mult;
 logic [1:0]  cpud_size;
 logic        p3_misaligned_address;
+logic        p4_misaligned_address;
 logic        p3_request;
 logic        p3_write;
 logic [31:0] p3_addr;

@@ -328,7 +328,16 @@ fun Tst.prettyPrint(): String {
     return sb.toString()
 }
 
-fun TstExpr.isCompileTimeConstant() = this is TstIntLit || this is TstReallit || this is TstStringlit || this is TstError
+fun TstExpr.isCompileTimeConstant() : Boolean = this is TstIntLit || this is TstReallit || this is TstStringlit ||
+            this is TstError || (this is TstCast && this.expr.isCompileTimeConstant())
+fun TstExpr.getValue() : Value = when(this) {
+    is TstIntLit -> ValueInt(value, type)
+    is TstStringlit -> ValueString.create(value, type)
+    is TstCast -> expr.getValue()
+    is TstReallit -> TODO()
+    else -> error("Invalid type in AstConst $this")
+}
+
 fun TstExpr.isIntegerConstant() = this is TstIntLit
 fun TstExpr.getIntegerConstant() = (this as TstIntLit).value
 fun TstExpr.isStringConstant() = this is TstStringlit

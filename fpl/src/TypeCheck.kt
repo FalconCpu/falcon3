@@ -379,6 +379,7 @@ private fun SymbolConstant.toExpression(): TstExpr {
         is ValueClassDescriptor -> TstError(location, "Cannot use type name '$name' as an expression")
         is ValueInt -> TstIntLit(location, value.value, type)
         is ValueString -> TstStringlit(location, value.value, type)
+        is ValueFunctionName -> TstFunctionName(location, value.value, type )
     }
 }
 
@@ -655,12 +656,7 @@ fun AstStmt.typeCheck(context:AstBlock) : TstStmt {
             val type = typeExpr?.resolveType(context) ?: tcExpr.type
             type.checkCompatibleWith(tcExpr)
             if (tcExpr.isCompileTimeConstant()) {
-                val value = when(tcExpr) {
-                    is TstIntLit -> ValueInt(tcExpr.value, tcExpr.type)
-                    is TstStringlit -> ValueString.create(tcExpr.value, tcExpr.type)
-                    is TstReallit -> TODO()
-                    else -> error("Invalid type in AstConst $tcExpr")
-                }
+                val value = tcExpr.getValue()
                 val symbol = SymbolConstant(location, name, type, value)
                 context.addSymbol(symbol)
             } else {
@@ -807,8 +803,8 @@ fun AstStmt.typeCheck(context:AstBlock) : TstStmt {
         is AstLambda -> TODO()
         is AstWhen -> {
             val tcExpr = expr.typeCheckRvalue(context)
-            if (tcExpr.type!=TypeError && tcExpr.type!=TypeInt && tcExpr.type!=TypeString)
-                Log.error(location,"When only supports expressions of type Int or String")
+            if (tcExpr.type!=TypeError && tcExpr.type!=TypeInt && tcExpr.type!=TypeString && tcExpr.type !is TypeEnum)
+                Log.error(location,"When only supports expressions of type Int or String or Enum")
             val tcClauses = mutableListOf<TstWhenClause>()
             for (clause in body.filterIsInstance<AstWhenClause>()) {
                 val tcArgs = clause.clauses.map{ it.typeCheckRvalue(context)}
@@ -945,7 +941,7 @@ private fun AstFunction.createFunctionSymbol(context:AstBlock) {
 
     // Create the Function object to represent this function in the back end
     val thisSymbol = if (context is AstClass) SymbolVar(location, "this", context.classType, false) else null
-    function = Function(funcName+paramTypeNames, paramSymbols, thisSymbol, params.isVararg, retType)
+    function = Function(funcName+paramTypeNames, paramSymbols, thisSymbol, params.isVararg, retType, extern)
     allFunctions += function
 
     // Special case - destructors are just methods with the name `free`. They are not allowed to take parameters
