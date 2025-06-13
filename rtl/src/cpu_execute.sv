@@ -15,12 +15,12 @@ module cpu_execute(
     input logic        p4_jump_taken,   // nullify this instruction if previous instruction jumped
 
     // outputs to data bus
-    output logic        cpud_request,     // CPU requests a bus transaction. Asserts for one cycle.
-    output logic [31:0] cpud_addr,        // Address of data to read/write
-    output logic        cpud_write,       // 1 = write, 0 = read
-    output logic [3:0]  cpud_byte_enable, // For a write, which bytes to write.
-    output logic [31:0] cpud_wdata,       // Data to write
-    output logic [1:0]  cpud_size,        // 00 = byte, 01 = halfword, 10 = word
+    output logic        p3_request,     // CPU requests a bus transaction. Asserts for one cycle.
+    output logic [31:0] p3_addr,        // Address of data to read/write
+    output logic        p3_write,       // 1 = write, 0 = read
+    output logic [3:0]  p3_byte_enable, // For a write, which bytes to write.
+    output logic [31:0] p3_wdata,       // Data to write
+    output logic [1:0]  p3_size,        // 00 = byte, 01 = halfword, 10 = word
 
 
     output logic [31:0] p3_alu_out,    // ALU output
@@ -28,7 +28,7 @@ module cpu_execute(
     output logic [31:0] p3_jump_addr,   // ALU jump address
     output logic [31:0] p4_alu_out,
     output logic [31:0] p4_mult,
-    output logic        p4_misaligned_addr
+    output logic        p3_misaligned_address
 );
 
 wire [4:0] shift_amount = p3_data_b[4:0];
@@ -41,19 +41,18 @@ wire [1:0] address_lsb = mem_addr[1:0];
 logic signed [31:0] signed_a;
 logic signed [31:0] asr;
 logic [31:0] p3_mult;
-logic misaligned_address;
 
 always_comb begin
     // default assignments
     p3_alu_out = 32'bx;
     p3_jump_addr = 32'bx;
     p3_jump_taken = 0;
-    cpud_request = 0;
-    cpud_write = 0;
-    cpud_wdata = 32'bx;
-    cpud_byte_enable = 4'bx;
-    misaligned_address = 0;
-	cpud_size = 2'b0;
+    p3_request = 0;
+    p3_write = 0;
+    p3_wdata = 32'bx;
+    p3_byte_enable = 4'bx;
+    p3_misaligned_address = 0;
+	p3_size = 2'b0;
     signed_a = $signed(p3_data_a);
     asr = signed_a >>> shift_amount;
     p3_mult = 32'bx;
@@ -114,78 +113,78 @@ always_comb begin
         end
 
         `OP_LDB: begin 
-            cpud_request = 1;
-            cpud_write = 0;
-            cpud_size = 2'b00;
+            p3_request = 1;
+            p3_write = 0;
+            p3_size = 2'b00;
         end
 
         `OP_LDH: begin 
-            cpud_request = 1;
-            cpud_write = 0;
-            cpud_size = 2'b01;
-            misaligned_address = address_lsb[0];
+            p3_request = 1;
+            p3_write = 0;
+            p3_size = 2'b01;
+            p3_misaligned_address = address_lsb[0];
         end
 
         `OP_LDW: begin
-            cpud_request = 1;
-            cpud_write = 0;
-            cpud_size = 2'b10;
-            misaligned_address = address_lsb[1] || address_lsb[0];
+            p3_request = 1;
+            p3_write = 0;
+            p3_size = 2'b10;
+            p3_misaligned_address = address_lsb[1] || address_lsb[0];
          end
 
         `OP_LDBU: begin
-            cpud_request = 1;
-            cpud_write = 0;
-            cpud_size = 2'b00;
+            p3_request = 1;
+            p3_write = 0;
+            p3_size = 2'b00;
         end
 
         `OP_LDHU: begin
-            cpud_request = 1;
-            cpud_write = 0;
-            cpud_size = 2'b01;
-            misaligned_address = address_lsb[0];
+            p3_request = 1;
+            p3_write = 0;
+            p3_size = 2'b01;
+            p3_misaligned_address = address_lsb[0];
          end
 
         `OP_STB: begin
-            cpud_request = 1;
-            cpud_write = 1;
+            p3_request = 1;
+            p3_write = 1;
             if (address_lsb == 2'b00) begin
-                cpud_byte_enable = 4'b0001;
-                cpud_wdata = {24'bx, p3_data_b[7:0]};
+                p3_byte_enable = 4'b0001;
+                p3_wdata = {24'bx, p3_data_b[7:0]};
             end else if (address_lsb == 2'b01) begin
-                cpud_byte_enable = 4'b0010;
-                cpud_wdata = {16'bx, p3_data_b[7:0], 8'bx};
+                p3_byte_enable = 4'b0010;
+                p3_wdata = {16'bx, p3_data_b[7:0], 8'bx};
             end else if (address_lsb == 2'b10) begin
-                cpud_byte_enable = 4'b0100;
-                cpud_wdata = {8'bx, p3_data_b[7:0], 16'bx};
+                p3_byte_enable = 4'b0100;
+                p3_wdata = {8'bx, p3_data_b[7:0], 16'bx};
             end else begin
-                cpud_byte_enable = 4'b1000;
-                cpud_wdata = {p3_data_b[7:0], 24'bx};
+                p3_byte_enable = 4'b1000;
+                p3_wdata = {p3_data_b[7:0], 24'bx};
             end
          end
 
         `OP_STH: begin 
-            cpud_request = 1;
-            cpud_write = 1;
+            p3_request = 1;
+            p3_write = 1;
             if (address_lsb == 2'b00) begin
-                cpud_byte_enable = 4'b0011;
-                cpud_wdata = {16'bx, p3_data_b[15:0]};
+                p3_byte_enable = 4'b0011;
+                p3_wdata = {16'bx, p3_data_b[15:0]};
             end else if (address_lsb==2'b10) begin
-                cpud_byte_enable = 4'b1100;
-                cpud_wdata = {p3_data_b[15:0], 16'bx};
+                p3_byte_enable = 4'b1100;
+                p3_wdata = {p3_data_b[15:0], 16'bx};
             end else begin
-                misaligned_address = 1;
+                p3_misaligned_address = 1;
             end
         end
 
         `OP_STW: begin 
-            cpud_request = 1;
-            cpud_write = 1;
+            p3_request = 1;
+            p3_write = 1;
             if (address_lsb == 2'b00) begin
-                cpud_byte_enable = 4'b1111;
-                cpud_wdata = p3_data_b;
+                p3_byte_enable = 4'b1111;
+                p3_wdata = p3_data_b;
             end else begin
-                misaligned_address = 1;
+                p3_misaligned_address = 1;
             end
         end
 
@@ -209,16 +208,11 @@ always_comb begin
     endcase
 
 
-    cpud_addr = cpud_request ? mem_addr : 32'bx;
+    p3_addr = p3_request ? mem_addr : 32'bx;
     
-    // Do not send request if stalled or misaligned
-    if (stall || misaligned_address)
-        cpud_request = 0;
-
-
     // nullify this instruction if the previous one is a jump
     if (p4_jump_taken) begin
-        cpud_request = 0;
+        p3_request = 0;
         p3_alu_out = 32'bx;
         p3_jump_taken = 0;
     end
@@ -229,7 +223,6 @@ always_ff @(posedge clock) begin
     if(!stall) begin
         p4_alu_out <= p3_alu_out;
         p4_mult <= p3_mult;
-        p4_misaligned_addr <= misaligned_address;
     end
 
 end

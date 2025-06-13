@@ -63,6 +63,15 @@
 `define CSR_ICAUSE   8'h8
 `define CSR_ISTATUS  8'h9
 `define CSR_INTVEC   8'hA
+`define CSR_TIMER    8'hB
+`define CSR_DMPU0    8'h10
+`define CSR_DMPU1    8'h11
+`define CSR_DMPU2    8'h12
+`define CSR_DMPU3    8'h13
+`define CSR_DMPU4    8'h14
+`define CSR_DMPU5    8'h15
+`define CSR_DMPU6    8'h16
+`define CSR_DMPU7    8'h17
 
 `define EXCEPTION_VECTOR 32'hffff0004
 `define INTERUPT_VECTOR 32'hffff0008

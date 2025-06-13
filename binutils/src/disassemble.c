@@ -125,7 +125,19 @@ string cfg_name[] = {
     "!icause",
     "istatus",
     "!intvec",
-    "!timer"
+    "!timer",
+    "",
+    "",
+    "",
+    "",
+    "!dmpu0",
+    "!dmpu1",
+    "!dmpu2",
+    "!dmpu3",
+    "!dmpu4",
+    "!dmpu5",
+    "!dmpu6",
+    "!dmpu7",
 };
 
 string idx_name[] = {

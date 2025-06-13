@@ -1,0 +1,115 @@
+EntryPoint:
+jmp start
+
+exception_handler:   # Exception handler - at address 0xFFFF0004
+ld $1, string1
+jsr printString
+cfg $1, !ecause
+jsr printHex
+ld $1, string2
+jsr printString
+cfg $1, !epc
+jsr printHex
+ld $1, string3
+jsr printString
+cfg $1, !edata
+jsr printHex
+ld $1, 10
+jsr printChar
+
+# return from the exception
+cfg $1, !epc
+add $1, 4
+cfg !epc, $1
+rte
+
+# Start of the program
+
+start:
+
+ld $1, 0x123009D         # A 4k page at address 0x1230000 - read/write access, enabled
+cfg !dmpu0, $1          # Enable the DMPU
+
+ld $1, user_code        # Load address of the user code into $1
+cfg !epc, $1            # Set the PC to the user code
+ld $1, 0
+cfg !estatus, $1        # Set supervisor mode off
+rte                     # Return from exception
+
+
+user_code:
+ld $9, 0x1230000        # Go to the page we have enabled access to
+ld $2, 0xCAFEBABE       # Write 0xCAFEBABE to the page
+stw $2, $9[0x100]       # Write the value to the page - should be granted
+add $2, 1
+stw $2, $9[0x104]       # Write another value to the page -also granted
+ldw $1, $9[0x100]       # Read the value from the page - should be granted
+
+ld $8, 0x1000
+add $9, $8              # Go to the next page
+ld $2, 0xDEADBEEF       # Write 0xDEADBEEF to the page
+stw $2, $9[0x100]       # Write the value to the page - should be denied
+
+ld $30,0                # jump to address zero ends the program
+ret
+
+
+
+HWREGS_BASE = 0xE0000000
+SEVENSEG = 0x0000
+LEDS    = 0x0004
+UART_TX = 0x0010
+UART_RX = 0x0014
+
+printHex:
+# number to print in $1
+ld $7, HWREGS_BASE
+ld $6, 8
+
+.loop:
+lsr $2, $1, 28      # Get the leftmost digit
+ld  $3,10
+blt $2, $3, .digit
+add $2, 7
+
+.digit:
+add $2, '0'
+stw $2, $7[UART_TX]
+lsl $1, 4
+sub $6, 1
+bne $6, 0, .loop
+ret
+
+# ######################################################
+#                     Print String
+# ######################################################
+# Prints a null terminated string in $1
+
+printString:
+ld $7, HWREGS_BASE
+.loop:
+ldb $2, $1[0]
+beq $2, 0, .done
+stw $2, $7[UART_TX]
+add $1, 1
+jmp .loop
+
+.done:
+ret
+
+# ######################################################
+#                     Print Char
+# ######################################################
+# Prints a character in $1
+
+printChar:
+ld $7, HWREGS_BASE
+stw $1, $7[UART_TX]
+ret
+
+
+
+string1: dcb "EXCEPTION CAUSE=",0
+string2: dcb " EPC=",0
+string3: dcb " EDATA=",0
+string4: dcb "END OF PROGRAM\n",0

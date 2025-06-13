@@ -75,7 +75,6 @@ always_comb begin
 
         `OP_RTE,
         `OP_SYS: begin 
-            // NOT YET IMPLEMENTED
             p4_data_out = 32'bx;
         end
 

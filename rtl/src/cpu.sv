@@ -59,12 +59,21 @@ logic [31:0] p3_jump_addr;
 logic [31:0] p4_alu_out;
 logic [31:0] p4_mult;
 logic [1:0]  cpud_size;
-logic        p4_misaligned_addr;
+logic        p3_misaligned_address;
+logic        p3_request;
+logic        p3_write;
+logic [31:0] p3_addr;
+logic [31:0] p3_wdata;
+logic  [3:0] p3_byte_enable;
+logic  [1:0] p3_size;
 
 // Signals from the memory unit
 logic        p4_read_pending;
 logic        p4_write_pending;
 logic [31:0] p4_mem_rdata;
+logic [31:0] p4_mem_addr;
+logic        p4_load_access_fault;
+logic        p4_store_access_fault;
 
 // Signals from the exception unit
 logic [31:0] p4_csr_out;
@@ -74,6 +83,18 @@ logic [31:0] p4_jump_addr;
 // Signals from the completion unit
 logic [31:0] p4_data_out;
 logic stall;
+
+// Signals from Memory Protection Unit
+logic [31:0] csr_dmpu0;
+logic [31:0] csr_dmpu1;
+logic [31:0] csr_dmpu2;
+logic [31:0] csr_dmpu3;
+logic [31:0] csr_dmpu4;
+logic [31:0] csr_dmpu5;
+logic [31:0] csr_dmpu6;
+logic [31:0] csr_dmpu7;
+logic        supervisor;
+logic        p3_access_deny;
 
 
 cpu_ifetch  cpu_ifetch_inst (
@@ -151,17 +172,17 @@ cpu_execute  cpu_execute_inst (
     .p2_pc(p2_pc),
     .p3_literal(p3_literal),
     .p4_jump_taken(p4_jump_taken),
-    .cpud_request(cpud_request),
-    .cpud_addr(cpud_addr),
-    .cpud_write(cpud_write),
-    .cpud_byte_enable(cpud_byte_enable),
-    .cpud_wdata(cpud_wdata),
-    .cpud_size(cpud_size),
+    .p3_request(p3_request),
+    .p3_addr(p3_addr),
+    .p3_write(p3_write),
+    .p3_byte_enable(p3_byte_enable),
+    .p3_wdata(p3_wdata),
+    .p3_size(p3_size),
     .p3_alu_out(p3_alu_out),
     .p3_jump_taken(p3_jump_taken),
     .p3_jump_addr(p3_jump_addr),
     .p4_alu_out(p4_alu_out),
-    .p4_misaligned_addr(p4_misaligned_addr),
+    .p3_misaligned_address(p3_misaligned_address),
     .p4_mult(p4_mult)
   );
 
@@ -183,15 +204,29 @@ cpu_divider  cpu_divider_inst (
 cpu_memif  cpu_memif_inst (
     .clock(clock),
     .reset(reset),
+    .stall(stall),
     .cpud_request(cpud_request),
-    .cpud_addr(cpud_addr[1:0]),
-    .cpud_size(cpud_size),
+    .cpud_addr(cpud_addr),
     .cpud_write(cpud_write),
+    .cpud_byte_enable(cpud_byte_enable),
+    .cpud_wdata(cpud_wdata),
     .cpud_rdata(cpud_rdata),
     .cpud_ack(cpud_ack),
+    .p3_request(p3_request),
+    .p3_addr(p3_addr),
+    .p3_write(p3_write),
+    .p3_byte_enable(p3_byte_enable),
+    .p3_wdata(p3_wdata),
+    .p3_size(p3_size),
+    .p3_misaligned_address(p3_misaligned_address),
+    .p3_access_deny(p3_access_deny),
+    .p4_mem_addr(p4_mem_addr),
     .p4_write_pending(p4_write_pending),
     .p4_read_pending(p4_read_pending),
-    .p4_mem_rdata(p4_mem_rdata)
+    .p4_mem_rdata(p4_mem_rdata),
+    .p4_misaligned_address(p4_misaligned_address),
+    .p4_load_access_fault(p4_load_access_fault),
+    .p4_store_access_fault(p4_store_access_fault)
   );
 
 cpu_exception  cpu_exception_inst (
@@ -208,8 +243,19 @@ cpu_exception  cpu_exception_inst (
     .p3_jump_addr(p3_jump_addr),
     .p4_jump_taken(p4_jump_taken),
     .p4_jump_addr(p4_jump_addr),
-    .p4_misaligned_addr(p4_misaligned_addr),
-    .cpud_addr(cpud_addr),
+    .p4_misaligned_address(p4_misaligned_address),
+    .p4_load_access_fault(p4_load_access_fault),
+    .p4_store_access_fault(p4_store_access_fault),
+    .supervisor(supervisor),
+    .csr_dmpu0(csr_dmpu0),
+    .csr_dmpu1(csr_dmpu1),
+    .csr_dmpu2(csr_dmpu2),
+    .csr_dmpu3(csr_dmpu3),
+    .csr_dmpu4(csr_dmpu4),
+    .csr_dmpu5(csr_dmpu5),
+    .csr_dmpu6(csr_dmpu6),
+    .csr_dmpu7(csr_dmpu7),
+    .p4_mem_addr(p4_mem_addr),
     .p3_pc(p3_pc),
     .p4_pc(p4_pc),
     .p4_instr(p4_instr)
@@ -232,5 +278,23 @@ cpu_completion  cpu_completion_inst (
     .p4_divider_done(p4_divider_done),
     .stall(stall)
   );  
+
+  cpu_mpu  cpu_mpu_inst (
+    .clock(clock),
+    .reset(reset),
+    .supervisor(supervisor),
+    .cpud_request(p3_request),
+    .cpud_write(p3_write),
+    .cpud_addr(p3_addr),
+    .csr_dmpu0(csr_dmpu0),
+    .csr_dmpu1(csr_dmpu1),
+    .csr_dmpu2(csr_dmpu2),
+    .csr_dmpu3(csr_dmpu3),
+    .csr_dmpu4(csr_dmpu4),
+    .csr_dmpu5(csr_dmpu5),
+    .csr_dmpu6(csr_dmpu6),
+    .csr_dmpu7(csr_dmpu7),
+    .access_deny(p3_access_deny)
+  );
 
 endmodule

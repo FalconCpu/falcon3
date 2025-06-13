@@ -526,6 +526,7 @@ set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to DRAM_WE_N
 set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to DRAM_BA
 set_global_assignment -name ENABLE_SIGNALTAP ON
 set_global_assignment -name USE_SIGNALTAP_FILE stp1.stp
+set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/src/cpu_mpu.sv
 set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/src/cpu_exception.sv
 set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/src/cpu_divider.sv
 set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/src/uart.sv

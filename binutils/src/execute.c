@@ -14,17 +14,10 @@ static FILE* uart_log;
 extern FILE* trace_file;    
 static FILE* blit_log;
 
+
 // ================================================
 //                  exception registers
 // ================================================
-
-static int epc;
-static int ecause;
-static int edata;
-static int estatus;
-static int escratch;
-static int status;
-static int exception;
 
 #define CFG_REG_EPC 1
 #define CFG_REG_ECAUSE 2
@@ -32,6 +25,19 @@ static int exception;
 #define CFG_REG_ESTATUS 4
 #define CFG_REG_ESCRATCH 5
 #define CFG_REG_STATUS 6
+#define CFG_REG_IPC 7
+#define CFG_REG_ICAUSE 8
+#define CFG_REG_ISTATUS 9
+#define CFG_REG_INTVEC 10
+#define CFG_REG_TIMER 11
+#define CFG_REG_DMPU0 16
+#define CFG_REG_DMPU1 17
+#define CFG_REG_DMPU2 18
+#define CFG_REG_DMPU3 19
+#define CFG_REG_DMPU4 20
+#define CFG_REG_DMPU5 21
+#define CFG_REG_DMPU6 22
+#define CFG_REG_DMPU7 23
 
 #define CAUSE_INSTRUCTION_ACCESS_FAULT 1
 #define CAUSE_ILLEGAAL_INSTRUCTION 2
@@ -43,7 +49,30 @@ static int exception;
 #define CAUSE_SYSTEM_CALL 8
 #define CAUSE_INDEX_OVERFLOW 9
 
+#define ICAUSE_TIMER 1
+
 #define STATUS_SUPERVISOR 0x00000001
+#define STATUS_INTERRUPT  0x00000002
+
+#define DMPU_ENABLED 0x00000001
+#define DMPU_EXECUTE 0x00000002
+#define DMPU_WRITE   0x00000004
+#define DMPU_READ    0x00000008
+
+static int epc;
+static int ecause;
+static int edata;
+static int estatus;
+static int escratch;
+static int status = STATUS_SUPERVISOR;
+static int exception;
+static int ipc;
+static int icause;
+static int istatus;
+static int intvec;
+static int int_timer;
+static int dmpu[8];   // The data memory protection registers
+
 
 extern int abort_on_exception;
 
@@ -71,14 +100,26 @@ void raise_exception(int cause, int value) {
         exit(1);
     }
 
-    estatus = 0x10000000;
+    estatus = status;
     ecause = cause;
     edata = value;
     epc = pc-4;
     pc = 0xffff0004;
+    status |= STATUS_SUPERVISOR;
     if (trace_file)
         fprintf(trace_file, "EXCEPTION: %d %x\n", cause, value);
 }
+
+void raise_interrupt(int cause) {
+    istatus = status;
+    icause = cause;
+    ipc = pc;
+    pc = intvec;
+    status |= STATUS_SUPERVISOR | STATUS_INTERRUPT;
+    if (trace_file)
+        fprintf(trace_file, "INTERUPT: %d\n", cause);
+}
+
 
 
 // ================================================
@@ -329,8 +370,31 @@ static int read_hwregs(unsigned int addr) {
 
         break;
     }
-
 }
+
+// ================================================
+//                  check_dmpu
+// ================================================
+// Test to see if a given memory access is allowed
+
+static int check_dmpu(int access, int address) {
+    if (status & STATUS_SUPERVISOR)
+        return 1;       // Supervisor mode allows all accesses
+
+    for(int i=0; i<8; i++) {
+        if (!(dmpu[i] & DMPU_ENABLED))
+            continue;   // Skip disabled entries
+        if (!(dmpu[i] & access))
+            continue;   // Skip entries that don't match the access type
+        int size = (dmpu[i]>>8) & 0x15;
+        int mask = 0xFFFFF000 << size;
+        if ((address & mask) == (dmpu[i] & mask))
+            return 1;   // Match
+    }
+    return 0;
+}
+
+
 
 // ================================================
 //                  read_memory
@@ -375,6 +439,9 @@ static void write_memory(unsigned int addr, int value, int mask) {
 // ================================================
 
 static void write_memory_size(unsigned int addr, int value, int size) {
+    if (!check_dmpu(DMPU_WRITE, addr))
+        raise_exception(CAUSE_STORE_ACCESS_FAULT, addr);
+
     int mask = 0;
     int shift = (addr & 3) * 8;
     switch(size) {
@@ -410,6 +477,9 @@ static void write_memory_size(unsigned int addr, int value, int size) {
 // ================================================
 
 static int read_memory_size(unsigned int addr, int size) {
+    if (!check_dmpu(DMPU_READ, addr))
+        raise_exception(CAUSE_LOAD_ACCESS_FAULT, addr);
+
     int value = read_memory(addr& 0xfffffffc);;
     int shift = (addr & 3) * 8;
     switch(size) {
@@ -453,6 +523,20 @@ static int read_cfg(int cfg_reg) {
         case CFG_REG_ESTATUS:  ret = estatus; break;
         case CFG_REG_ESCRATCH: ret = escratch; break;
         case CFG_REG_STATUS:   ret = status; break;
+        case CFG_REG_IPC:      ret = ipc; break;
+        case CFG_REG_ICAUSE:   ret = icause; break;
+        case CFG_REG_ISTATUS:  ret = istatus; break;
+        case CFG_REG_INTVEC:   ret = intvec; break;
+        case CFG_REG_TIMER:    ret = int_timer; break;
+        case CFG_REG_DMPU0:    ret = dmpu[0]; break;
+        case CFG_REG_DMPU1:    ret = dmpu[1]; break;
+        case CFG_REG_DMPU2:    ret = dmpu[2]; break;
+        case CFG_REG_DMPU3:    ret = dmpu[3]; break;
+        case CFG_REG_DMPU4:    ret = dmpu[4]; break;
+        case CFG_REG_DMPU5:    ret = dmpu[5]; break;
+        case CFG_REG_DMPU6:    ret = dmpu[6]; break;
+        case CFG_REG_DMPU7:    ret = dmpu[7]; break;
+        default: ret = 0;
     }
     return ret;
 }
@@ -469,6 +553,20 @@ static void write_cfg(int cfg_reg, int value) {
         case CFG_REG_ESTATUS:  estatus  = value & 0xFF;     break;
         case CFG_REG_ESCRATCH: escratch = value;            break;
         case CFG_REG_STATUS:   status   = value & 0xFF;     break;
+        case CFG_REG_IPC:      ipc = value; break;
+        case CFG_REG_ICAUSE:   icause = value & 0xFF; break;
+        case CFG_REG_ISTATUS:  istatus = value & 0xFF; break;
+        case CFG_REG_INTVEC:   intvec = value; break;
+        case CFG_REG_TIMER:    int_timer = value; break;
+        case CFG_REG_DMPU0:    dmpu[0] = value; break;
+        case CFG_REG_DMPU1:    dmpu[1] = value; break;
+        case CFG_REG_DMPU2:    dmpu[2] = value; break;
+        case CFG_REG_DMPU3:    dmpu[3] = value; break;
+        case CFG_REG_DMPU4:    dmpu[4] = value; break;
+        case CFG_REG_DMPU5:    dmpu[5] = value; break;
+        case CFG_REG_DMPU6:    dmpu[6] = value; break;
+        case CFG_REG_DMPU7:    dmpu[7] = value; break;
+
     }
 }
 
@@ -523,8 +621,15 @@ static void execute_instruction(int instr) {
                         if (i==0 || i==1)
                             set_reg(d,tmp);
                         if (i==2) {  // RTE
-                            pc = epc;
-                            status = estatus;
+                            if (n13 & 1) {
+                                // RTI
+                                status = istatus;
+                                pc = ipc;
+                            } else {
+                                // RTE
+                                status = estatus;
+                                pc = epc;
+                            }
                             if (trace_file)
                                 fprintf(trace_file, "-> %s", find_label(pc));                        
                         } 
@@ -551,6 +656,10 @@ void execute() {
 
     while (timeout>0 && pc!=0) {
         exception = 0;
+
+        if (--int_timer == 0)
+            raise_interrupt(ICAUSE_TIMER);
+
         int instr = read_memory(pc);
         if (trace_file) 
             fprintf(trace_file, "%08x: %-40s", pc, disassemble_line(instr,pc+4));

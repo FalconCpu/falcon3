@@ -64,19 +64,27 @@
 `define CSR_ISTATUS  8'h9
 `define CSR_INTVEC   8'hA
 `define CSR_TIMER    8'hB
+`define CSR_DMPU0    8'h10
+`define CSR_DMPU1    8'h11
+`define CSR_DMPU2    8'h12
+`define CSR_DMPU3    8'h13
+`define CSR_DMPU4    8'h14
+`define CSR_DMPU5    8'h15
+`define CSR_DMPU6    8'h16
+`define CSR_DMPU7    8'h17
 
 `define EXCEPTION_VECTOR 32'hffff0004
 `define INTERUPT_VECTOR 32'hffff0008
 
-`define CAUSE_INSTRUCTION_ACCESS_FAULT   1
-`define CAUSE_ILLEGAL_INSTRUCTION        2
-`define CAUSE_BREAKPOINT                 3
-`define CAUSE_LOAD_ADDRESS_MISALIGNED    4
-`define CAUSE_LOAD_ACCESS_FAULT          5
-`define CAUSE_STORE_ADDRESS_MISALIGNED   6
-`define CAUSE_STORE_ACCESS_FAULT         7
-`define CAUSE_SYSTEM_CALL                8
-`define CAUSE_INDEX_OVERFLOW             9
+`define CAUSE_INSTRUCTION_ACCESS_FAULT   8'h01
+`define CAUSE_ILLEGAL_INSTRUCTION        8'h02
+`define CAUSE_BREAKPOINT                 8'h03
+`define CAUSE_LOAD_ADDRESS_MISALIGNED    8'h04
+`define CAUSE_LOAD_ACCESS_FAULT          8'h05
+`define CAUSE_STORE_ADDRESS_MISALIGNED   8'h06
+`define CAUSE_STORE_ACCESS_FAULT         8'h07
+`define CAUSE_SYSTEM_CALL                8'h08
+`define CAUSE_INDEX_OVERFLOW             8'h09
 
 `define FLAG_SUPERVISOR              8'h01
 `define FLAG_INTERRUPT               8'h02
