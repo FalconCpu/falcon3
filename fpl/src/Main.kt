@@ -28,7 +28,7 @@ fun runProgram() : String {
 }
 
 
-enum class StopAt{PARSE, TYPECHECK, CODEGEN, REG_ALLOC, ASSEMBLY, EXECUTE}
+enum class StopAt{PARSE, TYPECHECK, CODEGEN, REG_ALLOC, ASSEMBLY, HEXFILE, EXECUTE}
 
 fun compile(lexers:List<Lexer>, stopAt: StopAt, assemblyFiles:List<String> = emptyList()) : String {
     Log.clear()
@@ -74,6 +74,10 @@ fun compile(lexers:List<Lexer>, stopAt: StopAt, assemblyFiles:List<String> = emp
     asmFile.close()
     runAssembler(assemblyFiles + "asm.f32")
     if (Log.hasErrors())             return Log.getErrors()
+    if (stopAt == StopAt.HEXFILE)   {
+        println("HEX file created")
+        return ""
+    }
 
     // Run the simulated machine
     val ret = runProgram()

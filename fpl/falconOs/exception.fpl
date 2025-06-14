@@ -30,6 +30,7 @@ const DMPU_512k    =  0x00000700
 
 class TCB
     var pc   : Int
+    val regs = new Array<Int>(32)
     var reg1 : Int
     var reg2 : Int
     var reg3 : Int
@@ -230,17 +231,7 @@ fun handle_exception(tcb:TCB, cause:ExceptionCause, data:Int)
 # ==========================================================================
 # For now a very simple bump allocator for memory
 
-var kMemPointer : Int           # Space for kernal private data
 var bMemPointer : Int           # Space for user tasks
-
-fun initializeMemory()
-    kMemPointer = 0x2000        # Allow almost 64k of space for kernal
-    bMemPointer = 0x10000       # Allow rest of space for general use
-
-fun kMemAlloc(size:Int) -> Int
-    val ret = kMemPointer
-    kMemPointer += size
-    return ret
 
 fun bMemAlloc(size:Int) -> Int
     val ret = bMemPointer
@@ -254,14 +245,15 @@ fun bMemAlloc(size:Int) -> Int
 
 fun startup()
     kPrintString("OS Starting up\n")
-#    val mem = 0 as Array<Int>
-#    for i in 0..0x2000
-#        mem[i] = 0xBAADF00D
-    initializeMemory()
-    kPrintString("Beginning task\n")
+    bMemPointer = 0x10000       # Allow rest of space for general use
+    initializeMemorySystem()
+    kPrintString("Allocating task\n")
 
     # Create our first task  (We can't use new() yet as proper memory allocator not yet implemented)
-    val task = kMemAlloc(256) as TCB
+    val task = new TCB()
+    kPrintString("Allocated task at ")
+    kPrintHex8(task as Int)
+    kPrintString("\n")
 
     task.pc = myFirstTask as Int
     val taskStack = bMemAlloc(4096)  # Allocate some space for the new task
@@ -274,6 +266,7 @@ fun startup()
     task.dmpu2 = 0xFFFF0000 | DMPU_64k | DMPU_ENABLE_RX   # Give the task access to its program area (actually the whole of the ROM)
     task.reg30 = endTask as Int        # Set the tasks return address to be the endTask() routine in the assembly stub
 
+    kPrintString("Running task\n")
     resumeTask(task)
 
 

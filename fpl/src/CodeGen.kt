@@ -90,7 +90,10 @@ fun TstExpr.codeGenRvalue() : Reg {
         is TstIndex -> {
             val exprReg = expr.codeGenRvalue()
             val indexReg = index.codeGenRvalue()
-            val lengthReg = currentFunc.addLoadMem(exprReg, sizeField)
+            val lengthReg = if (expr.type is TypeFixedArray)
+                    currentFunc.addMov(expr.type.numElements)
+                else
+                    currentFunc.addLoadMem(exprReg, sizeField)
             val size = type.sizeInBytes()
             val indexScaled = currentFunc.addIndexOp(size, indexReg, lengthReg)
             val indexAdded = currentFunc.addAlu(AluOp.ADD_I, exprReg, indexScaled)
@@ -157,11 +160,12 @@ fun TstExpr.codeGenRvalue() : Reg {
         is TstStringlit -> currentFunc.addLea(ValueString.create(value, TypeString))
 
         is TstNewArray -> {
+            require(type is TypeArray)
             if (local) {
                 require(size is TstIntLit)
                 val numElements = size.value
                 val numElementsReg = currentFunc.addMov(numElements)
-                val elementSize = (type as TypeArray).elementType.sizeInBytes()
+                val elementSize = type.elementType.sizeInBytes()
                 val sizeRounded = (numElements * elementSize + 3) and -4  // round up to nearest 4 bytes
                 val stackOffset = currentFunc.stackAlloc(sizeRounded+4)   // +4 to allow for size field
                 val ret = currentFunc.addAlu(AluOp.ADD_I, allMachineRegs[31], stackOffset+4)
@@ -173,7 +177,7 @@ fun TstExpr.codeGenRvalue() : Reg {
                 ret
             } else {
                 val numElementsReg = size.codeGenRvalue()
-                val elementSize = (type as TypeArray).elementType.sizeInBytes()
+                val elementSize = type.elementType.sizeInBytes()
                 val elementSizeReg = currentFunc.addMov(elementSize)
                 val clearMemReg = currentFunc.addMov(if (initializer==null) 1 else 0)
                 val args = listOf(numElementsReg, elementSizeReg, clearMemReg)
@@ -183,6 +187,36 @@ fun TstExpr.codeGenRvalue() : Reg {
                 ret
             }
         }
+
+        is TstNewFixedArray -> {
+            require(type is TypeFixedArray)
+            val numElements = type.numElements
+            val elementSize = type.elementType.sizeInBytes()
+            if (local) {
+                // Allocating on the stack
+                val sizeRounded = (numElements * elementSize + 3) and -4  // round up to nearest 4 bytes
+                val stackOffset = currentFunc.stackAlloc(sizeRounded)
+                val ret = currentFunc.addAlu(AluOp.ADD_I, allMachineRegs[31], stackOffset)
+                if (initializer==null)
+                    clearMem(ret, sizeRounded)
+                else
+                    initializeArray(ret, initializer, elementSize, numElements)
+                ret
+            } else {
+                // Slightly wasteful - but when we allocate on the heap - for now just allocate a regular array.
+                // We could save the 4 bytes for the header - but that would mean replicating all the code for mallocArray
+                // in the stdlib.
+                val elementSizeReg = currentFunc.addMov(elementSize)
+                val numElementsReg = currentFunc.addMov(numElements)
+                val clearMemReg = currentFunc.addMov(if (initializer==null) 1 else 0)
+                val args = listOf(numElementsReg, elementSizeReg, clearMemReg)
+                val ret = currentFunc.addCall(Stdlib.mallocArray, args)
+                if (initializer!=null)
+                    initializeArray(ret, initializer, elementSize, numElements)
+                ret
+            }
+        }
+
 
         is TstNewArrayInitializer -> {
             val elementSize = (type as TypeArray).elementType.sizeInBytes()
@@ -310,6 +344,18 @@ private fun initializeArray(
     currentFunc.addBranch(AluOp.LT_I, indexReg, numElementsReg, labelStart)
 }
 
+private fun initializeArray(
+    arrayAddress: Reg,
+    initializer: TstLambda,
+    elementSize: Int,
+    numElements: Int
+) {
+    val numElementsReg = currentFunc.addMov(numElements)
+    initializeArray(arrayAddress, initializer, elementSize, numElementsReg)
+}
+
+
+
 private fun clearMem(address: Reg, size: Int) {
     if (size==0)
         return
@@ -343,7 +389,10 @@ fun TstExpr.codeGenLvalue(value:Reg, op:AluOp)  {
         is TstIndex -> {
             val exprReg = expr.codeGenRvalue()
             val indexReg = index.codeGenRvalue()
-            val lengthReg = currentFunc.addLoadMem(exprReg, sizeField)
+            val lengthReg = if (expr.type is TypeFixedArray)
+                currentFunc.addMov(expr.type.numElements)
+            else
+                currentFunc.addLoadMem(exprReg, sizeField)
             val size = type.sizeInBytes()
             val indexScaled = currentFunc.addIndexOp(size, indexReg, lengthReg)
             val indexAdded = currentFunc.addAlu(AluOp.ADD_I, exprReg, indexScaled)
@@ -588,11 +637,19 @@ fun TstStmt.codeGen()  {
                 breakLabel = oldBreakLabel
                 continueLabel = oldContinueLabel
 
-            } else if (expr.type is TypeArray || expr.type is TypeString) {
+            } else if (expr.type is TypeArray || expr.type is TypeString || expr.type is TypeFixedArray) {
                 // calculate the range we need to iterate over
-                val elementSize = if (expr.type is TypeArray) expr.type.elementType.sizeInBytes() else 1
+                val elementSize = when(expr.type) {
+                    is TypeArray -> expr.type.elementType.sizeInBytes()
+                    is TypeFixedArray -> expr.type.elementType.sizeInBytes()
+                    is TypeString -> 1
+                    else -> error("Invalid type for array")
+                }
                 val regArray = expr.codeGenRvalue()
-                val regNumElements = currentFunc.addLoadMem(regArray, sizeField)
+                val regNumElements = if (expr.type is TypeFixedArray)
+                        currentFunc.addMov(expr.type.numElements)
+                    else
+                        currentFunc.addLoadMem(regArray, sizeField)
                 val scaledNumElements = currentFunc.addAlu(AluOp.MUL_I, regNumElements, elementSize)
                 val endPointer = currentFunc.addAlu(AluOp.ADD_I, regArray, scaledNumElements)
                 val regIterator = currentFunc.newVar()      // Needs to be a var not a temp, so that we can mutate it

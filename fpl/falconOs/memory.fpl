@@ -1,0 +1,165 @@
+
+# ####################################################################
+#                          Memory Map
+# ####################################################################
+# The De1-SOC board has 64Mb of SDRAM
+# The memory map is as follows:
+# 0x00000000 : System variables (kernel globals)
+# 0x00001000 : Kernal heap
+# 0x00010000 : heap space for user programs
+# 0x03F80000 : VGA display file
+# 0x03FCB000 : Supervisor stack
+# 0x04000000 : End of SDRAM
+
+
+
+# ####################################################################
+#                        Kernel Memory Allocator
+# ####################################################################
+
+const HEAP_START = 0x1000
+const HEAP_END   = 0x10000
+
+const ERR_OUT_OF_MEMORY = 0xE01
+const ERR_DOUBLE_FREE = 0xE02
+
+# FreeMemBlock
+# Blocks are always a multiple of 16 bytes in size - this means the lower 4 bits are always 0
+# hence we can repurpose them to indicate the block status
+# 0 = free
+# 1 = allocated for an object
+# 2 = allocated for an array or string
+
+const BLOCK_FREE = 0
+const BLOCK_OBJECT = 1
+const BLOCK_ARRAY = 2
+
+class FreeMemBlock
+    var size : Int             # size of block (lower 4 bits are always 0)
+    var next : FreeMemBlock?   # next free block
+
+class ArrayMemBlock
+    var size : Int             # size of block (+ lower 4 bits = type)
+    var numElements:Int
+    # user data follows
+
+class ObjectMemBlock
+    var size : Int      # size of block (+ lower 4 bits = type)
+    var type : ClassDescriptor
+
+class ClassDescriptor          # An instance of this class is created by the compiler for each class in the program
+    var size : Int      # size of an instance of this class (excluding the memory system header)
+    var name : String
+    # vtables follow
+
+
+var freeList : FreeMemBlock?         # linked list of free blocks sorted by size
+
+fun initializeMemorySystem()
+    freeList = HEAP_START as FreeMemBlock
+    freeList.size = HEAP_END - HEAP_START
+    freeList.next = null
+
+fun insertBlockIntoFreeList(block:FreeMemBlock, size:Int)
+    # Insert the block into the freelist, keeping the list sorted by size
+    block.size = size
+    var p = freeList
+    var prev : FreeMemBlock? = null
+    while p!=null and p.size<size
+        prev = p
+        p = p.next
+    if prev=null
+        block.next = freeList
+        freeList = block
+    else
+        block.next = prev.next
+        prev.next = block
+end fun
+
+fun mallocInternal(sizeReq:Int) -> FreeMemBlock?
+    # The size is a multiple of 16 - and includes the header
+    # val sizeReq = (size + 8 + 15) & 0xFFFFFFF0
+
+    # Walk along the freelist to find the first block that is big enough
+    var prev : FreeMemBlock? = null
+    var p = freeList
+    while p!=null and p.size<sizeReq
+        prev = p
+        p = p.next
+    if p=null then abort ERR_OUT_OF_MEMORY
+
+    # remove the block from the freelist
+    if prev=null
+        freeList = p.next
+    else
+        prev.next = p.next
+
+    # If the block is big enough, split it into two blocks
+    val sizeSplit = p.size - sizeReq
+    if sizeSplit>0
+        # Create a new block at the end of the current block
+        val newBlock = ((p as Int) + sizeReq as FreeMemBlock)
+        insertBlockIntoFreeList(newBlock, sizeSplit)
+    return p
+end fun
+
+fun mallocObject(klass:ClassDescriptor) -> Int
+    val size = (klass.size + 8 + 15) & 0xFFFFFFF0       # add 8 for the header, and round up to a multiple of 16
+    val ret = mallocInternal(size) as ObjectMemBlock
+    ret.size = size | BLOCK_OBJECT
+    ret.type = klass
+    return (ret as Int)+8       # Skip past the object's header
+
+fun mallocArray(numElements:Int, elementSize:Int, clear:Bool) -> Int
+    val size = ((numElements * elementSize) + 8 + 15) & 0xfffffff0  # add 8 for header, and round up to multiple of 16
+    val ret = mallocInternal(size) as ArrayMemBlock
+    ret.size = size | BLOCK_ARRAY
+    ret.numElements = numElements
+    val retInt = (ret as Int)+8 # Skip past the object's header
+    if clear
+        val numWords = numElements * elementSize / 4
+        val ary = (retInt as Array<Int>)
+        for i in 0..<numWords
+            ary[i] = 0
+    return retInt
+
+fun free(ptr:Int)
+    if ptr=0 then return        # do nothing for a null pointer
+    val block = (ptr - 8) as FreeMemBlock
+    val size = block.size
+    if (size & 0xF)=0 then abort ERR_DOUBLE_FREE
+    insertBlockIntoFreeList(block, size & 0xfffffff0)
+
+fun dumpMemorySystem()
+    var p = HEAP_START
+    kPrintString("MEMORY DUMP\n")
+    while p < HEAP_END
+        val block = p as FreeMemBlock
+        val sizeAndType = block.size
+        val type = sizeAndType & 0xF
+        val size = sizeAndType & 0xFFFFFFF0
+        kPrintHex8(p)
+        when type
+            BLOCK_OBJECT ->
+                val className = (p as ObjectMemBlock).type.name
+                kPrintString(" Object: Size=")
+                kPrintHex8(size)
+                kPrintString(" type=")
+                kPrintString(className)
+                kPrintString("\n")
+            BLOCK_ARRAY ->
+                val numElements = (p as ArrayMemBlock).numElements
+                kPrintString(" Array: Size=")
+                kPrintHex8(size)
+                kPrintString(" NumElements=")
+                kPrintHex8(numElements)
+                kPrintString("\n")
+            BLOCK_FREE ->
+                kPrintString(" Free: ")
+                kPrintHex8(size)
+                kPrintString(" next=")
+                kPrintHex8(block.next as Int)
+                kPrintString("\n")
+        p += size
+    end while
+end fun

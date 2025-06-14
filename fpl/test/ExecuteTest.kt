@@ -717,6 +717,34 @@ class ExecuteTest {
         runTest(prog, expected)
     }
 
+    @Test
+    fun fixedArrayTest() {
+        val prog = """
+            fun printFixedArray(a:FixedArray<Int>(10))
+                for i in a
+                    print(i,"\n")
+                    
+            fun main() 
+                val a = local FixedArray<Int>(10){it*3}
+                printFixedArray(a)
+        """.trimIndent()
+
+        val expected = """
+            0
+            3
+            6
+            9
+            12
+            15
+            18
+            21
+            24
+            27
+
+
+        """.trimIndent()
+        runTest(prog, expected)
+    }
 
 
 }

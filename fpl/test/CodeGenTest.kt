@@ -678,5 +678,51 @@ class CodeGenTest {
     }
 
 
+    @Test
+    fun fixedArrayTest() {
+        val prog = """
+            fun main()
+                val array = new FixedArray<Int>(10)
+                for i in 0..<array.size
+                    array[i] = i
+        """.trimIndent()
+
+        val expected = """
+            Function main()
+            start
+            ld T0, 4
+            ld T1, 10
+            ld T2, 1
+            ld R1, T1
+            ld R2, T0
+            ld R3, T2
+            jsr mallocArray(Int,Int,Bool)
+            ld T3, R8
+            ld array, T3
+            ld T4, 0
+            ld i, T4
+            ld T5, 10
+            ld T6, T5
+            jmp L4
+            L1:
+            ld T7, 10
+            idx4 T8, i, T7
+            ADD_I T9, array, T8
+            stw i, T9[0]
+            L3:
+            ADD_I T10, i, 1
+            ld i, T10
+            L4:
+            blt i, T6, L1
+            jmp L2
+            L2:
+            L0:
+            ret
+
+            
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
 
 }

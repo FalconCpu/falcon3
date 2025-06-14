@@ -40,6 +40,7 @@ sealed class AstTypeExpr(location: Location) : Ast(location)
 class AstTypeId(location: Location, val name:String) : AstTypeExpr(location)
 class AstTypeArray(location: Location, val base: AstTypeExpr?) : AstTypeExpr(location)
 class AstTypeRange(location: Location, val base: AstTypeExpr) : AstTypeExpr(location)
+class AstTypeFixedArray(location: Location, val numElements:AstExpr, val base: AstTypeExpr) : AstTypeExpr(location)
 class AstTypeNullable(location: Location, val base: AstTypeExpr) : AstTypeExpr(location)
 
 // ================================================
@@ -338,6 +339,12 @@ fun Ast.prettyPrint(sb: StringBuilder, indent:Int) {
             sb.append("Enum $name\n")
             for (field in values)
                 field.prettyPrint(sb, indent+1)
+        }
+
+        is AstTypeFixedArray -> {
+            sb.append("TypeFixedArray\n")
+            numElements.prettyPrint(sb, indent+1)
+            base.prettyPrint(sb, indent+1)
         }
     }
 }

@@ -116,7 +116,7 @@ cfg $2, !ecause
 cfg $3, !edata
 
 ld $sp, 0x4000000       # Set the supervisor stack pointer
-ld $29, 0x1000          # Set the globals pointer to the kernal space
+ld $29, 0x100           # Set the globals pointer to the kernal space
 jmp /handle_exception(TCB,ExceptionCause,Int)   # jump to fpl handler code
 
 # ################################################################
@@ -189,7 +189,7 @@ rte
 start:
 
 ld $sp, 0x4000000       # Set stack pointer to top of memory
-ld $29, 0x1000          # Set globals pointer to near bottom of memory
+ld $29, 0x100           # Set globals pointer to near bottom of memory
 jmp /startup()
 
 

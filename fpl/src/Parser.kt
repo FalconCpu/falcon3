@@ -122,10 +122,13 @@ class Parser(val lexer: Lexer) {
         if (currentToken.kind==OPENSQ) {
             val initializers = parseInitializerList()
             return AstNewWithInitialiser(tok.location, typeExpr, initializers, tok.kind == LOCAL)
-        } else {
+        } else if (currentToken.kind == OPENB){
             val args = parseExpressionList()
             val lambda = parseOptLambda()
             return AstNew(tok.location, typeExpr, args, lambda, tok.kind == LOCAL)
+        } else {
+            val lambda = parseOptLambda()
+            return AstNew(tok.location, typeExpr, emptyList(), lambda, tok.kind == LOCAL)
         }
     }
 
@@ -330,6 +333,18 @@ class Parser(val lexer: Lexer) {
         return AstTypeArray(tok.location, ret)
     }
 
+    private fun parseTypeFixedArray() : AstTypeExpr {
+        val tok = match(FIXEDARRAY)
+        match(LT)
+        val elementType = parseTypeExpr()
+        match(GT)
+        match(OPENB)
+        val size = parseExpression()
+        match(CLOSEB)
+        return AstTypeFixedArray(tok.location, size, elementType)
+    }
+
+
     private fun parseTypeRange() : AstTypeExpr {
         val tok = match(RANGE)
         match(LT)
@@ -343,6 +358,7 @@ class Parser(val lexer: Lexer) {
         var ret = when(currentToken.kind) {
             ID -> parseTypeId()
             ARRAY -> parseTypeArray()
+            FIXEDARRAY -> parseTypeFixedArray()
             RANGE -> parseTypeRange()
             else -> throw ParseError(currentToken.location, "Got '$currentToken' when expecting type expression")
         }

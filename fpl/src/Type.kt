@@ -28,6 +28,17 @@ class TypeArray private constructor(name:String, val elementType: Type) : Type(n
     }
 }
 
+class TypeFixedArray private constructor(name:String, val numElements:Int, val elementType: Type) : Type(name) {
+    companion object {
+        val allFixedArrayTypes = mutableMapOf<Pair<Int,Type>, TypeFixedArray>()
+        fun create(numElements:Int, elementType: Type) = allFixedArrayTypes.getOrPut(Pair(numElements,elementType)) {
+            val name = "FixedArray<$elementType>($numElements)"
+            TypeFixedArray(name, numElements, elementType)
+        }
+    }
+}
+
+
 class TypeRange private constructor(name:String, val elementType: Type) : Type(name) {
     companion object {
         val allRangeTypes = mutableMapOf<Type, TypeRange>()
@@ -164,6 +175,7 @@ fun Type.sizeInBytes() : Int {
         TypeReal -> 4
         TypeString -> 4
         TypeUnit -> 0
+        is TypeFixedArray -> 4
         is TypeClass -> 4  // References to a class are pointers
         is TypeEnum -> 4  // References to an enum are integers
     }

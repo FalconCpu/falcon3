@@ -4,14 +4,14 @@ import java.io.FileReader
 import java.io.StringReader
 
 class OsComponentTest {
-    private val stdlibFiles = listOf("falconos/exception.fpl")
-    private val stdLibAsm = listOf("falconos/start.f32")
+    private val stdlibFiles = listOf("falconOs/memory.fpl","falconOs/exception.fpl", )
+    private val stdLibAsm = listOf("falconOs/start.f32")
 
 
     fun runTest(prog: String, expected: String) {
         val stdLibLexers = stdlibFiles.map { Lexer(it, FileReader(it)) }
         val lexer = Lexer("test.fpl", StringReader(prog))
-        val output = compile(stdLibLexers + lexer, StopAt.EXECUTE, stdLibAsm)
+        val output = compile(stdLibLexers + lexer, StopAt.HEXFILE, stdLibAsm)
         assertEquals(expected, output)
     }
 

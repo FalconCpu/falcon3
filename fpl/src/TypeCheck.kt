@@ -198,6 +198,7 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
             when (tcExpr.type) {
                 is TypeArray -> TstIndex(location, tcExpr, tcIndex, tcExpr.type.elementType)
                 is TypeString -> TstIndex(location, tcExpr, tcIndex, TypeChar)
+                is TypeFixedArray -> TstIndex(location, tcExpr, tcIndex, tcExpr.type.elementType)
                 else -> TstError(location, "Cannot index expression of type ${tcExpr.type}")
             }
         }
@@ -233,6 +234,13 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
                 is TypeArray -> {
                     if (name== "size")
                         TstMember(location, tcExpr, sizeField, TypeInt)
+                    else
+                        TstError(location, "FixedArray does not have a field named '$name'")
+                }
+
+                is TypeFixedArray -> {
+                    if (name== "size")
+                        TstIntLit(location, tcExpr.type.numElements, TypeInt)
                     else
                         TstError(location, "Array does not have a field named '$name'")
                 }
@@ -338,6 +346,16 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
                 is TypeClass -> {
                     checkParameters(location, tcType.constructor.parameters.map{it.type}, tcArgs)
                     TstNewObject(location, tcArgs, tcType, local)
+                }
+
+                is TypeFixedArray -> {
+                    // The size argument will have already been parsed by resolveType. So check there are no additional arguments
+                    if (tcArgs.isNotEmpty())
+                        return TstError(location, "new FixedArray requires no arguments")
+                    val tcLambda = lambda?.typeCheckLambda(context, listOf(SymbolVar(location,"it", TypeInt, false)))
+                    if (tcLambda!=null)
+                        tcType.elementType.checkCompatibleWith(tcLambda.body)
+                    TstNewFixedArray(location, tcLambda, local,tcType)
                 }
 
                 else -> TstError(location, "Cannot create instance of type $tcType")
@@ -624,6 +642,19 @@ fun AstTypeExpr.resolveType(context:AstBlock) : Type = when(this) {
         val elementType = base.resolveType(context)
         TypeNullable.create(location, elementType)
     }
+
+    is AstTypeFixedArray -> {
+        val tcNumElements = numElements.typeCheckRvalue(context)
+        TypeInt.checkCompatibleWith(tcNumElements)
+        val numElementsInt = if (tcNumElements.isIntegerConstant())
+            tcNumElements.getIntegerConstant()
+        else {
+            Log.error(location, "Array size must be a compile-time constant")
+            0
+        }
+        val elementType = base.resolveType(context)
+        TypeFixedArray.create(numElementsInt, elementType)
+    }
 }
 
 // ================================================================
@@ -733,6 +764,7 @@ fun AstStmt.typeCheck(context:AstBlock) : TstStmt {
             val elementType = when (tcExpr.type) {
                 is TypeError -> TypeError
                 is TypeArray -> tcExpr.type.elementType
+                is TypeFixedArray -> tcExpr.type.elementType
                 is TypeRange -> tcExpr.type.elementType
                 is TypeString -> TypeChar
                 else -> makeTypeError(location, "Cannot iterate over type '${tcExpr.type}'")

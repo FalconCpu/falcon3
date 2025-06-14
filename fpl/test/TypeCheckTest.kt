@@ -564,4 +564,34 @@ class TypeCheckTest {
         runTest(prog, expected)
     }
 
+    @Test
+    fun fixedArrayTest() {
+        val prog = """
+            fun main()
+                val array = new FixedArray<Int>(10)
+                for i in 0..<array.size
+                    array[i] = i
+        """.trimIndent()
+
+        val expected = """
+            top
+              file: test
+                function: main()
+                  decl: VAR:array:FixedArray<Int>(10)
+                    new-fixed-array (FixedArray<Int>(10))
+                  for: i
+                    range: LT_I (Range<Int>)
+                      int: 0 (Int)
+                      int: 10 (Int)
+                    assign EQ_I
+                      index (Int)
+                        var: array (FixedArray<Int>(10))
+                        var: i (Int)
+                      var: i (Int)
+
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
+
 }
