@@ -17,8 +17,8 @@ fun runAssembler(filenames:List<String>) {
         Log.error(process.inputStream.bufferedReader().readText())
 }
 
-fun runProgram() : String {
-    val process = ProcessBuilder("f32sim", "-t", "asm.hex")
+fun runProgram(stopAtException: Boolean) : String {
+    val process = ProcessBuilder("f32sim", "-t", "-a" , "asm.hex")
         .redirectError(ProcessBuilder.Redirect.INHERIT)
         .start()
     val exitCode = process.waitFor()
@@ -30,7 +30,9 @@ fun runProgram() : String {
 
 enum class StopAt{PARSE, TYPECHECK, CODEGEN, REG_ALLOC, ASSEMBLY, HEXFILE, EXECUTE}
 
-fun compile(lexers:List<Lexer>, stopAt: StopAt, assemblyFiles:List<String> = emptyList()) : String {
+fun compile(lexers:List<Lexer>, stopAt: StopAt, assemblyFiles:List<String> = emptyList(),
+            stopAtException: Boolean=false
+            ) : String {
     Log.clear()
     allFunctions.clear()
     allValues.clear()
@@ -80,6 +82,6 @@ fun compile(lexers:List<Lexer>, stopAt: StopAt, assemblyFiles:List<String> = emp
     }
 
     // Run the simulated machine
-    val ret = runProgram()
+    val ret = runProgram(stopAtException)
     return ret
 }

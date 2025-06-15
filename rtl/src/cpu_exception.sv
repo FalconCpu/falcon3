@@ -90,7 +90,7 @@ always_comb begin
 	next_csr_dmpu6 = csr_dmpu6;
 	next_csr_dmpu7 = csr_dmpu7;
 
-    next_csr_timer = csr_timer - 1'b1;     // countdown
+    next_csr_timer = (csr_timer==32'hffffffff) ? 32'hffffffff : csr_timer - 1'b1;     // countdown
     p4_jump_taken = p4_jump_taken_q;
     p4_jump_addr = p4_jump_addr_q;
 

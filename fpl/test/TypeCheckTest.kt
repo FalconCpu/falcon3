@@ -593,5 +593,288 @@ class TypeCheckTest {
         runTest(prog, expected)
     }
 
+    @Test
+    fun embeddedFieldsTest() {
+        val prog = """
+            class TCB 
+                var   pc : Int
+                local regs : FixedArray<Int>(32)
+                local dmpu : FixedArray<Int>(8)
+        
+            fun main()
+                val task = new TCB()
+                task.pc = 10
+                task.regs[4] = 0x1234
+                task.dmpu[0] = 0x5678
+                
+                print("pc = ",task.pc,"\n")
+                print("regs[4] = ",task.regs[4],"\n")
+                print("dmpu[0] = ",task.dmpu[0],"\n")
+        """.trimIndent()
+
+        val expected = """
+            top
+              file: test
+                class: TCB
+                function: main()
+                  decl: VAR:task:TCB
+                    new-object (TCB)
+                  assign EQ_I
+                    member: pc (Int)
+                      var: task (TCB)
+                    int: 10 (Int)
+                  assign EQ_I
+                    index (Int)
+                      embeddedMember: regs (FixedArray<Int>(32))
+                        var: task (TCB)
+                      int: 4 (Int)
+                    int: 4660 (Int)
+                  assign EQ_I
+                    index (Int)
+                      embeddedMember: dmpu (FixedArray<Int>(8))
+                        var: task (TCB)
+                      int: 0 (Int)
+                    int: 22136 (Int)
+                  print
+                    string: "pc = " (String)
+                    member: pc (Int)
+                      var: task (TCB)
+                    string: "
+            " (String)
+                  print
+                    string: "regs[4] = " (String)
+                    index (Int)
+                      embeddedMember: regs (FixedArray<Int>(32))
+                        var: task (TCB)
+                      int: 4 (Int)
+                    string: "
+            " (String)
+                  print
+                    string: "dmpu[0] = " (String)
+                    index (Int)
+                      embeddedMember: dmpu (FixedArray<Int>(8))
+                        var: task (TCB)
+                      int: 0 (Int)
+                    string: "
+            " (String)
+
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
+    @Test
+    fun genericsTest1() {
+        val prog = """
+            class List<T>
+                var size : Int
+                var array = new Array<T>(10)
+                
+            fun main()
+                val list = new List<Int>()
+        """.trimIndent()
+
+        val expected = """
+            top
+              file: test
+                class: List
+                  assign EQ_I
+                    member: array (Array<T>)
+                      var: this (List)
+                    new-array (Array<T>)
+                      int: 10 (Int)
+                function: main()
+                  decl: VAR:list:List<Int>
+                    new-object (List<Int>)
+
+            """.trimIndent()
+
+        runTest(prog, expected)
+    }
+
+
+    @Test
+    fun genericsTest2() {
+        val prog = """
+            class List<T>
+                var size : Int
+                var array = new Array<T>(10)
+                
+            fun main()
+                val list = new List<Char>()
+        """.trimIndent()
+
+        val expected = """
+            test.fpl:6.20-6.23: Currently generic types must be exactly word sized
+        """.trimIndent()
+
+        runTest(prog, expected)
+    }
+
+    @Test
+    fun genericsTest3() {
+        val prog = """
+            class List<T>
+                var size : Int
+                var array = new Array<T>(10)
+                
+                fun get(index : Int) -> T
+                    return array[index]
+                    
+                fun set(index : Int, value : T)
+                    array[index] = value
+                
+            fun main()
+                val list = new List<Int>()
+                val c = list[0]
+                list[1] = 20
+        """.trimIndent()
+
+        val expected = """
+            top
+              file: test
+                class: List
+                  assign EQ_I
+                    member: array (Array<T>)
+                      var: this (List)
+                    new-array (Array<T>)
+                      int: 10 (Int)
+                  function: List/get(Int)
+                    expr-stmt
+                      return (Nothing)
+                        index (T)
+                          member: array (Array<T>)
+                            var: this (List)
+                          var: index (Int)
+                  function: List/set(Int,T)
+                    assign EQ_I
+                      index (T)
+                        member: array (Array<T>)
+                          var: this (List)
+                        var: index (Int)
+                      var: value (T)
+                function: main()
+                  decl: VAR:list:List<Int>
+                    new-object (List<Int>)
+                  decl: VAR:c:Int
+                    call List/get(Int)
+                      var: list (List<Int>)
+                      int: 0 (Int)
+                  assign EQ_I
+                    set-call  List/set(Int,T)
+                      var: list (List<Int>)
+                      int: 1 (Int)
+                    int: 20 (Int)
+
+        """.trimIndent()
+
+        runTest(prog, expected)
+    }
+
+    @Test
+    fun genericsTest4() {
+        val prog = """
+            class List<T>
+                var size : Int
+                var array = new Array<T>(10)
+                
+                fun get(index : Int) -> T
+                    return array[index]
+                    
+                fun set(index : Int, value : T)
+                    array[index] = value
+                
+            fun main()
+                val list = new List<Int>()
+                val c = list[0]
+                list[1] = "20"              # error - attempting to assign a string to an int
+        """.trimIndent()
+
+        val expected = """
+            test.fpl:14.15-14.18: Got type 'String' when expecting 'Int'
+        """.trimIndent()
+
+        runTest(prog, expected)
+    }
+
+    @Test
+    fun genericsTest5() {
+        val prog = """
+            class List<T>
+                var size : Int
+                var array = new Array<T>(10)
+                
+                fun get(index : Int) -> T
+                    return array[index]
+                    
+                fun set(index : Int, value : T)
+                    array[index] = value
+                
+            fun main()
+                val list = new List<Int>()
+                for c in list
+                    print(c)
+        """.trimIndent()
+
+        val expected = """
+            top
+              file: test
+                class: List
+                  assign EQ_I
+                    member: array (Array<T>)
+                      var: this (List)
+                    new-array (Array<T>)
+                      int: 10 (Int)
+                  function: List/get(Int)
+                    expr-stmt
+                      return (Nothing)
+                        index (T)
+                          member: array (Array<T>)
+                            var: this (List)
+                          var: index (Int)
+                  function: List/set(Int,T)
+                    assign EQ_I
+                      index (T)
+                        member: array (Array<T>)
+                          var: this (List)
+                        var: index (Int)
+                      var: value (T)
+                function: main()
+                  decl: VAR:list:List<Int>
+                    new-object (List<Int>)
+                  for: c
+                    var: list (List<Int>)
+                    print
+                      var: c (Int)
+
+        """.trimIndent()
+
+        runTest(prog, expected)
+    }
+
+    @Test
+    fun genericsTest6() {
+        val prog = """
+            class List<T>
+                var array = new Array<T>(10)
+                
+                fun get(index : Int) -> T
+                    return array[index]
+                    
+                fun set(index : Int, value : T)
+                    array[index] = value
+                
+            fun main()
+                val list = new List<Int>()     # not iterable as it doesn't have a size field
+                for c in list
+                    print(c)
+        """.trimIndent()
+
+        val expected = """
+            test.fpl:12.5-12.7: Cannot iterate over type 'List<Int>'
+        """.trimIndent()
+
+        runTest(prog, expected)
+    }
+
 
 }

@@ -20,8 +20,6 @@ class ExecuteTest {
         val prog = """
             fun main()
                 print("Hello, world!\n")
-                while true
-                    val a = 0   # Dummy
         """.trimIndent()
 
         val expected = """
@@ -741,8 +739,110 @@ class ExecuteTest {
             24
             27
 
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
+    @Test
+    fun embeddedFieldsTest() {
+        val prog = """
+            class TCB 
+                var   pc : Int
+                local regs : FixedArray<Int>(32)
+                local dmpu : FixedArray<Int>(8)
+        
+            fun main()
+                val task = new TCB()
+                task.pc = 10
+                task.regs[4] = 0x1234
+                task.dmpu[0] = 0x5678
+                
+                print("pc = ",task.pc,"\n")
+                print("regs[4] = ",task.regs[4],"\n")
+                print("dmpu[0] = ",task.dmpu[0],"\n")
+        """.trimIndent()
+
+        val expected = """
+            pc = 10
+            regs[4] = 4660
+            dmpu[0] = 22136
 
         """.trimIndent()
+        runTest(prog, expected)
+    }
+
+    @Test
+    fun genericClassTest() {
+        val prog = """
+            class List<T>
+                var size = 0
+                var array = new Array<T>(8)
+                
+                fun add(item:T)
+                    if size >= array.size
+                        var oldArray = array
+                        array = new Array<T>(array.size * 2)
+                        for i in 0..<oldArray.size
+                            array[i] = oldArray[i]
+                    array[size] = item
+                    size += 1
+                    
+                fun get(index:Int) -> T
+                    return array[index]
+                    
+                fun set(index:Int, item:T)
+                    array[index] = item
+                        
+                
+            fun main()
+                val myArray = new List<Int>()
+                myArray.add(1)
+                myArray.add(2)
+                myArray.add(3)
+                myArray[1] = 4
+                
+                for i in 0..<myArray.size
+                    print(myArray[i],"\n")
+        """.trimIndent()
+
+        val expected = """
+            1
+            4
+            3
+
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
+    @Test
+    fun genericsTest5() {
+        val prog = """
+            class List<T>
+                var size : Int = 0
+                var array = new Array<T>(10)
+                
+                fun get(index : Int) -> T
+                    return array[index]
+                    
+                fun set(index : Int, value : T)
+                    array[index] = value
+                    
+                fun add(item:T)
+                    array[size] = item
+                    size += 1
+                
+            fun main()
+                val list = new List<Int>()
+                list.add(1)
+                list.add(2)
+                list.add(3)
+                for c in list
+                    print(c,"\n")
+        """.trimIndent()
+
+        val expected = """
+        """.trimIndent()
+
         runTest(prog, expected)
     }
 

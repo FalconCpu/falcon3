@@ -52,6 +52,8 @@ module tb_falcon;
   wire [35:0] GPIO_0;
   wire [35:0] GPIO_1;
 
+assign KEY = 4'b1111;
+
   Falcon3  Falcon3_inst (
     .AUD_ADCDAT(AUD_ADCDAT),
     .AUD_ADCLRCK(AUD_ADCLRCK),

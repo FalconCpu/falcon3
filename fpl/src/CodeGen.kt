@@ -1,6 +1,3 @@
-import kotlin.math.PI
-import kotlin.math.exp
-
 private lateinit var currentFunc : Function
 
 private var breakLabel : Label? = null
@@ -144,6 +141,11 @@ fun TstExpr.codeGenRvalue() : Reg {
             currentFunc.addLoadMem(exprReg, field)
         }
 
+        is TstEmbeddedMember -> {
+            val exprReg = expr.codeGenRvalue()
+            currentFunc.addAlu(AluOp.ADD_I, exprReg, field.offset)
+        }
+
         is TstMinus -> TODO()
         is TstNot -> TODO()
         is TstOr -> TODO()
@@ -245,8 +247,8 @@ fun TstExpr.codeGenRvalue() : Reg {
             if (local) {
                 TODO("Stack allocated objects not yet implemented")
             } else {
-                val classType = type as TypeClass
-                val classDescriptor = currentFunc.addLea( ValueClassDescriptor(classType))
+                val classType = type as TypeClassInstance
+                val classDescriptor = currentFunc.addLea( ValueClassDescriptor(classType.genericClass))
                 currentFunc.addMov(allMachineRegs[1], classDescriptor)
                 val ret = currentFunc.addCall(Stdlib.mallocObject)
 
@@ -273,6 +275,7 @@ fun TstExpr.codeGenRvalue() : Reg {
         is TstTypeName -> error("Type names should not appear as rvalues")
 
         is TstIndirectCall -> TODO()
+        is TstSetCall -> error("Set calls should not appear as rvalues")
     }
 }
 
@@ -416,6 +419,10 @@ fun TstExpr.codeGenLvalue(value:Reg, op:AluOp)  {
             }
         }
 
+        is TstEmbeddedMember -> {
+            TODO("Assignment to embedded member")
+        }
+
         is TstGlobalVar -> {
             if (op==AluOp.EQ_I)
                 currentFunc.addStoreGlobal(value, symbol)
@@ -425,6 +432,12 @@ fun TstExpr.codeGenLvalue(value:Reg, op:AluOp)  {
                 currentFunc.addStoreGlobal(v2, symbol)
             }
 
+        }
+
+        is TstSetCall -> {
+            // An expression of the form x.set(y)=z is translated into a call to the function x.set(y,z)
+            val argSym = listOf(this.thisArg.codeGenRvalue()) + this.args.map { it.codeGenRvalue() }  + listOf(value)
+            val dummy = currentFunc.addCall(this.func, argSym)
         }
 
         else -> error("Malformed TST: Has assignment to $this")
@@ -639,7 +652,7 @@ fun TstStmt.codeGen()  {
 
             } else if (expr.type is TypeArray || expr.type is TypeString || expr.type is TypeFixedArray) {
                 // calculate the range we need to iterate over
-                val elementSize = when(expr.type) {
+                val elementSize = when (expr.type) {
                     is TypeArray -> expr.type.elementType.sizeInBytes()
                     is TypeFixedArray -> expr.type.elementType.sizeInBytes()
                     is TypeString -> 1
@@ -647,9 +660,9 @@ fun TstStmt.codeGen()  {
                 }
                 val regArray = expr.codeGenRvalue()
                 val regNumElements = if (expr.type is TypeFixedArray)
-                        currentFunc.addMov(expr.type.numElements)
-                    else
-                        currentFunc.addLoadMem(regArray, sizeField)
+                    currentFunc.addMov(expr.type.numElements)
+                else
+                    currentFunc.addLoadMem(regArray, sizeField)
                 val scaledNumElements = currentFunc.addAlu(AluOp.MUL_I, regNumElements, elementSize)
                 val endPointer = currentFunc.addAlu(AluOp.ADD_I, regArray, scaledNumElements)
                 val regIterator = currentFunc.newVar()      // Needs to be a var not a temp, so that we can mutate it
@@ -677,6 +690,42 @@ fun TstStmt.codeGen()  {
                 currentFunc.addMov(regIterator, currentFunc.addAlu(AluOp.ADD_I, regIterator, elementSize))
                 currentFunc.addLabel(labelCond)
                 currentFunc.addBranch(AluOp.LT_I, regIterator, endPointer, labelStart)
+                currentFunc.addJump(labelEnd)
+                currentFunc.addLabel(labelEnd)
+                breakLabel = oldBreakLabel
+                continueLabel = oldContinueLabel
+            } else if (expr.type is TypeClassInstance) {
+                // get the size and get symbols. The presence and types of these symbols has already been verified.
+                val sz = expr.type.lookupSymbol("size") as SymbolField
+                val gt = expr.type.lookupSymbol("get") as SymbolFunction
+                val instReg = expr.codeGenRvalue()
+                val sizeReg = currentFunc.addLoadMem(instReg, sz)
+                val regIterator = currentFunc.newVar()      // Needs to be a var not a temp, so that we can mutate it
+                currentFunc.addMov(regIterator, regZero)
+                val regSym = currentFunc.getVar(sym)
+
+                // Generate the loop body
+                val labelStart = currentFunc.newLabel()
+                val labelEnd = currentFunc.newLabel()
+                val labelCond = currentFunc.newLabel()
+                val labelContinue = currentFunc.newLabel()
+                val oldBreakLabel = breakLabel
+                val oldContinueLabel = continueLabel
+                breakLabel = labelEnd
+                continueLabel = labelContinue
+                currentFunc.addJump(labelCond)
+
+                // Fetch the element at the current iterator position, and generate the code for the body
+                currentFunc.addLabel(labelStart)
+                val vx = currentFunc.addCall(gt.functions[0], listOf(instReg, regIterator))     // Call the get function
+                currentFunc.addMov(regSym, vx)
+                body.codegen()
+
+                // Increment the iterator and check if we are done
+                currentFunc.addLabel(labelContinue)
+                currentFunc.addMov(regIterator, currentFunc.addAlu(AluOp.ADD_I, regIterator, 1))
+                currentFunc.addLabel(labelCond)
+                currentFunc.addBranch(AluOp.LT_I, regIterator, sizeReg, labelStart)
                 currentFunc.addJump(labelEnd)
                 currentFunc.addLabel(labelEnd)
                 breakLabel = oldBreakLabel
@@ -814,7 +863,7 @@ fun TstStmt.codeGen()  {
 
             // See if the class has a method called free - if so call it
             val typex = if (expr.type is TypeNullable) expr.type.elementType else expr.type
-            if (typex is TypeClass) {
+            if (typex is TypeClassInstance) {
                 val destructor = typex.lookupSymbol("free")
                 if (destructor is SymbolFunction) {
                     // Call the destructor

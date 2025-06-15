@@ -56,9 +56,14 @@ class ClassDescriptor          # An instance of this class is created by the com
 var freeList : FreeMemBlock?         # linked list of free blocks sorted by size
 
 fun initializeMemorySystem()
+    kPrintString("Here1\n")
     freeList = HEAP_START as FreeMemBlock
+    kPrintString("Here2\n")
+    kPrintHex8(freeList as Int)
     freeList.size = HEAP_END - HEAP_START
+    kPrintString(" Here3\n")
     freeList.next = null
+    kPrintString("Here4\n")
 
 fun insertBlockIntoFreeList(block:FreeMemBlock, size:Int)
     # Insert the block into the freelist, keeping the list sorted by size
@@ -133,7 +138,7 @@ fun free(ptr:Int)
 fun dumpMemorySystem()
     var p = HEAP_START
     kPrintString("MEMORY DUMP\n")
-    while p < HEAP_END
+    while p < HEAP_END and p>=0
         val block = p as FreeMemBlock
         val sizeAndType = block.size
         val type = sizeAndType & 0xF

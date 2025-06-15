@@ -317,9 +317,24 @@ class Parser(val lexer: Lexer) {
     //                               TypeExpressions
     // ======================================================================================
 
+    private fun parseOptTypeArgs() : List<AstTypeExpr> {
+        val ret = mutableListOf<AstTypeExpr>()
+        if (currentToken.kind!=LT)
+            return ret
+        match(LT)
+        if (currentToken.kind!=GT)
+            do {
+                ret.add(parseTypeExpr())
+            } while(canTake(COMMA))
+        match(GT)
+        return ret
+    }
+
+
     private fun parseTypeId() : AstTypeExpr {
         val tok = match(ID)
-        return AstTypeId(tok.location, tok.text)
+        val typeArgs = parseOptTypeArgs()
+        return AstTypeId(tok.location, tok.text, typeArgs)
     }
 
     private fun parseTypeArray() : AstTypeExpr {
@@ -373,6 +388,20 @@ class Parser(val lexer: Lexer) {
             parseTypeExpr()
         else
             null
+    }
+
+    private fun parseOptTypeParameterList() : List<AstTypeParameter> {
+        val ret = mutableListOf<AstTypeParameter>()
+        if (currentToken.kind != LT)
+            return ret
+        match(LT)
+        if (currentToken.kind != GT)
+            do {
+                val tok = match(ID)
+                ret += AstTypeParameter(tok.location, tok.text)
+            } while (canTake(COMMA))
+        match(GT)
+        return ret
     }
 
 
@@ -586,11 +615,12 @@ class Parser(val lexer: Lexer) {
     private fun parseClass() : AstStmt {
         val loc = match(CLASS)
         val name = match(ID)
+        val typeParams = parseOptTypeParameterList()
         val params = if (currentToken.kind==OPENB) parseParamList(forConstructor = true) else AstParameterList(emptyList(),false)
         expectEol()
         val body = if (currentToken.kind==INDENT) parseClassStatementBlock() else emptyList()
         checkEnd(CLASS)
-        return AstClass(loc.location, name.text, params, body)
+        return AstClass(loc.location, name.text, typeParams, params, body)
     }
 
     private fun parseEnum(): AstEnum {
@@ -650,7 +680,7 @@ class Parser(val lexer: Lexer) {
         val loc = currentToken.location
         try {
             return when (currentToken.kind) {
-                VAL, VAR -> parseDeclaration()
+                VAL, VAR, LOCAL -> parseDeclaration()
                 FUN -> parseFunction()
                 else -> throw ParseError(loc, "$currentToken not allowed in Class body")
             }

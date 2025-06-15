@@ -14,7 +14,7 @@ stw 0, $10[HWREG_LED]  # turn off LED0 to indicate write phase
 # Fill the memory with a known pattern
 ld $1, 0            # address pointer
 ld $2, 0            # value to store
-ld $3, 0x40        # end of memory
+ld $3, 0x4000000    # end of memory
 writeLoop:
 stw $2, $1[0]
 add $1, 4

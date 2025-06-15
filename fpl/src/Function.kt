@@ -126,6 +126,10 @@ class Function(val name:String, val parameters:List<SymbolVar>, val thisSymbol :
             allMachineRegs[0]
     }
 
+    fun addCall(func:FunctionInstance) : Reg = addCall(func.function)
+
+    fun addCall(func:FunctionInstance, args: List<Reg>) = addCall(func.function, args)
+
 
     fun addLoadMem(size:Int, addr:Reg, offset:Int): RegTemp {
         val dest = newTemp()

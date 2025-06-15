@@ -30,47 +30,8 @@ const DMPU_512k    =  0x00000700
 
 class TCB
     var pc   : Int
-    val regs = new Array<Int>(32)
-    var reg1 : Int
-    var reg2 : Int
-    var reg3 : Int
-    var reg4 : Int
-    var reg5 : Int
-    var reg6 : Int
-    var reg7 : Int
-    var reg8 : Int
-    var reg9 : Int
-    var reg10 : Int
-    var reg11 : Int
-    var reg12 : Int
-    var reg13 : Int
-    var reg14 : Int
-    var reg15 : Int
-    var reg16 : Int
-    var reg17 : Int
-    var reg18 : Int
-    var reg19 : Int
-    var reg20 : Int
-    var reg21 : Int
-    var reg22 : Int
-    var reg23 : Int
-    var reg24 : Int
-    var reg25 : Int
-    var reg26 : Int
-    var reg27 : Int
-    var reg28 : Int
-    var reg29 : Int
-    var reg30 : Int
-    var regsp : Int
-    var status : Int
-    var dmpu0 : Int
-    var dmpu1 : Int
-    var dmpu2 : Int
-    var dmpu3 : Int
-    var dmpu4 : Int
-    var dmpu5 : Int
-    var dmpu6 : Int
-    var dmpu7 : Int
+    local regs : FixedArray<Int>(32)
+    local dmpu : FixedArray<Int>(8)
 
 enum ExceptionCause[NONE,
     INSTRUCTION_ACCESS_FAULT,
@@ -142,13 +103,12 @@ fun dumpAndTerminate(tcb:TCB, data:Int)
     kPrintString("DATA=")
     kPrintHex8(data)
     kPrintString(" PC=")
-    val ary = tcb as Array<Int>
-    kPrintHex8(ary[0])
+    kPrintHex8(tcb.pc)
     kPrintString("\n")
     for i in 1..31
         kPrintInt2(i)
         kPrintString("=")
-        kPrintHex8(ary[i])
+        kPrintHex8(tcb.regs[i])
         if (i&7)=7
             kPrintString("\n")
         else
@@ -205,10 +165,10 @@ fun handle_exception(tcb:TCB, cause:ExceptionCause, data:Int)
                     dumpAndTerminate(tcb,data)
 
                 SysCall.PRINT_CHAR ->
-                    kPrintChar(tcb.reg1)
+                    kPrintChar(tcb.regs[1])
 
                 SysCall.PRINT_STRING ->
-                    kPrintBlock(tcb.reg1 as Array<Char>, tcb.reg2)
+                    kPrintBlock(tcb.regs[1] as Array<Char>, tcb.regs[2])
 
                 else ->
                     kPrintString("Unknown system call ")
@@ -247,24 +207,27 @@ fun startup()
     kPrintString("OS Starting up\n")
     bMemPointer = 0x10000       # Allow rest of space for general use
     initializeMemorySystem()
+    dumpMemorySystem()
     kPrintString("Allocating task\n")
 
     # Create our first task  (We can't use new() yet as proper memory allocator not yet implemented)
     val task = new TCB()
+    dumpMemorySystem()
+
     kPrintString("Allocated task at ")
     kPrintHex8(task as Int)
     kPrintString("\n")
 
     task.pc = myFirstTask as Int
     val taskStack = bMemAlloc(4096)  # Allocate some space for the new task
-    task.regsp = taskStack + 4096    # Set the new task's Stack pointer to the end of the task
-    task.dmpu0 = taskStack | DMPU_4k | DMPU_ENABLE_RW # Give the task access to its stack
+    task.regs[31] = taskStack + 4096    # Set the new task's Stack pointer to the end of the task
+    task.dmpu[0]= taskStack | DMPU_4k | DMPU_ENABLE_RW # Give the task access to its stack
 
     val taskGlobals = bMemAlloc(4096)  # Allocate some space for the new task's global area
-    task.reg29 = taskGlobals
-    task.dmpu1 = taskGlobals | DMPU_4k | DMPU_ENABLE_RW   # Give the task access to its globals area
-    task.dmpu2 = 0xFFFF0000 | DMPU_64k | DMPU_ENABLE_RX   # Give the task access to its program area (actually the whole of the ROM)
-    task.reg30 = endTask as Int        # Set the tasks return address to be the endTask() routine in the assembly stub
+    task.regs[29] = taskGlobals
+    task.dmpu[1] = taskGlobals | DMPU_4k | DMPU_ENABLE_RW   # Give the task access to its globals area
+    task.dmpu[2] = 0xFFFF0000 | DMPU_64k | DMPU_ENABLE_RX   # Give the task access to its program area (actually the whole of the ROM)
+    task.regs[30]= endTask as Int        # Set the tasks return address to be the endTask() routine in the assembly stub
 
     kPrintString("Running task\n")
     resumeTask(task)

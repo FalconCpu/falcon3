@@ -43,12 +43,12 @@ logic [31:0] p3_mult;
 
 always_comb begin
     // default assignments
-    p3_alu_out = 32'bx;
-    p3_jump_addr = 32'bx;
+    p3_alu_out = 32'hxxxxxxxx;
+    p3_jump_addr = 32'hxxxxxxxx;
     p3_jump_taken = 0;
     p3_request = 0;
     p3_write = 0;
-    p3_wdata = 32'bx;
+    p3_wdata = 32'hxxxxxxxx;
     p3_byte_enable = 4'bx;
     p3_misaligned_address = 0;
 	p3_size = 2'b0;
@@ -206,13 +206,20 @@ always_comb begin
         default:    begin end
     endcase
 
+    if (stall || p4_jump_taken) begin
+        p3_request = 0;
+    end
 
-    p3_addr = p3_request ? mem_addr : 32'bx;
+    if (!p3_request) begin
+        p3_misaligned_address = 0;
+    end
+
+    p3_addr = p3_request ? mem_addr : 32'h00000000;
     
     // nullify this instruction if the previous one is a jump
     if (p4_jump_taken) begin
         p3_request = 0;
-        p3_alu_out = 32'bx;
+        p3_alu_out = 32'h51515151;
         p3_jump_taken = 0;
         p3_misaligned_address = 0;
     end

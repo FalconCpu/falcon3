@@ -649,6 +649,9 @@ static void execute_instruction(int instr) {
 // ================================================
 
 void execute() {
+    for(int i=0; i<0x1000000; i++)
+        data_mem[i] = 0xBAADF00D;
+
     pc = 0xffff0000;
     int timeout = 10000;
     reg[31] = 0x4000000;

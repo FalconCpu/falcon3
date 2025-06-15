@@ -21,6 +21,7 @@ class TstOr(location: Location, val lhs: TstExpr, val rhs: TstExpr) : TstExpr(lo
 class TstNot(location: Location, val expr: TstExpr) : TstExpr(location, TypeBool)
 class TstIndex(location: Location, val expr: TstExpr, val index: TstExpr, type:Type) : TstExpr(location,type)
 class TstMember(location: Location, val expr: TstExpr, val field:SymbolField, type:Type) : TstExpr(location,type)
+class TstEmbeddedMember(location: Location, val expr: TstExpr, val field:SymbolEmbeddedField, type:Type) : TstExpr(location,type)
 class TstReturn(location: Location, val expr: TstExpr?) : TstExpr(location, TypeNothing)
 class TstBreak(location: Location) : TstExpr(location, TypeNothing)
 class TstContinue(location: Location) : TstExpr(location, TypeNothing)
@@ -32,11 +33,12 @@ class TstIndirectCall(location:Location, val expr:TstExpr, val args: List<TstExp
 class TstNewArray(location: Location, val size: TstExpr, val initializer:TstLambda?, val local:Boolean, type:Type) : TstExpr(location,type)
 class TstNewArrayInitializer(location: Location, val initializer:List<TstExpr>, val local:Boolean, type:Type) : TstExpr(location,type)
 class TstNewFixedArray(location: Location, val initializer:TstLambda?, val local:Boolean, type:Type) : TstExpr(location,type)
-class TstNewObject(location: Location, val args:List<TstExpr>, type:TypeClass, val local: Boolean) : TstExpr(location,type)
+class TstNewObject(location: Location, val args:List<TstExpr>, type:TypeClassInstance, val local: Boolean) : TstExpr(location,type)
 class TstLambda(location: Location, val params: List<SymbolVar>, val body: TstExpr, type:Type) : TstExpr(location,type)
 class TstMethod(location: Location, val thisExpr:TstExpr, val func:SymbolFunction, type:Type) : TstExpr(location,type)
 class TstCast(location: Location, val expr: TstExpr, type:Type) : TstExpr(location,type)
 class TstAbort(location: Location, val expr: TstExpr) : TstExpr(location, TypeNothing)
+class TstSetCall(location: Location, val func: Function, val args: List<TstExpr>, val thisArg: TstExpr, type:Type) : TstExpr(location,type)   // A call to something.set(args, RVALUE)
 
 class TstError(location: Location, val message: String) : TstExpr(location, TypeError) {
     init {
@@ -66,7 +68,7 @@ class TstWhile(location: Location, val cond: TstExpr, body:List<TstStmt>) : TstB
 class TstRepeat(location: Location, val cond: TstExpr, body:List<TstStmt>) : TstBlock(location, body)
 class TstFor(location: Location, val sym: Symbol, val expr: TstExpr, body:List<TstStmt>) : TstBlock(location, body)
 class TstFunction(location: Location, val function:Function, body:List<TstStmt>) : TstBlock(location, body)
-class TstClass(location: Location, val classType:TypeClass, body:List<TstStmt>, val methods:List<TstStmt>) : TstBlock(location, body)
+class TstClass(location: Location, val classType:TypeClassGeneric, body:List<TstStmt>, val methods:List<TstStmt>) : TstBlock(location, body)
 class TstFile(location: Location, val name:String, body:List<TstStmt>) : TstBlock(location, body)
 class TstTop(location: Location, body:List<TstStmt>) : TstBlock(location, body)
 class TstWhen(location: Location, val expr:TstExpr, body:List<TstWhenClause>) : TstBlock(location, body)
@@ -136,6 +138,11 @@ fun Tst.prettyPrint(sb: StringBuilder, indent:Int) {
 
         is TstMember -> {
             sb.append("member: $field ($type)\n")
+            expr.prettyPrint(sb, indent+1)
+        }
+
+        is TstEmbeddedMember -> {
+            sb.append("embeddedMember: $field ($type)\n")
             expr.prettyPrint(sb, indent+1)
         }
 
@@ -324,6 +331,13 @@ fun Tst.prettyPrint(sb: StringBuilder, indent:Int) {
         is TstNewFixedArray -> {
             sb.append("new-fixed-array ($type)\n")
             initializer?.prettyPrint(sb, indent+1)
+        }
+
+        is TstSetCall -> {
+            sb.append("set-call  $func\n")
+            thisArg.prettyPrint(sb, indent+1)
+            for(arg in args)
+                arg.prettyPrint(sb, indent+1)
         }
     }
 }

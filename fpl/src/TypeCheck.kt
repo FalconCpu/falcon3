@@ -87,12 +87,24 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
                     val thisSymbol = currentFunction?.thisSymbol
                     // do some sanity checks
                     if (thisSymbol==null)error("Accessed a SymbolField when not in a method")
-                    assert(symbol in (thisSymbol.type as TypeClass).symbols.values){
+                    assert(symbol in (thisSymbol.type as TypeClassGeneric).symbols.values){
                         "Internal Compiler Error: Field '$name' found, but does not belong to 'this' type '${thisSymbol.type}'."
                     }
 
                     val thisExpr = TstVariable(location, thisSymbol, thisSymbol.type)
                     TstMember(location, thisExpr, symbol, symbol.type)
+                }
+
+                is SymbolEmbeddedField -> {
+                    val thisSymbol = currentFunction?.thisSymbol
+                    // do some sanity checks
+                    if (thisSymbol==null)    error("Accessed a SymbolField when not in a method")
+                    assert(symbol in (thisSymbol.type as TypeClassGeneric).symbols.values){
+                        "Internal Compiler Error: Field '$name' found, but does not belong to 'this' type '${thisSymbol.type}'."
+                    }
+
+                    val thisExpr = TstVariable(location, thisSymbol, thisSymbol.type)
+                    TstEmbeddedMember(location, thisExpr, symbol, symbol.type)
                 }
                 is SymbolConstant -> symbol.toExpression()
             }
@@ -199,6 +211,13 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
                 is TypeArray -> TstIndex(location, tcExpr, tcIndex, tcExpr.type.elementType)
                 is TypeString -> TstIndex(location, tcExpr, tcIndex, TypeChar)
                 is TypeFixedArray -> TstIndex(location, tcExpr, tcIndex, tcExpr.type.elementType)
+                is TypeClassInstance -> {
+                    val sf = tcExpr.type.lookupSymbol("get")
+                    if (sf is SymbolFunction && sf.functions.size==1 && sf.functions[0].parameters.size==1 && sf.functions[0].parameters[0].type==TypeInt)
+                        TstCall(location, sf.functions[0].function, listOf(tcIndex), tcExpr, sf.functions[0].returnType)
+                    else
+                        TstError(location, "Cannot index expression of type ${tcExpr.type}")
+                }
                 else -> TstError(location, "Cannot index expression of type ${tcExpr.type}")
             }
         }
@@ -235,14 +254,14 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
                     if (name== "size")
                         TstMember(location, tcExpr, sizeField, TypeInt)
                     else
-                        TstError(location, "FixedArray does not have a field named '$name'")
+                        TstError(location, "Array does not have a field named '$name'")
                 }
 
                 is TypeFixedArray -> {
                     if (name== "size")
                         TstIntLit(location, tcExpr.type.numElements, TypeInt)
                     else
-                        TstError(location, "Array does not have a field named '$name'")
+                        TstError(location, "FixedArray does not have a field named '$name'")
                 }
 
                 is TypeString -> {
@@ -252,12 +271,15 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
                         TstError(location, "String does not have a field named '$name'")
                 }
 
-                is TypeClass -> {
+                is TypeClassGeneric -> TstError(location, "Cannot access members of a generic class")
+
+                is TypeClassInstance -> {
                     val field = tcExpr.type.lookupSymbol(name)
                     when (field) {
                         null -> TstError(location,"Class ${tcExpr.type} does not have a field named '$name'")
                         is SymbolField -> TstMember(location, tcExpr, field, field.type)
                         is SymbolFunction -> TstMethod(location, tcExpr, field, field.type)
+                        is SymbolEmbeddedField -> TstEmbeddedMember(location, tcExpr, field, field.type)
                         else -> error("Unexpected Symbol type")
                     }
                 }
@@ -343,10 +365,12 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
                     TstNewArray(location, tcSize, tcLambda, local,tcType)
                 }
 
-                is TypeClass -> {
+                is TypeClassInstance -> {
                     checkParameters(location, tcType.constructor.parameters.map{it.type}, tcArgs)
                     TstNewObject(location, tcArgs, tcType, local)
                 }
+
+                is TypeClassGeneric -> TstError(location, "Cannot create instance of generic class")
 
                 is TypeFixedArray -> {
                     // The size argument will have already been parsed by resolveType. So check there are no additional arguments
@@ -470,34 +494,35 @@ private val binopTable = listOf(
 //                            Lvalues
 // ================================================================
 
-fun AstExpr.typeCheckLvalue(context:AstBlock) : TstExpr = when(this) {
-    is AstId -> {
-        val symbol = context.lookupOrDefault(location, name)
-        when (symbol) {
-            is SymbolVar -> if (symbol.mutable || symbol in pathContext.uninitialized)
-                TstVariable(location, symbol, symbol.type)
-            else if (symbol in pathContext.maybeUninitialized) {
-                Log.error(location, "'$name' may already be initialised")
-                TstVariable(location, symbol, symbol.type)
-            } else
-                TstError(location, "Cannot assign to a non-mutable variable '$name'")
+fun AstExpr.typeCheckLvalue(context:AstBlock) : TstExpr {
+    return when (this) {
+        is AstId -> {
+            val symbol = context.lookupOrDefault(location, name)
+            when (symbol) {
+                is SymbolVar -> if (symbol.mutable || symbol in pathContext.uninitialized)
+                    TstVariable(location, symbol, symbol.type)
+                else if (symbol in pathContext.maybeUninitialized) {
+                    Log.error(location, "'$name' may already be initialised")
+                    TstVariable(location, symbol, symbol.type)
+                } else
+                    TstError(location, "Cannot assign to a non-mutable variable '$name'")
 
-            is SymbolGlobal ->
-                if (!symbol.mutable)
-                    TstError(location, "Cannot assign to a non-mutable global variable '$name'")
-                else
-                    TstGlobalVar(location, symbol, symbol.type)
+                is SymbolGlobal ->
+                    if (!symbol.mutable)
+                        TstError(location, "Cannot assign to a non-mutable global variable '$name'")
+                    else
+                        TstGlobalVar(location, symbol, symbol.type)
 
-            is SymbolFunction -> TstError(location, "Cannot use function '$name' as an lvalue")
-            is SymbolTypeName -> TstError(location, "Cannot use type name '$name' as an lvalue")
-            is SymbolConstant -> TstError(location, "Cannot use constant '$name' as an lvalue")
+                is SymbolFunction -> TstError(location, "Cannot use function '$name' as an lvalue")
+                is SymbolTypeName -> TstError(location, "Cannot use type name '$name' as an lvalue")
+                is SymbolConstant -> TstError(location, "Cannot use constant '$name' as an lvalue")
 
-            is SymbolField -> {
+                is SymbolField -> {
                     val thisSymbol = currentFunction?.thisSymbol
 
                     // do some sanity checks
-                    if (thisSymbol==null)error("Accessed a SymbolField when not in a method")
-                    assert(symbol in (thisSymbol.type as TypeClass).symbols.values){
+                    if (thisSymbol == null) error("Accessed a SymbolField when not in a method")
+                    assert(symbol in (thisSymbol.type as TypeClassGeneric).symbols.values) {
                         "Internal Compiler Error: Field '$name' found, but does not belong to 'this' type '${thisSymbol.type}'."
                     }
 
@@ -507,23 +532,47 @@ fun AstExpr.typeCheckLvalue(context:AstBlock) : TstExpr = when(this) {
                     else
                         TstMember(location, thisExpr, symbol, symbol.type)
                 }
+
+                is SymbolEmbeddedField -> {
+                    TODO("Lvalue of embedded field '$name' not yet implemented")
+                }
             }
-    }
+        }
 
-    is AstIndex -> {
-        // Since we don't have immutable arrays (yet) we can just use the Rvalue typecheck for a lvalue
-        typeCheckRvalue(context)
-    }
+        is AstIndex -> {
+            val tcExpr = expr.typeCheckRvalue(context)
+            val tcIndex = index.typeCheckRvalue(context)
+            if (tcExpr.type == TypeError) return tcExpr
+            TypeInt.checkCompatibleWith(tcIndex)
 
-    is AstMember -> {
-        val ret = typeCheckRvalue(context)
-        if (ret is TstMember && !ret.field.mutable)
-            Log.error(location, "Field '${ret.field}' is not mutable")
-        ret
-    }
+            when (tcExpr.type) {
+                is TypeArray -> TstIndex(location, tcExpr, tcIndex, tcExpr.type.elementType)
+                is TypeString -> TstIndex(location, tcExpr, tcIndex, TypeChar)
+                is TypeFixedArray -> TstIndex(location, tcExpr, tcIndex, tcExpr.type.elementType)
+                is TypeClassInstance -> {
+                    val sf = tcExpr.type.lookupSymbol("set")
+                    if (sf is SymbolFunction && sf.functions.size == 1 && sf.functions[0].parameters.size == 2 && sf.functions[0].parameters[0].type == TypeInt) {
+                        TstSetCall(location, sf.functions[0].function, listOf(tcIndex), tcExpr, sf.functions[0].parameters[1].type)
+                    }
+                    else
+                        TstError(location, "Cannot index expression of type ${tcExpr.type}")
+                }
 
-    else -> {
-        TstError(location, "Expression is not an lvalue")
+                else -> TstError(location, "Cannot index expression of type ${tcExpr.type}")
+            }
+        }
+
+
+        is AstMember -> {
+            val ret = typeCheckRvalue(context)
+            if (ret is TstMember && !ret.field.mutable)
+                Log.error(location, "Field '${ret.field}' is not mutable")
+            ret
+        }
+
+        else -> {
+            TstError(location, "Expression is not an lvalue")
+        }
     }
 }
 
@@ -618,12 +667,30 @@ fun AstLambda.typeCheckLambda(context:AstBlock, params:List<SymbolVar>) : TstLam
 //                         Types
 // ================================================================
 
+fun Type.applyTypeArguments(location:Location, typeArguments:List<Type>) : Type {
+    if (this !is TypeClassGeneric) {
+        if (typeArguments.isNotEmpty())
+            Log.error(location, "Type '$this' does not take type parameters")
+        return this
+    }
+
+    if (typeArguments.size != typeParameters.size)
+        Log.error(location, "Got ${typeArguments.size} type arguments when expecting $typeParameters.size")
+    for(arg in typeArguments)
+        if (arg.sizeInBytes()!=4)
+            Log.error(location, "Currently generic types must be exactly word sized")
+
+    val map = typeParameters.zip(typeArguments).associate{it.first to it.second}
+    return TypeClassInstance.create(this, map)
+}
+
 fun AstTypeExpr.resolveType(context:AstBlock) : Type = when(this) {
     is AstTypeId -> {
         val sym = context.lookupSymbol(name)
+        val args = astTypeArgs.map { it.resolveType(context) }
         when (sym) {
             null -> makeTypeError(location, "Unknown type '$name'")
-            is SymbolTypeName -> sym.type
+            is SymbolTypeName -> sym.type.applyTypeArguments(location, args)
             else -> makeTypeError(location, "'$name' is not a type")
         }
     }
@@ -767,6 +834,17 @@ fun AstStmt.typeCheck(context:AstBlock) : TstStmt {
                 is TypeFixedArray -> tcExpr.type.elementType
                 is TypeRange -> tcExpr.type.elementType
                 is TypeString -> TypeChar
+                is TypeClassInstance -> {
+                    // We consider a class to be iterable if it has a field called 'size' which is an integer
+                    // and a field called 'get' which takes an integer and returns an object
+                    val sz = tcExpr.type.lookupSymbol("size")
+                    val gt = tcExpr.type.lookupSymbol("get")
+                    if (sz is SymbolField && gt is SymbolFunction && sz.type==TypeInt &&
+                        gt.functions.size==1 && gt.functions[0].parameters.size==1 && gt.functions[0].parameters[0].type==TypeInt)
+                        gt.functions[0].returnType
+                    else
+                        makeTypeError(location, "Cannot iterate over type '${tcExpr.type}'")
+                }
                 else -> makeTypeError(location, "Cannot iterate over type '${tcExpr.type}'")
             }
             val symbol = SymbolVar(location, name, elementType, false)
@@ -854,7 +932,7 @@ fun AstStmt.typeCheck(context:AstBlock) : TstStmt {
             if (tcExpr==TypeError)
                 return TstNullStmt(location)
             val type = if (tcExpr.type is TypeNullable) tcExpr.type.elementType else tcExpr.type
-            if (type !is TypeClass && type !is TypeArray && type != TypeString)
+            if (type !is TypeClassInstance && type !is TypeArray && type != TypeString)
                 Log.error(location, "Free only supports expressions of type Class or Array")
             if (tcExpr.isSymbol()) {
                 val sym = tcExpr.getSymbol()
@@ -897,7 +975,7 @@ private fun List<TstWhenClause>.checkForDuplicates() {
 //                              Function Overloads
 // ===============================================================================
 
-private fun Function.canReceiveArgs(args:List<TstExpr>) : Boolean{
+private fun FunctionInstance.canReceiveArgs(args:List<TstExpr>) : Boolean{
     if (isVararg) {
         if (args.size < parameters.size - 1)
             return false
@@ -919,7 +997,7 @@ private fun Function.canReceiveArgs(args:List<TstExpr>) : Boolean{
     }
 }
 
-private fun Function.hasSameParametersAs(other:Function): Boolean {
+private fun FunctionInstance.hasSameParametersAs(other:Function): Boolean {
     if (isVararg != other.isVararg)
         return false
     if (parameters.size != other.parameters.size)
@@ -941,7 +1019,7 @@ private fun SymbolFunction.resolveOverload(location: Location, args:List<TstExpr
         val argTypes = args.joinToString{it.type.name}
         return TstError(location, "Ambiguous overloads for '$name($argTypes)'\nCandidates are:-\n$duplicates")
     } else
-        return TstCall(location, matching[0], args, thisArg, matching[0].returnType)
+        return TstCall(location, matching[0].function, args, thisArg, matching[0].returnType)
 }
 
 
@@ -974,6 +1052,7 @@ private fun AstFunction.createFunctionSymbol(context:AstBlock) {
     // Create the Function object to represent this function in the back end
     val thisSymbol = if (context is AstClass) SymbolVar(location, "this", context.classType, false) else null
     function = Function(funcName+paramTypeNames, paramSymbols, thisSymbol, params.isVararg, retType, extern)
+
     allFunctions += function
 
     // Special case - destructors are just methods with the name `free`. They are not allowed to take parameters
@@ -1007,18 +1086,23 @@ private fun AstFunction.createFunctionSymbol(context:AstBlock) {
     if (duplicates.isNotEmpty())
         Log.error(location, "Multiple definitions of '$name' with the same parameters")
 
-    sym.functions += function
+    sym.functions += FunctionInstance.create(function)
 }
 
 private fun AstClass.createClassSymbol(context:AstBlock) {
-    classType = TypeClass.create(name, null)
+    val typeParameters = astTypeParameters.map { TypeParameter(it.name) }
+    for ((ast,type) in astTypeParameters.zip(typeParameters))
+        addSymbol( SymbolTypeName(ast.location, type.name, type))
+
+    // TODO - handle superclasses
+    classType = TypeClassGeneric.create(name, typeParameters, null)
     val symbol = SymbolTypeName(location, name, classType)
     context.addSymbol(symbol)
 }
 
 private fun AstClass.createFieldSymbols(context: AstBlock) {
     // build a function for the constructor
-    val paramSymbols = params.createSymbols(context)
+    val paramSymbols = params.createSymbols(this)
     val thisSym = SymbolVar(location, "this", classType, false)
     val thisExpr = TstVariable(thisSym.location, thisSym, thisSym.type)
     classType.constructor = Function(name, paramSymbols, thisSym, params.isVararg, TypeUnit)
@@ -1044,15 +1128,26 @@ private fun AstClass.createFieldSymbols(context: AstBlock) {
     // Scan through the class body and identify any more fields
     for (stmt in body.filterIsInstance<AstDecl>()) {
         val tcExpr = stmt.expr?.typeCheckRvalue(astConstructor)
-        val type = stmt.typeExpr?.resolveType(context) ?:
+        val type = stmt.typeExpr?.resolveType(this) ?:
                    tcExpr?.type ?:
                    makeTypeError(location,"Cannot determine type for '${stmt.name}'")
-        val sym = SymbolField(stmt.location, stmt.name, type, stmt.kind==TokenKind.VAR)
+        val sym = when(stmt.kind) {
+            TokenKind.VAR -> SymbolField(stmt.location, stmt.name, type, true)
+            TokenKind.VAL -> SymbolField(stmt.location, stmt.name, type, false)
+            TokenKind.LOCAL -> SymbolEmbeddedField(stmt.location, stmt.name, type, true)
+            else -> error("Unknown declaration kind '${stmt.kind}'")
+        }
         classType.addSymbol(sym)
+        if (sym is SymbolEmbeddedField && sym.type !is TypeFixedArray)
+            Log.error(stmt.location, "Embedded fields must be FixedArrays")
         addSymbol(sym)
         if (tcExpr!=null) {
             sym.type.checkCompatibleWith(tcExpr)
-            val fieldExpr = TstMember(sym.location, thisExpr, sym, sym.type)
+            val fieldExpr = when(sym) {
+                is SymbolField -> TstMember(sym.location, thisExpr, sym, sym.type)
+                is SymbolEmbeddedField -> TstEmbeddedMember(sym.location, thisExpr, sym, sym.type)
+                else -> error("Invalid symbol")
+            }
             constructorBody += TstAssign(sym.location, fieldExpr, tcExpr, AluOp.EQ_I)
         }
     }

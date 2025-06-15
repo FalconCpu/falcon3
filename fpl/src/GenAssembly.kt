@@ -111,8 +111,8 @@ private fun Instr.genAssembly() = when(this) {
     is InstrMovImm -> "ld $dest, $src"
     is InstrStoreMem -> "${size.storeOp()} $src, $addr[$offset]"
     is InstrLea -> "ld $dest, $value"
-    is InstrIndex -> //"${scale.idxOp()} $dest, $src, $limit"
-                       "lsl $dest, $src, $scale  # IDX"
+    is InstrIndex -> "${scale.idxOp()} $dest, $src, $limit"
+                     //  "lsl $dest, $src, $scale  # IDX"
     is InstrLoadField -> "${size.loadOp()} $dest, $addr[${offset.offset}]"
     is InstrStoreField -> "${size.storeOp()} $src, $addr[${offset.offset}]"
     is InstrLoadGlobal -> "ldw $dest, R29[${global.offset}]"
@@ -161,7 +161,7 @@ fun Function.genAssembly(sb:StringBuilder) {
     sb.append("ret\n\n")
 }
 
-fun TypeClass.generateClassDescriptor(sb: StringBuilder) {
+fun TypeClassGeneric.generateClassDescriptor(sb: StringBuilder) {
     sb.append("$name/class:\n")
     sb.append("dcw $sizeInBytes\n")
     val nameAsValue = ValueString.create(name,TypeString)
@@ -170,7 +170,7 @@ fun TypeClass.generateClassDescriptor(sb: StringBuilder) {
     sb.append("\n")
 }
 
-fun List<TypeClass>.generateClassDescriptors(sb: StringBuilder) {
+fun List<TypeClassGeneric>.generateClassDescriptors(sb: StringBuilder) {
     for(c in this)
         c.generateClassDescriptor(sb)
 }

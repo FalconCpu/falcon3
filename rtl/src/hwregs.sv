@@ -105,7 +105,7 @@ always_ff @(posedge clock) begin
             end
         endcase
 
-    end else begin
+    end else if (cpud_request && !cpud_write) begin
         // Read from hardware registers
         case(cpud_addr)
             16'h0000: cpud_rdata <= {8'h00, seven_seg}; 

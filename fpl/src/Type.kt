@@ -95,8 +95,10 @@ class TypeEnum(name:String) : Type(name) {
     }
 }
 
+class TypeParameter(name:String, val constraints:List<Type> = emptyList()) : Type(name)
 
-class TypeClass private constructor(name:String, val baseType: Type?) : Type(name) {
+// Represents a class, possibly with type parameters.
+class TypeClassGeneric private constructor(name:String, val typeParameters:List<TypeParameter>, val baseType: Type?) : Type(name) {
     val symbols = mutableMapOf<String, Symbol>()
     var sizeInBytes = 0
     lateinit var constructor : Function
@@ -106,33 +108,90 @@ class TypeClass private constructor(name:String, val baseType: Type?) : Type(nam
         if (duplicate!=null)
             Log.error(symbol.location, "Duplicate symbol '$symbol', first defined here: ${duplicate.location}")
         symbols[symbol.name] = symbol
-        if (symbol is SymbolField) {
-            val symSize = symbol.type.sizeInBytes()
-
-            // Add padding if necessary
-            when(symSize) {
-                0, 1 -> {}
-                2 -> sizeInBytes = (sizeInBytes + 1) and -2
-                else -> sizeInBytes = (sizeInBytes + 3) and -4
+        when (symbol) {
+            is SymbolField -> {
+                val symSize = symbol.type.sizeInBytes()
+                val fieldAlignment = symbol.type.getAlignmentRequirement()      // Add padding if necessary
+                sizeInBytes = (sizeInBytes + fieldAlignment - 1) and -(fieldAlignment)
+                symbol.offset = sizeInBytes
+                sizeInBytes += symSize
             }
-            symbol.offset = sizeInBytes
-            sizeInBytes += symSize
+            is SymbolEmbeddedField -> {
+                val symSize = symbol.type.fieldSizeInBytes()
+                val fieldAlignment = symbol.type.getFieldAlignmentRequirement()
+                sizeInBytes = (sizeInBytes + fieldAlignment - 1) and -(fieldAlignment)
+                symbol.offset = sizeInBytes
+                sizeInBytes += symSize
+            }
+            else -> {}
         }
     }
+
+
+    companion object {
+        fun create(name:String, typeParameters:List<TypeParameter>, baseType: Type?) : TypeClassGeneric {
+            val ret = TypeClassGeneric(name, typeParameters, baseType)
+            allClasses.add(ret)
+            return ret
+        }
+    }
+}
+val allClasses = mutableListOf<TypeClassGeneric>()
+
+// Represents a class with all type arguments instantiated.
+class TypeClassInstance private constructor (name:String, val genericClass:TypeClassGeneric, val typeArgs:Map<TypeParameter, Type>) : Type(name) {
+
+    val symbols by lazy {
+        genericClass.symbols.mapValues { (_, symbol) -> symbol.mapType(typeArgs) }
+    }
+    val constructor by lazy {genericClass.constructor}
 
     fun lookupSymbol(name:String) : Symbol? {
         return symbols[name]
     }
 
     companion object {
-        fun create(name:String, baseType: Type?) : TypeClass {
-            val ret = TypeClass(name, baseType)
-            allClasses.add(ret)
-            return ret
+        val allClassInstances = mutableListOf<TypeClassInstance>()
+
+        fun create(genericClass: TypeClassGeneric, typeArgs:Map<TypeParameter, Type>) : TypeClassInstance {
+            val ret = allClassInstances.find { it.genericClass == genericClass && it.typeArgs == typeArgs }
+            if (ret != null)
+                return ret
+            val name = if (typeArgs.isEmpty()) genericClass.name else genericClass.name + "<${typeArgs.map{ it.value.name }.joinToString(",")}>"
+            val new = TypeClassInstance(name, genericClass, typeArgs)
+            allClassInstances.add(new)
+            return new
         }
     }
 }
-val allClasses = mutableListOf<TypeClass>()
+
+fun Type.substitute(typeArgs:Map<TypeParameter, Type>) : Type {
+    return when (this) {
+        is TypeArray -> TypeArray.create(elementType.substitute(typeArgs))
+        is TypeClassGeneric -> this
+        is TypeFixedArray -> TypeFixedArray.create(numElements, elementType.substitute(typeArgs))
+        is TypeFunction -> TypeFunction.create(parameters.map { it.substitute(typeArgs) }, returnType.substitute(typeArgs))
+        is TypeNullable -> TypeNullable.create(nullLocation, elementType.substitute(typeArgs))
+        is TypeParameter -> typeArgs[this] ?: this
+        is TypeRange -> TypeRange.create(elementType.substitute(typeArgs))
+        is TypeClassInstance -> {
+            val newArgs = typeArgs.mapValues { (_, type) -> type.substitute(typeArgs) }
+            TypeClassInstance.create(genericClass , newArgs)
+        }
+        is TypeEnum,
+        TypeError,
+        TypeBool,
+        TypeChar,
+        TypeInt,
+        TypeNothing,
+        TypeNull,
+        TypeReal,
+        TypeString,
+        TypeUnit,
+        TypeAny -> this
+    }
+}
+
 
 
 fun Type.isAssignableFrom(other:Type) : Boolean {
@@ -140,6 +199,9 @@ fun Type.isAssignableFrom(other:Type) : Boolean {
         return true
 
     if (this is TypeNullable && (other is TypeNull || this.elementType.isAssignableFrom(other)))
+        return true
+
+    if (this is TypeClassGeneric && other is TypeClassInstance && other.genericClass == this)
         return true
 
     // Todo - should we allow for covariance on arrays and functions. For now, no. but maybe consider later.
@@ -176,8 +238,86 @@ fun Type.sizeInBytes() : Int {
         TypeString -> 4
         TypeUnit -> 0
         is TypeFixedArray -> 4
-        is TypeClass -> 4  // References to a class are pointers
+        is TypeClassGeneric -> 4  // References to a class are pointers
         is TypeEnum -> 4  // References to an enum are integers
+        is TypeParameter -> 4
+        is TypeClassInstance -> 4
     }
+}
 
+fun Type.fieldSizeInBytes() : Int {
+    // Gets the size of a type in bytes.
+    return when(this) {
+        TypeAny -> 4
+        is TypeArray -> 4
+        TypeBool -> 1
+        TypeChar -> 1
+        TypeError -> 0
+        is TypeFunction -> 4
+        TypeInt -> 4
+        TypeNothing -> 4
+        TypeNull -> 4
+        is TypeNullable -> 4
+        is TypeRange -> TODO()
+        TypeReal -> 4
+        TypeString -> 4
+        TypeUnit -> 0
+        is TypeFixedArray -> numElements * elementType.fieldSizeInBytes()
+        is TypeClassGeneric -> 4  // References to a class are pointers
+        is TypeEnum -> 4  // References to an enum are integers
+        is TypeParameter -> 4  // Type parameters are either pointers or integers
+        is TypeClassInstance -> TODO()
+    }
+}
+
+
+
+fun Type.getAlignmentRequirement() : Int {
+    // Gets the size of a type in bytes.
+    return when (this) {
+        TypeAny -> 4
+        is TypeArray -> 4
+        TypeBool -> 1
+        TypeChar -> 1
+        TypeError -> 0
+        is TypeFunction -> 4
+        TypeInt -> 4
+        TypeNothing -> 4
+        TypeNull -> 4
+        is TypeNullable -> 4
+        is TypeRange -> TODO()
+        TypeReal -> 4
+        TypeString -> 4
+        TypeUnit -> 0
+        is TypeFixedArray -> 4
+        is TypeClassGeneric -> 4
+        is TypeEnum -> 4
+        is TypeParameter -> 4
+        is TypeClassInstance -> 4
+    }
+}
+
+fun Type.getFieldAlignmentRequirement() : Int {
+    // Gets the size of a type in bytes.
+    return when(this) {
+        TypeAny -> 4
+        is TypeArray -> 4
+        TypeBool -> 1
+        TypeChar -> 1
+        TypeError -> 0
+        is TypeFunction -> 4
+        TypeInt -> 4
+        TypeNothing -> 4
+        TypeNull -> 4
+        is TypeNullable -> 4
+        is TypeRange -> TODO()
+        TypeReal -> 4
+        TypeString -> 4
+        TypeUnit -> 0
+        is TypeFixedArray -> elementType.getAlignmentRequirement()
+        is TypeClassGeneric -> 4
+        is TypeEnum -> 4
+        is TypeParameter -> 4
+        is TypeClassInstance -> 4
+    }
 }

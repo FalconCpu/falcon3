@@ -724,5 +724,166 @@ class CodeGenTest {
         runTest(prog, expected)
     }
 
+    @Test
+    fun embeddedFieldsTest() {
+        val prog = """
+            class TCB 
+                var   pc : Int
+                local regs : FixedArray<Int>(32)
+                local dmpu : FixedArray<Int>(8)
+        
+            fun main()
+                val task = new TCB()
+                task.pc = 10
+                task.regs[4] = 0x1234
+                task.dmpu[0] = 0x5678
+                
+                print("pc = ",task.pc,"\n")
+                print("regs[4] = ",task.regs[4],"\n")
+                print("dmpu[0] = ",task.dmpu[0],"\n")
+        """.trimIndent()
+
+        val expected = """
+            Function main()
+            start
+            ld T0, TCB/class
+            ld R1, T0
+            jsr mallocObject(ClassDescriptor)
+            ld T1, R8
+            ld R1, T1
+            jsr TCB
+            ld task, T1
+            ld T2, 10
+            stw T2, task[pc]
+            ld T3, 4660
+            ADD_I T4, task, 4
+            ld T5, 4
+            ld T6, 32
+            idx4 T7, T5, T6
+            ADD_I T8, T4, T7
+            stw T3, T8[0]
+            ld T9, 22136
+            ADD_I T10, task, 132
+            ld T11, 0
+            ld T12, 8
+            idx4 T13, T11, T12
+            ADD_I T14, T10, T13
+            stw T9, T14[0]
+            ld T15, OBJ0
+            ld R1, T15
+            jsr printString
+            ldw T16, task[pc]
+            ld R1, T16
+            jsr printInt
+            ld T17, OBJ1
+            ld R1, T17
+            jsr printString
+            ld T18, OBJ2
+            ld R1, T18
+            jsr printString
+            ADD_I T19, task, 4
+            ld T20, 4
+            ld T21, 32
+            idx4 T22, T20, T21
+            ADD_I T23, T19, T22
+            ldw T24, T23[0]
+            ld R1, T24
+            jsr printInt
+            ld T25, OBJ1
+            ld R1, T25
+            jsr printString
+            ld T26, OBJ3
+            ld R1, T26
+            jsr printString
+            ADD_I T27, task, 132
+            ld T28, 0
+            ld T29, 8
+            idx4 T30, T28, T29
+            ADD_I T31, T27, T30
+            ldw T32, T31[0]
+            ld R1, T32
+            jsr printInt
+            ld T33, OBJ1
+            ld R1, T33
+            jsr printString
+            L0:
+            ret
+
+            Function TCB
+            start
+            ld this, R1
+            L0:
+            ret
+
+
+        """.trimIndent()
+        runTest(prog, expected)
+    }
+
+    @Test
+    fun genericClassTest() {
+        val prog = """
+            class List<T>
+                var size : Int
+                var body : Array<T>
+                
+                fun get(i : Int) -> T
+                    return body[i]
+              
+                
+            fun main()
+                val list = new List<Int>()
+                val x = list.get(0)
+                val y = x + 1
+        """.trimIndent()
+
+        val expected = """
+            Function List/get(Int)
+            start
+            ld this, R1
+            ld i, R2
+            ldw T0, this[body]
+            ldw T1, T0[size]
+            idx4 T2, i, T1
+            ADD_I T3, T0, T2
+            ldw T4, T3[0]
+            ld R8, T4
+            jmp L0
+            L0:
+            ret
+
+            Function main()
+            start
+            ld T0, List/class
+            ld R1, T0
+            jsr mallocObject(ClassDescriptor)
+            ld T1, R8
+            ld R1, T1
+            jsr List
+            ld list, T1
+            ld T2, 0
+            ld R1, list
+            ld R2, T2
+            jsr List/get(Int)
+            ld T3, R8
+            ld x, T3
+            ld T4, 1
+            ADD_I T5, x, T4
+            ld y, T5
+            L0:
+            ret
+
+            Function List
+            start
+            ld this, R1
+            L0:
+            ret
+
+
+            """.trimIndent()
+
+        runTest(prog, expected)
+    }
+
 
 }

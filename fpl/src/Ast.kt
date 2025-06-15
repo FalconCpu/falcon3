@@ -1,5 +1,3 @@
-import kotlin.math.PI
-
 sealed class Ast (val location: Location)
 
 // ================================================
@@ -37,7 +35,7 @@ class AstCall(location: Location, val expr: AstExpr, val args: List<AstExpr>) : 
 // ================================================
 
 sealed class AstTypeExpr(location: Location) : Ast(location)
-class AstTypeId(location: Location, val name:String) : AstTypeExpr(location)
+class AstTypeId(location: Location, val name:String, val astTypeArgs:List<AstTypeExpr>) : AstTypeExpr(location)
 class AstTypeArray(location: Location, val base: AstTypeExpr?) : AstTypeExpr(location)
 class AstTypeRange(location: Location, val base: AstTypeExpr) : AstTypeExpr(location)
 class AstTypeFixedArray(location: Location, val numElements:AstExpr, val base: AstTypeExpr) : AstTypeExpr(location)
@@ -71,8 +69,8 @@ class AstIf(location: Location, body:List<AstIfClause>) : AstBlock(location, bod
 class AstWhile(location: Location, val cond: AstExpr, body:List<AstStmt>) : AstBlock(location, body)
 class AstRepeat(location: Location, val cond: AstExpr, body:List<AstStmt>) : AstBlock(location, body)
 class AstFor(location: Location, val name: String, val expr: AstExpr, body:List<AstStmt>) : AstBlock(location, body)
-class AstClass(location: Location, val name: String, val params:AstParameterList, body:List<AstStmt>) : AstBlock(location, body) {
-    lateinit var classType : TypeClass
+class AstClass(location: Location, val name: String, val astTypeParameters:List<AstTypeParameter>,val params:AstParameterList, body:List<AstStmt>) : AstBlock(location, body) {
+    lateinit var classType : TypeClassGeneric
     // We typecheck the body of classes in an early type checking pass as there may be forward references to fields.
     // But this means we may generate field initializer statements before we are ready to generate the constructor.
     // So we store it in this list, until we get to typechecking the constructor body.
@@ -95,6 +93,7 @@ class AstTop(location: Location, body:List<AstStmt>) : AstBlock(location, body)
 // ================================================
 class AstParameter(location: Location, val kind:TokenKind, val name: String, val type: AstTypeExpr) : Ast(location)
 class AstParameterList(val params:List<AstParameter>, val isVararg:Boolean)
+class AstTypeParameter(val location: Location, val name:String)
 
 
 // ================================================

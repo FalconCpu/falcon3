@@ -157,7 +157,7 @@ pll  pll_inst (
     .outclk_1(DRAM_CLK),
     .locked(locked)
   );
-assign reset = ~locked;
+assign reset = ~locked | ~KEY[0];
 
 cpu  cpu_inst (
     .clock(clock),
