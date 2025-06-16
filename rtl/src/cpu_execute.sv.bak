@@ -27,8 +27,7 @@ module cpu_execute(
     output logic [31:0] p3_jump_addr,   // ALU jump address
     output logic [31:0] p4_alu_out,
     output logic [31:0] p4_mult,
-    output logic        p3_misaligned_address,
-    output logic        p3_overflow
+    output logic        p3_misaligned_address
 );
 
 wire [4:0] shift_amount = p3_data_b[4:0];
@@ -44,19 +43,18 @@ logic [31:0] p3_mult;
 
 always_comb begin
     // default assignments
-    p3_alu_out = 32'hxxxxxxxx;
-    p3_jump_addr = 32'hxxxxxxxx;
+    p3_alu_out = 32'ba9a9a9a9;
+    p3_jump_addr = 32'ba7a7a7a7;
     p3_jump_taken = 0;
     p3_request = 0;
     p3_write = 0;
-    p3_wdata = 32'hxxxxxxxx;
+    p3_wdata = 32'babababab;
     p3_byte_enable = 4'bx;
     p3_misaligned_address = 0;
 	p3_size = 2'b0;
     signed_a = $signed(p3_data_a);
     asr = signed_a >>> shift_amount;
     p3_mult = 32'bx;
-    p3_overflow = 0;
 
     case(p3_op) 
         `OP_AND:    p3_alu_out = p3_data_a & p3_data_b;
@@ -203,22 +201,6 @@ always_comb begin
         `OP_RTE,    
         `OP_SYS:    begin end // These are handled by the separate exception module
 
-        `OP_IDX1:   begin
-            p3_alu_out = p3_data_a;
-            p3_overflow = p3_data_a >= p3_data_b;
-        end
-
-        `OP_IDX2:   begin
-            p3_alu_out = p3_data_a << 1;
-            p3_overflow = p3_data_a >= p3_data_b;
-        end
-
-        `OP_IDX4:   begin
-            p3_alu_out = p3_data_a;
-            p3_overflow = p3_data_a >= p3_data_b;
-        end
-
-
         `OP_LD:     p3_alu_out = p3_data_b;
         `OP_LDPC:   p3_alu_out = branch_target;
         default:    begin end
@@ -232,12 +214,12 @@ always_comb begin
         p3_misaligned_address = 0;
     end
 
-    p3_addr = p3_request ? mem_addr : 32'h00000000;
+    p3_addr = p3_request ? mem_addr : 32'bafafafaf;
     
     // nullify this instruction if the previous one is a jump
     if (p4_jump_taken) begin
         p3_request = 0;
-        p3_alu_out = 32'h51515151;
+        p3_alu_out = 32'ha5a5a5a5;
         p3_jump_taken = 0;
         p3_misaligned_address = 0;
     end

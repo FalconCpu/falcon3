@@ -841,10 +841,48 @@ class ExecuteTest {
         """.trimIndent()
 
         val expected = """
+            1
+            2
+            3
+            
         """.trimIndent()
 
         runTest(prog, expected)
     }
 
+    @Test
+    fun genericsTest6() {
+        val prog = """
+            class List<T>
+                var size : Int = 0
+                var array = new Array<T>(10)
+                
+                fun get(index : Int) -> T
+                    return array[index]
+                    
+                fun set(index : Int, value : T)
+                    array[index] = value
+                    
+                fun add(item:T)
+                    array[size] = item
+                    size += 1
+                
+            fun main()
+                val list = new List<String>()
+                list.add("hello")
+                list.add("world")
+                list.add("!")
+                for c in list
+                    print(c,"\n")
+        """.trimIndent()
 
+        val expected = """
+            hello
+            world
+            !
+            
+        """.trimIndent()
+
+        runTest(prog, expected)
+    }
 }

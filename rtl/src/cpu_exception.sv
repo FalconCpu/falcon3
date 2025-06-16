@@ -21,6 +21,7 @@ module cpu_exception (
     input logic         p4_misaligned_address,
     input logic         p4_load_access_fault,
     input logic         p4_store_access_fault,
+    input logic         p3_overflow,
 
     input  logic        p3_jump_taken,
     input  logic [31:0] p3_jump_addr,
@@ -56,6 +57,7 @@ logic [31:0]               next_csr_dmpu4;
 logic [31:0]               next_csr_dmpu5;
 logic [31:0]               next_csr_dmpu6;
 logic [31:0]               next_csr_dmpu7;
+logic                      p4_overflow;
 logic        interupt_pending, next_interupt_pending;
 
 logic [31:0] p3_csr_out;
@@ -165,6 +167,11 @@ always_comb begin
         next_csr_edata   = p4_mem_addr;
         raise_exception  = 1'b1;
 
+    end else if (p4_overflow) begin
+        next_csr_ecause  = `CAUSE_INDEX_OVERFLOW;
+        next_csr_edata   = p4_mem_addr;
+        raise_exception  = 1'b1;
+
     end else if (p4_store_access_fault) begin
         next_csr_ecause  = `CAUSE_STORE_ACCESS_FAULT;
         next_csr_edata   = p4_mem_addr;
@@ -246,6 +253,7 @@ always_ff @(posedge clock) begin
         p4_jump_taken_q<= p3_jump_taken;
         p4_jump_addr_q <= p3_jump_addr;
         p4_literal   <= p3_literal;
+        p4_overflow  <= p3_overflow;
         csr_dmpu0    <= next_csr_dmpu0;
         csr_dmpu1    <= next_csr_dmpu1;
         csr_dmpu2    <= next_csr_dmpu2;

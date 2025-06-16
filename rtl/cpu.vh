@@ -33,6 +33,9 @@
 `define  OP_CSRW   6'b101_001
 `define  OP_RTE    6'b101_010
 `define  OP_SYS    6'b101_011
+`define  OP_IDX1   6'b110_000
+`define  OP_IDX2   6'b110_001
+`define  OP_IDX4   6'b110_010
 `define  OP_LD     6'b110_000
 `define  OP_LDPC   6'b110_001
 
@@ -76,15 +79,15 @@
 `define EXCEPTION_VECTOR 32'hffff0004
 `define INTERUPT_VECTOR 32'hffff0008
 
-`define CAUSE_INSTRUCTION_ACCESS_FAULT   8'h01
-`define CAUSE_ILLEGAL_INSTRUCTION        8'h02
-`define CAUSE_BREAKPOINT                 8'h03
-`define CAUSE_LOAD_ADDRESS_MISALIGNED    8'h04
-`define CAUSE_LOAD_ACCESS_FAULT          8'h05
-`define CAUSE_STORE_ADDRESS_MISALIGNED   8'h06
-`define CAUSE_STORE_ACCESS_FAULT         8'h07
-`define CAUSE_SYSTEM_CALL                8'h08
-`define CAUSE_INDEX_OVERFLOW             8'h09
+`define CAUSE_INSTRUCTION_ACCESS_FAULT   8'h1
+`define CAUSE_ILLEGAL_INSTRUCTION        8'h2
+`define CAUSE_BREAKPOINT                 8'h3
+`define CAUSE_LOAD_ADDRESS_MISALIGNED    8'h4
+`define CAUSE_LOAD_ACCESS_FAULT          8'h5
+`define CAUSE_STORE_ADDRESS_MISALIGNED   8'h6
+`define CAUSE_STORE_ACCESS_FAULT         8'h7
+`define CAUSE_SYSTEM_CALL                8'h8
+`define CAUSE_INDEX_OVERFLOW             8'h9
 
 `define FLAG_SUPERVISOR              8'h01
 `define FLAG_INTERRUPT               8'h02

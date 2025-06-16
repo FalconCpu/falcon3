@@ -291,7 +291,9 @@ private fun evaluateArgs(args:List<TstExpr>, isVarargs:Boolean, types:List<Type>
         for(index in 0..< numVarargs) {
             val arg = args[numRegularArgs+index]
             val reg = arg.codeGenRvalue()
-            currentFunc.addStoreMem(arg.type.sizeInBytes(), reg, allMachineRegs[31], stackSpace+4+4*index)
+            if (arg.type.sizeInBytes()>4)
+                Log.error(arg.location,"Varargs must be 4 bytes or less")
+            currentFunc.addStoreMem(4, reg, allMachineRegs[31], stackSpace+4+4*index)
         }
 
         val regularArgRegs = args.subList(0,numRegularArgs).map{it.codeGenRvalue()}
@@ -817,6 +819,7 @@ fun TstStmt.codeGen()  {
                 val argReg = arg.codeGenRvalue()
                 currentFunc.addMov(allMachineRegs[1], argReg)
                 when(arg.type) {
+                    is TypeBool -> currentFunc.addCall(Stdlib.printInt)
                     is TypeInt -> currentFunc.addCall(Stdlib.printInt)
                     is TypeChar -> currentFunc.addCall(Stdlib.printChar)
                     is TypeString -> currentFunc.addCall(Stdlib.printString)

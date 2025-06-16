@@ -10,3 +10,7 @@ binutils/build/
 
 *.log
 rtl/uart.txt
+rtl/rtl_reg.log
+rtl/rtl_uart.log
+rtl/sim_reg.log
+rtl/sim_uart.log

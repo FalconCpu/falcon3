@@ -192,7 +192,6 @@ always_comb begin
             p2_use_b    = 1'b1;
             p2_op       = {3'b100,  ins_op};
             p2_reg_d    = ins_d;
-            p2_opx      = ins_c;
             p2_write_en = 1'b1;
             p2_illegal_ins= (ins_op!=3'b000 && ins_op!=3'b100 && ins_op!=3'b101 && ins_op!=3'b110 && ins_op!=3'b111);
             p2_latent   = 1'b1;
@@ -207,6 +206,15 @@ always_comb begin
             p2_write_en      = 1'b1;
             p2_illegal_ins   = (ins_op!=3'b000 && ins_op!=3'b100 && ins_op!=3'b101 && ins_op!=3'b110 && ins_op!=3'b111);
             p2_latent        = 1'b1;
+        end
+
+        `KIND_IDX: begin        // Index
+            p2_use_a    = 1'b1;
+            p2_use_b    = 1'b1;
+            p2_op       = {3'b110,  ins_op};
+            p2_reg_d    = ins_d;
+            p2_write_en = 1'b1;
+            p2_illegal_ins= (ins_op!=3'b000 && ins_op!=3'b001 && ins_op!=3'b010);
         end
 
         default: begin

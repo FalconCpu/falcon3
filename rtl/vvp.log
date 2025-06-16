@@ -1,6 +1,0 @@
-WARNING: .\src\cpu_icache.sv:32: $readmemh(asm.hex): Not enough words in the file for the requested range [0:16383].
-VCD info: dumpfile dump.vcd opened for output.
-WARNING: .\src\tb_falcon.sv:143: $readmemh(uart.txt): Not enough words in the file for the requested range [0:1023].
-EXCEPTION CAUSE=00000007 EPC=FFFF0098 EDATA=01231100
-.\src\cpu_ifetch.sv:160: $finish called at 8075000 (1ps)
-EXCEPTION CAUSE=00000007 EPC=FFFF0098 EDATA=01231100

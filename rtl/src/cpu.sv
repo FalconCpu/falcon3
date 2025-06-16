@@ -60,6 +60,7 @@ logic [31:0] p4_alu_out;
 logic [31:0] p4_mult;
 logic [1:0]  cpud_size;
 logic        p3_misaligned_address;
+logic        p3_overflow;
 logic        p4_misaligned_address;
 logic        p3_request;
 logic        p3_write;
@@ -184,6 +185,7 @@ cpu_execute  cpu_execute_inst (
     .p3_jump_addr(p3_jump_addr),
     .p4_alu_out(p4_alu_out),
     .p3_misaligned_address(p3_misaligned_address),
+    .p3_overflow(p3_overflow),
     .p4_mult(p4_mult)
   );
 
@@ -247,6 +249,7 @@ cpu_exception  cpu_exception_inst (
     .p4_misaligned_address(p4_misaligned_address),
     .p4_load_access_fault(p4_load_access_fault),
     .p4_store_access_fault(p4_store_access_fault),
+    .p3_overflow(p3_overflow),
     .supervisor(supervisor),
     .csr_dmpu0(csr_dmpu0),
     .csr_dmpu1(csr_dmpu1),

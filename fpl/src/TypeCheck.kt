@@ -904,7 +904,7 @@ fun AstStmt.typeCheck(context:AstBlock) : TstStmt {
         is AstPrint -> {
             val tcExprs = exprs.map { it.typeCheckRvalue(context) }
             for (tcExpr in tcExprs)
-                if (tcExpr.type != TypeInt && tcExpr.type != TypeString && tcExpr.type != TypeChar
+                if (tcExpr.type != TypeInt && tcExpr.type != TypeString && tcExpr.type != TypeChar && tcExpr.type != TypeBool
                     && tcExpr.type != TypeError && tcExpr.type !is TypeEnum)
                     Log.error(tcExpr.location, "Got type ${tcExpr.type} but print only supports Int / Char/ String")
             TstPrint(location, tcExprs)
@@ -1046,7 +1046,8 @@ private fun AstFunction.createFunctionSymbol(context:AstBlock) {
 
     val funcName = if (context is AstClass) context.name+"/"+name else name
     val paramTypeNames = paramSymbols.joinToString(prefix = "(", postfix = ")", separator = ",") {
-        if (params.isVararg && it == paramSymbols.last()) (it.type as TypeArray).elementType.name + "..." else it.type.name
+        it.type.name
+//        if (params.isVararg && it == paramSymbols.last()) (it.type as TypeArray).elementType.name + "..." else it.type.name
     }
 
     // Create the Function object to represent this function in the back end
