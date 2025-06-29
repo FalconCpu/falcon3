@@ -1,0 +1,151 @@
+VGA_LAYER0_ADDR = 0x00000000
+VGA_LAYER0_X1   = 0x00000004   
+VGA_LAYER0_Y1   = 0x00000008
+VGA_LAYER0_X2   = 0x0000000C
+VGA_LAYER0_Y2   = 0x00000010
+VGA_LAYER0_BPL  = 0x00000014
+VGA_LAYER0_BPP  = 0x00000018
+
+VGA_LAYER1_ADDR = 0x00000020
+VGA_LAYER1_X1   = 0x00000024   
+VGA_LAYER1_Y1   = 0x00000028
+VGA_LAYER1_X2   = 0x0000002C
+VGA_LAYER1_Y2   = 0x00000030
+VGA_LAYER1_BPL  = 0x00000034
+VGA_LAYER1_BPP  = 0x00000038
+
+HWREGS_BASE = 0xE0000000
+HWREGS_VGA_ROW = 0x0024
+HWREGS_7SEG     = 0x0000
+HWREGS_MOUSE_X  = 0x0028
+HWREGS_MOUSE_Y = 0x002C
+HWREGS_MOUSE_BTN = 0x0030
+
+
+ld $1, 0xE0001000   # Start of VGA control registers
+
+# Create layer 0 covering the whole screen
+ld $2, 0x3f80000    # start of display memory
+stw $2, $1[VGA_LAYER0_ADDR]
+stw 0, $1[VGA_LAYER0_X1]
+stw 0, $1[VGA_LAYER0_Y1]
+ld $2, 640
+stw $2, $1[VGA_LAYER0_BPL]
+stw $2, $1[VGA_LAYER0_X2]
+ld $2, 480
+stw $2, $1[VGA_LAYER0_Y2]
+ld $2,1
+stw $2, $1[VGA_LAYER0_BPP]
+
+# create layer1 size 100 x 100
+ld $2, 0x3FCB000    # second block
+stw $2, $1[VGA_LAYER1_ADDR]
+ld $2, 100
+stw $2, $1[VGA_LAYER1_X1]
+stw $2, $1[VGA_LAYER1_BPL]
+ld $2, 200
+stw $2, $1[VGA_LAYER1_Y1]
+stw $2, $1[VGA_LAYER1_X2]
+ld $2, 300
+stw $2, $1[VGA_LAYER1_Y2]
+ld $2,1
+stw $2, $1[VGA_LAYER1_BPP]
+
+
+
+# Fill the screen with a pattern
+ld $2, 0x3f80000        # start of display memory
+ld $4, 60               # number of lines
+ld $5, 0
+ld $6, 0xffffffff
+ld $7, 0x33333333
+row_loop:
+
+ld $3, 640               # number of columns
+
+col_loop:
+stw $5, $2[0]           # write 8 bytes of the color
+stw $5, $2[4]
+xor $5, $5, $6
+add $2, 8
+sub $3, 1
+bne $3, 0, col_loop
+
+xor $5, $5, $7
+sub $4, 1
+bne $4, 0, row_loop
+
+# fill layer1 with a different pattern
+ld $2, 0x3FCB000        # start of layer 1
+ld $3, 0xff             # pattern
+ld $4, 100              # number of lines
+row_loop1:
+ld $5, 25               # number of columns
+col2_loop:
+stw $3, $2[0]           # write 8 bytes of the color
+add $2, 4
+sub $5, 1
+bne $5, 0, col2_loop
+lsr $8, $3, 24
+lsl $3, $3, 8
+or $3, $8
+sub $4, 1
+bne $4, 0, row_loop1
+
+# now bounce layer 1 around the screen
+ld $10, HWREGS_BASE
+ld $11, 100             # current x position
+ld $12, 100             # current y position
+ld $13, 1               # current x velocity
+ld $14, 1               # current y velocity
+
+anim_loop:
+
+# wait until next vertical blank
+ld $2, 480
+wait1:
+ldw $1, $10[HWREGS_VGA_ROW]
+blt $1, $2, wait1
+
+# update the VGA registers
+ld $1, 0xE0001000       # Start of VGA control registers
+stw $11, $1[VGA_LAYER1_X1]
+stw $12, $1[VGA_LAYER1_Y1]
+add $2, $11, 100
+stw $2, $1[VGA_LAYER1_X2]
+add $2, $12, 100
+stw $2, $1[VGA_LAYER1_Y2]
+
+# update the mouse position
+ld $1, HWREGS_BASE
+ldw $2, $1[HWREGS_MOUSE_X]
+ldw $3, $1[HWREGS_MOUSE_Y]
+lsl $2, 12
+or $2, $2, $3
+stw $2, $1[HWREGS_7SEG]
+
+# update the layer position
+add $11, $13
+add $12, $14
+bne $11, 0, .bounce_x1
+ld $13, 1
+.bounce_x1:
+ld $2, 540
+bne $11, $2, .bounce_x2
+ld $13, -1
+.bounce_x2:
+bne $12, 0, .bounce_y1
+ld $14, 1
+.bounce_y1:
+ld $2, 380
+bne $12, $2, .bounce_y2
+ld $14, -1
+.bounce_y2:
+
+# wait until display area
+ld $2, 480
+wait2:
+ldw $1, $10[HWREGS_VGA_ROW]
+bge $1, $2, wait2
+
+jmp anim_loop

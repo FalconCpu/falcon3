@@ -207,7 +207,9 @@ fun startup()
     kPrintString("OS Starting up\n")
     bMemPointer = 0x10000       # Allow rest of space for general use
     initializeMemorySystem()
+    initializeBuddyAllocator()
     dumpMemorySystem()
+    dumpBuddyAllocator()
     kPrintString("Allocating task\n")
 
     # Create our first task  (We can't use new() yet as proper memory allocator not yet implemented)

@@ -154,16 +154,15 @@ module micron_sdram (Dq, Addr, Ba, Clk, Cke, Cs_n, Ras_n, Cas_n, We_n, Dqm);
     time  RP_chk0, RP_chk1, RP_chk2, RP_chk3;
 
     // initialze the ram for debug
-    integer i;
-    initial begin
-        for(i=0; i<mem_sizes; i=i+1) begin
-            Bank0[i] = 16'hBAAD;
-            Bank1[i] = 16'hBAAD;
-            Bank2[i] = 16'hBAAD;
-            Bank3[i] = 16'hBAAD;
-        end
-    end
-
+    // integer i;
+    // initial begin
+    //     for(i=0; i<mem_sizes; i=i+1) begin
+    //         Bank0[i] = 16'hBAAD;
+    //         Bank1[i] = 16'hBAAD;
+    //         Bank2[i] = 16'hBAAD;
+    //         Bank3[i] = 16'hBAAD;
+    //     end
+    // end
 
     initial begin
         Dq_reg = {DQ_BITS{1'bz}};

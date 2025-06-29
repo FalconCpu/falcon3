@@ -1,0 +1,44 @@
+`timescale 1ns / 1ps
+
+module vga_fifo(
+    input logic clk,
+    input logic reset,
+
+    // Connections to the vga pixel pipeline
+    input logic [23:0] in_data,
+    input logic        in_valid,
+    output logic       fifo_full,
+
+    // Connections to the vga pixel generator
+    output logic [23:0] out_data,
+    input  logic        out_taken
+);
+
+logic [23:0] fifo[0:255];
+logic [7:0]  fifo_wptr;
+logic [7:0]  fifo_rptr;
+
+wire [7:0] fifo_free_slot = fifo_rptr - fifo_wptr - 1'b1;
+
+always_ff @(posedge clk) begin
+    if (in_valid) begin
+        fifo[fifo_wptr] <= in_data;
+        fifo_wptr <= fifo_wptr + 8'h1;
+    end
+
+    out_data <= fifo[fifo_rptr];
+    if (out_taken) begin
+        fifo_rptr <= fifo_rptr + 8'h1;
+    end
+
+    fifo_full <= fifo_free_slot < 8'h10;
+
+    if (reset) begin
+        fifo_wptr <= 8'h0;
+        fifo_rptr <= 8'h0;
+        fifo_full <= 1'b0;
+    end
+
+end
+
+endmodule

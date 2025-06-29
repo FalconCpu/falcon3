@@ -36,8 +36,8 @@
 `define  OP_IDX1   6'b110_000
 `define  OP_IDX2   6'b110_001
 `define  OP_IDX4   6'b110_010
-`define  OP_LD     6'b110_000
-`define  OP_LDPC   6'b110_001
+`define  OP_LD     6'b111_000
+`define  OP_LDPC   6'b111_001
 
 
 // KIND values for decode

@@ -1,3 +1,4 @@
+
 sealed class Type(val name:String) {
     override fun toString() = name
 }
@@ -20,24 +21,18 @@ fun makeTypeError(location: Location, message:String) : Type {
 
 class TypeArray private constructor(name:String, val elementType: Type) : Type(name) {
     companion object {
-        val allArrayTypes = mutableMapOf<Type, TypeArray>()
-        fun create(elementType: Type) = allArrayTypes.getOrPut(elementType) {
+        val allArrayTypes = mutableListOf<TypeArray>()
+        fun create(elementType: Type) : TypeArray {
+            val match = allArrayTypes.find {it.elementType==elementType }
+            if (match!=null)
+                return match
             val name = "Array<$elementType>"
-            TypeArray(name, elementType)
+            val new = TypeArray(name, elementType)
+            allArrayTypes += new
+            return new
         }
     }
 }
-
-class TypeFixedArray private constructor(name:String, val numElements:Int, val elementType: Type) : Type(name) {
-    companion object {
-        val allFixedArrayTypes = mutableMapOf<Pair<Int,Type>, TypeFixedArray>()
-        fun create(numElements:Int, elementType: Type) = allFixedArrayTypes.getOrPut(Pair(numElements,elementType)) {
-            val name = "FixedArray<$elementType>($numElements)"
-            TypeFixedArray(name, numElements, elementType)
-        }
-    }
-}
-
 
 class TypeRange private constructor(name:String, val elementType: Type) : Type(name) {
     companion object {
@@ -117,8 +112,8 @@ class TypeClassGeneric private constructor(name:String, val typeParameters:List<
                 sizeInBytes += symSize
             }
             is SymbolEmbeddedField -> {
-                val symSize = symbol.type.fieldSizeInBytes()
-                val fieldAlignment = symbol.type.getFieldAlignmentRequirement()
+                val symSize = symbol.type.sizeInBytes()
+                val fieldAlignment = symbol.type.getAlignmentRequirement()
                 sizeInBytes = (sizeInBytes + fieldAlignment - 1) and -(fieldAlignment)
                 symbol.offset = sizeInBytes
                 sizeInBytes += symSize
@@ -169,7 +164,6 @@ fun Type.substitute(typeArgs:Map<TypeParameter, Type>) : Type {
     return when (this) {
         is TypeArray -> TypeArray.create(elementType.substitute(typeArgs))
         is TypeClassGeneric -> this
-        is TypeFixedArray -> TypeFixedArray.create(numElements, elementType.substitute(typeArgs))
         is TypeFunction -> TypeFunction.create(parameters.map { it.substitute(typeArgs) }, returnType.substitute(typeArgs))
         is TypeNullable -> TypeNullable.create(nullLocation, elementType.substitute(typeArgs))
         is TypeParameter -> typeArgs[this] ?: this
@@ -178,6 +172,8 @@ fun Type.substitute(typeArgs:Map<TypeParameter, Type>) : Type {
             val newArgs = typeArgs.mapValues { (_, type) -> type.substitute(typeArgs) }
             TypeClassInstance.create(genericClass , newArgs)
         }
+        is TypeInlineArray -> TypeInlineArray.create(base.substitute(typeArgs), numElements)
+        is TypeInlineInstance -> TypeInlineInstance.create(base.substitute(typeArgs) as TypeClassInstance)
         is TypeEnum,
         TypeError,
         TypeBool,
@@ -189,6 +185,35 @@ fun Type.substitute(typeArgs:Map<TypeParameter, Type>) : Type {
         TypeString,
         TypeUnit,
         TypeAny -> this
+    }
+}
+
+class TypeInlineArray private constructor (val base:TypeArray, val numElements:Int) : Type("inline $base") {
+    companion object {
+        val allInlineTypes = mutableListOf<TypeInlineArray>()
+        fun create(base:Type, numElements:Int) : Type {
+            val ret = allInlineTypes.find { it.base == base && it.numElements == numElements }
+            if (ret != null)
+                return ret
+            val new = TypeInlineArray(base as TypeArray, numElements)
+            allInlineTypes.add(new)
+            return new
+        }
+    }
+}
+
+
+class TypeInlineInstance private constructor (val base:TypeClassInstance) : Type("inline $base") {
+    companion object {
+        val allInlineTypes = mutableListOf<TypeInlineInstance>()
+        fun create(base:TypeClassInstance) : Type {
+            val ret = allInlineTypes.find { it.base == base}
+            if (ret != null)
+                return ret
+            val new = TypeInlineInstance(base)
+            allInlineTypes.add(new)
+            return new
+        }
     }
 }
 
@@ -220,6 +245,16 @@ fun Type.defaultPromotions() : Type {
     return this
 }
 
+fun Type.dropInline() : Type {
+    return when (this) {
+        is TypeInlineArray -> base.dropInline()
+        is TypeInlineInstance -> base.dropInline()
+        else -> this
+    }
+}
+
+fun Type.isInline() = this is TypeInlineArray || this is TypeInlineInstance
+
 fun Type.sizeInBytes() : Int {
     // Gets the size of a type in bytes.
     return when(this) {
@@ -237,87 +272,20 @@ fun Type.sizeInBytes() : Int {
         TypeReal -> 4
         TypeString -> 4
         TypeUnit -> 0
-        is TypeFixedArray -> 4
         is TypeClassGeneric -> 4  // References to a class are pointers
         is TypeEnum -> 4  // References to an enum are integers
         is TypeParameter -> 4
         is TypeClassInstance -> 4
+        is TypeInlineArray-> base.sizeInBytes() * numElements
+        is TypeInlineInstance -> base.genericClass.sizeInBytes
     }
 }
-
-fun Type.fieldSizeInBytes() : Int {
-    // Gets the size of a type in bytes.
-    return when(this) {
-        TypeAny -> 4
-        is TypeArray -> 4
-        TypeBool -> 1
-        TypeChar -> 1
-        TypeError -> 0
-        is TypeFunction -> 4
-        TypeInt -> 4
-        TypeNothing -> 4
-        TypeNull -> 4
-        is TypeNullable -> 4
-        is TypeRange -> TODO()
-        TypeReal -> 4
-        TypeString -> 4
-        TypeUnit -> 0
-        is TypeFixedArray -> numElements * elementType.fieldSizeInBytes()
-        is TypeClassGeneric -> 4  // References to a class are pointers
-        is TypeEnum -> 4  // References to an enum are integers
-        is TypeParameter -> 4  // Type parameters are either pointers or integers
-        is TypeClassInstance -> TODO()
-    }
-}
-
-
 
 fun Type.getAlignmentRequirement() : Int {
-    // Gets the size of a type in bytes.
-    return when (this) {
-        TypeAny -> 4
-        is TypeArray -> 4
-        TypeBool -> 1
-        TypeChar -> 1
-        TypeError -> 0
-        is TypeFunction -> 4
-        TypeInt -> 4
-        TypeNothing -> 4
-        TypeNull -> 4
-        is TypeNullable -> 4
-        is TypeRange -> TODO()
-        TypeReal -> 4
-        TypeString -> 4
-        TypeUnit -> 0
-        is TypeFixedArray -> 4
-        is TypeClassGeneric -> 4
-        is TypeEnum -> 4
-        is TypeParameter -> 4
-        is TypeClassInstance -> 4
-    }
-}
-
-fun Type.getFieldAlignmentRequirement() : Int {
-    // Gets the size of a type in bytes.
     return when(this) {
-        TypeAny -> 4
-        is TypeArray -> 4
         TypeBool -> 1
         TypeChar -> 1
-        TypeError -> 0
-        is TypeFunction -> 4
-        TypeInt -> 4
-        TypeNothing -> 4
-        TypeNull -> 4
-        is TypeNullable -> 4
-        is TypeRange -> TODO()
-        TypeReal -> 4
-        TypeString -> 4
-        TypeUnit -> 0
-        is TypeFixedArray -> elementType.getAlignmentRequirement()
-        is TypeClassGeneric -> 4
-        is TypeEnum -> 4
-        is TypeParameter -> 4
-        is TypeClassInstance -> 4
+        TypeError -> 1
+        else -> 4
     }
 }

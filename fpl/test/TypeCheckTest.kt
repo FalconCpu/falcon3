@@ -565,10 +565,10 @@ class TypeCheckTest {
     }
 
     @Test
-    fun fixedArrayTest() {
+    fun inlineArrayTest() {
         val prog = """
             fun main()
-                val array = new FixedArray<Int>(10)
+                val array = inline Array<Int>(10)
                 for i in 0..<array.size
                     array[i] = i
         """.trimIndent()
@@ -577,15 +577,16 @@ class TypeCheckTest {
             top
               file: test
                 function: main()
-                  decl: VAR:array:FixedArray<Int>(10)
-                    new-fixed-array (FixedArray<Int>(10))
+                  decl: VAR:array:inline Array<Int>
+                    new-array (inline Array<Int>)
+                      int: 10 (Int)
                   for: i
                     range: LT_I (Range<Int>)
                       int: 0 (Int)
                       int: 10 (Int)
                     assign EQ_I
                       index (Int)
-                        var: array (FixedArray<Int>(10))
+                        var: array (inline Array<Int>)
                         var: i (Int)
                       var: i (Int)
 
@@ -876,5 +877,19 @@ class TypeCheckTest {
         runTest(prog, expected)
     }
 
+    @Test
+    fun inlineTypesTest() {
+        val prog = """
+            fun main(a:Int)
+                val x = inline Array<Int>(a)
+                x[0] = 4
+        """.trimIndent()
+
+        val expected = """
+            test.fpl:2.13-2.18: Array size must be a compile-time constant
+        """.trimIndent()
+
+        runTest(prog, expected)
+    }
 
 }

@@ -182,7 +182,7 @@ always_comb begin
                     // The addressed bank is open at the row we want to access - write to it
                     next_cmd  = `CMD_WRITE;
                     next_write_pipeline[0] = 1'b1;
-                    next_addr = {addr_col,1'b0};
+                    next_addr = {3'b0,addr_col,1'b0};
                     next_bank = addr_bank;
                     next_data = sdram_wdata[15:0];
                     next_dqm  = ~sdram_byte_enable[1:0];
@@ -194,7 +194,7 @@ always_comb begin
                 end else if (!sdram_write) begin
                     // The addressed bank is open at the row we want to access - read from it
                     next_cmd  = `CMD_READ;
-                    next_addr = {addr_col,1'b0};
+                    next_addr = {3'b0,addr_col,1'b0};
                     next_bank = addr_bank;
                     next_dqm  = 0;
                     next_state = sdram_burst ? `STATE_READ_BURST : `STATE_READ;      // ***
@@ -222,7 +222,7 @@ always_comb begin
             else if (count[0]==1'b1) begin
                 next_cmd = `CMD_READ;
                 next_burst_addr = {this_burst_addr[8:4], this_burst_addr[3:0]+1'b1};
-                next_addr = {next_burst_addr,1'b0};
+                next_addr = {3'b0,next_burst_addr,1'b0};
                 next_read_pipeline[2:0] = this_read_master;
             end
         end

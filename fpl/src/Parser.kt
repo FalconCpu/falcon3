@@ -119,18 +119,24 @@ class Parser(val lexer: Lexer) {
     private fun parseNew() : AstExpr {
         val tok = nextToken()  // LOCAL or NEW
         val typeExpr = parseTypeExpr()
-        if (currentToken.kind==OPENSQ) {
-            val initializers = parseInitializerList()
-            return AstNewWithInitialiser(tok.location, typeExpr, initializers, tok.kind == LOCAL)
-        } else if (currentToken.kind == OPENB){
-            val args = parseExpressionList()
-            val lambda = parseOptLambda()
-            return AstNew(tok.location, typeExpr, args, lambda, tok.kind == LOCAL)
-        } else {
-            val lambda = parseOptLambda()
-            return AstNew(tok.location, typeExpr, emptyList(), lambda, tok.kind == LOCAL)
+        when (currentToken.kind) {
+            OPENSQ -> {
+                val initializers = parseInitializerList()
+                return AstNewWithInitialiser(tok.location, typeExpr, initializers, tok.kind)
+            }
+            OPENB -> {
+                val args = parseExpressionList()
+                val lambda = parseOptLambda()
+                return AstNew(tok.location, typeExpr, args, lambda, tok.kind)
+            }
+            else -> {
+                val lambda = parseOptLambda()
+                return AstNew(tok.location, typeExpr, emptyList(), lambda, tok.kind)
+            }
         }
     }
+
+
 
     private fun parsePrimaryExpression() : AstExpr {
         return when(currentToken.kind) {
@@ -144,7 +150,7 @@ class Parser(val lexer: Lexer) {
             BREAK -> parseBreak()
             CONTINUE -> parseContinue()
             NEW -> parseNew()
-            LOCAL -> parseNew()
+            INLINE -> parseNew()
             ABORT -> parseAbort()
             else -> throw ParseError(currentToken.location, "Got '$currentToken' when expecting primary expression")
         }
@@ -188,6 +194,10 @@ class Parser(val lexer: Lexer) {
             NOT -> {
                 val tok = match(NOT)
                 AstNot(tok.location, parsePostfixExpression())
+            }
+            TILDE -> {
+                val tok = match(TILDE)
+                AstBitwiseNot(tok.location, parsePostfixExpression())
             }
             else ->
                 parsePostfixExpression()
@@ -348,18 +358,6 @@ class Parser(val lexer: Lexer) {
         return AstTypeArray(tok.location, ret)
     }
 
-    private fun parseTypeFixedArray() : AstTypeExpr {
-        val tok = match(FIXEDARRAY)
-        match(LT)
-        val elementType = parseTypeExpr()
-        match(GT)
-        match(OPENB)
-        val size = parseExpression()
-        match(CLOSEB)
-        return AstTypeFixedArray(tok.location, size, elementType)
-    }
-
-
     private fun parseTypeRange() : AstTypeExpr {
         val tok = match(RANGE)
         match(LT)
@@ -373,7 +371,6 @@ class Parser(val lexer: Lexer) {
         var ret = when(currentToken.kind) {
             ID -> parseTypeId()
             ARRAY -> parseTypeArray()
-            FIXEDARRAY -> parseTypeFixedArray()
             RANGE -> parseTypeRange()
             else -> throw ParseError(currentToken.location, "Got '$currentToken' when expecting type expression")
         }
@@ -680,7 +677,7 @@ class Parser(val lexer: Lexer) {
         val loc = currentToken.location
         try {
             return when (currentToken.kind) {
-                VAL, VAR, LOCAL -> parseDeclaration()
+                VAL, VAR -> parseDeclaration()
                 FUN -> parseFunction()
                 else -> throw ParseError(loc, "$currentToken not allowed in Class body")
             }

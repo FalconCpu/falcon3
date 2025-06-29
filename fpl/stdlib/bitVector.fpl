@@ -1,0 +1,32 @@
+
+const ERR_INDEX_OUT_OF_RANGE = 0xE10
+
+class BitVector(val size:Int)
+    val array = new Array<Int>((size+31)/32)     # round up to a whole number of words
+
+    fun set(index:Int)
+        if index<0 or index>=size then abort(ERR_INDEX_OUT_OF_RANGE)
+        val wordIndex = index >> 5
+        val bitIndex = index & 31
+        array[wordIndex] = array[wordIndex] | (1 << bitIndex)
+
+    fun clear(index:Int)
+        if index<0 or index>=size then abort(ERR_INDEX_OUT_OF_RANGE)
+        val wordIndex = index >> 5
+        val bitIndex = index & 31
+        array[wordIndex] = array[wordIndex] & ~(1 << bitIndex)
+
+    fun get(index:Int) -> Bool
+        if index<0 or index>=size then abort(ERR_INDEX_OUT_OF_RANGE)
+        val wordIndex = index >> 5
+        val bitIndex = index & 31
+        return (array[wordIndex] & (1 << bitIndex)) != 0
+
+    fun findFirstFree() -> Int
+        for wordIndex in 0..<array.size
+            val word = array[wordIndex]
+            if word != -1                # If not fully set, search within it
+                for bitIndex in 0..31
+                    if (word & (1 << bitIndex)) = 0
+                        return (wordIndex << 5) | bitIndex   # Convert to absolute index
+        return -1  # No free bits found

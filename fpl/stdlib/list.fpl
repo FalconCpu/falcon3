@@ -24,6 +24,12 @@ class List<T>
     fun isNotEmpty() -> Bool
         return size > 0
 
+    fun take() -> T
+        if size = 0
+            abort ERR_INVALID_ARG
+        size -= 1
+        return array[size]
+
     fun clear()
         size = 0
 
@@ -33,6 +39,15 @@ class List<T>
             array[i] = array[i+1]
         size-=1
         return ret
+
+    fun remove(item:T) -> Bool
+        for i in 0..<size
+            if array[i] = item
+                for j in i..<size-1
+                    array[j] = array[j+1]
+                size-=1
+                return true
+        return false
 
     fun indexOf(item:T) -> Int
         for i in 0..<size

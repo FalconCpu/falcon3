@@ -191,6 +191,12 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
             TstNot(location,tc)
         }
 
+        is AstBitwiseNot -> {
+            val tc = expr.typeCheckRvalue(context)
+            TypeInt.checkCompatibleWith(tc)
+            TstBitwiseNot(location,tc, TypeInt)
+        }
+
         is AstContinue -> {
             if (continueContext==null)
                 Log.error(location,"continue not inside a loop")
@@ -207,12 +213,13 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
             if (tcExpr.type == TypeError) return tcExpr
             TypeInt.checkCompatibleWith(tcIndex)
 
-            when (tcExpr.type) {
-                is TypeArray -> TstIndex(location, tcExpr, tcIndex, tcExpr.type.elementType)
+            val tcType = tcExpr.type.dropInline()
+
+            when (tcType) {
+                is TypeArray -> TstIndex(location, tcExpr, tcIndex, tcType.elementType)
                 is TypeString -> TstIndex(location, tcExpr, tcIndex, TypeChar)
-                is TypeFixedArray -> TstIndex(location, tcExpr, tcIndex, tcExpr.type.elementType)
                 is TypeClassInstance -> {
-                    val sf = tcExpr.type.lookupSymbol("get")
+                    val sf = tcType.lookupSymbol("get")
                     if (sf is SymbolFunction && sf.functions.size==1 && sf.functions[0].parameters.size==1 && sf.functions[0].parameters[0].type==TypeInt)
                         TstCall(location, sf.functions[0].function, listOf(tcIndex), tcExpr, sf.functions[0].returnType)
                     else
@@ -252,16 +259,16 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
             } else when (tcExpr.type) {
                 is TypeArray -> {
                     if (name== "size")
-                        TstMember(location, tcExpr, sizeField, TypeInt)
+                         TstMember(location, tcExpr, sizeField, TypeInt)
                     else
                         TstError(location, "Array does not have a field named '$name'")
                 }
 
-                is TypeFixedArray -> {
+                is TypeInlineArray -> {
                     if (name== "size")
                         TstIntLit(location, tcExpr.type.numElements, TypeInt)
                     else
-                        TstError(location, "FixedArray does not have a field named '$name'")
+                        TstError(location, "Inline array does not have a field named '$name'")
                 }
 
                 is TypeString -> {
@@ -360,27 +367,21 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
                     }
                     if (tcLambda!=null)
                         tcType.elementType.checkCompatibleWith(tcLambda.body)
-                    if (local && ! tcSize.isCompileTimeConstant())
-                        Log.error(location, "Array size must be a compile-time constant")
-                    TstNewArray(location, tcSize, tcLambda, local,tcType)
+                    if (kind==TokenKind.INLINE) {
+                        if (tcSize.isCompileTimeConstant())
+                            tcType = TypeInlineArray.create(tcType, tcSize.getIntegerConstant())
+                        else
+                            Log.error(location, "Array size must be a compile-time constant")
+                    }
+                    TstNewArray(location, tcSize, tcLambda, kind,tcType)
                 }
 
                 is TypeClassInstance -> {
                     checkParameters(location, tcType.constructor.parameters.map{it.type}, tcArgs)
-                    TstNewObject(location, tcArgs, tcType, local)
+                    TstNewObject(location, tcArgs, tcType, kind)
                 }
 
                 is TypeClassGeneric -> TstError(location, "Cannot create instance of generic class")
-
-                is TypeFixedArray -> {
-                    // The size argument will have already been parsed by resolveType. So check there are no additional arguments
-                    if (tcArgs.isNotEmpty())
-                        return TstError(location, "new FixedArray requires no arguments")
-                    val tcLambda = lambda?.typeCheckLambda(context, listOf(SymbolVar(location,"it", TypeInt, false)))
-                    if (tcLambda!=null)
-                        tcType.elementType.checkCompatibleWith(tcLambda.body)
-                    TstNewFixedArray(location, tcLambda, local,tcType)
-                }
 
                 else -> TstError(location, "Cannot create instance of type $tcType")
             }
@@ -397,7 +398,7 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
             if (elementType==TypeNothing)
                 Log.error(location,"Cannot determine type for array")
             tcInit.forEach { elementType.checkCompatibleWith(it) }
-            TstNewArrayInitializer(location, tcInit, local, TypeArray.create(elementType))
+            TstNewArrayInitializer(location, tcInit, kind, TypeArray.create(elementType))
         }
 
         is AstCast -> {
@@ -545,12 +546,14 @@ fun AstExpr.typeCheckLvalue(context:AstBlock) : TstExpr {
             if (tcExpr.type == TypeError) return tcExpr
             TypeInt.checkCompatibleWith(tcIndex)
 
-            when (tcExpr.type) {
-                is TypeArray -> TstIndex(location, tcExpr, tcIndex, tcExpr.type.elementType)
+            val tcType = tcExpr.type.dropInline()
+
+            when (tcType) {
+                is TypeArray -> TstIndex(location, tcExpr, tcIndex, tcType.elementType)
                 is TypeString -> TstIndex(location, tcExpr, tcIndex, TypeChar)
-                is TypeFixedArray -> TstIndex(location, tcExpr, tcIndex, tcExpr.type.elementType)
+
                 is TypeClassInstance -> {
-                    val sf = tcExpr.type.lookupSymbol("set")
+                    val sf = tcType.lookupSymbol("set")
                     if (sf is SymbolFunction && sf.functions.size == 1 && sf.functions[0].parameters.size == 2 && sf.functions[0].parameters[0].type == TypeInt) {
                         TstSetCall(location, sf.functions[0].function, listOf(tcIndex), tcExpr, sf.functions[0].parameters[1].type)
                     }
@@ -709,19 +712,6 @@ fun AstTypeExpr.resolveType(context:AstBlock) : Type = when(this) {
         val elementType = base.resolveType(context)
         TypeNullable.create(location, elementType)
     }
-
-    is AstTypeFixedArray -> {
-        val tcNumElements = numElements.typeCheckRvalue(context)
-        TypeInt.checkCompatibleWith(tcNumElements)
-        val numElementsInt = if (tcNumElements.isIntegerConstant())
-            tcNumElements.getIntegerConstant()
-        else {
-            Log.error(location, "Array size must be a compile-time constant")
-            0
-        }
-        val elementType = base.resolveType(context)
-        TypeFixedArray.create(numElementsInt, elementType)
-    }
 }
 
 // ================================================================
@@ -831,7 +821,6 @@ fun AstStmt.typeCheck(context:AstBlock) : TstStmt {
             val elementType = when (tcExpr.type) {
                 is TypeError -> TypeError
                 is TypeArray -> tcExpr.type.elementType
-                is TypeFixedArray -> tcExpr.type.elementType
                 is TypeRange -> tcExpr.type.elementType
                 is TypeString -> TypeChar
                 is TypeClassInstance -> {
@@ -1046,8 +1035,7 @@ private fun AstFunction.createFunctionSymbol(context:AstBlock) {
 
     val funcName = if (context is AstClass) context.name+"/"+name else name
     val paramTypeNames = paramSymbols.joinToString(prefix = "(", postfix = ")", separator = ",") {
-        it.type.name
-//        if (params.isVararg && it == paramSymbols.last()) (it.type as TypeArray).elementType.name + "..." else it.type.name
+        if (params.isVararg && it == paramSymbols.last()) (it.type as TypeArray).elementType.name + "..." else it.type.name
     }
 
     // Create the Function object to represent this function in the back end
@@ -1132,15 +1120,14 @@ private fun AstClass.createFieldSymbols(context: AstBlock) {
         val type = stmt.typeExpr?.resolveType(this) ?:
                    tcExpr?.type ?:
                    makeTypeError(location,"Cannot determine type for '${stmt.name}'")
-        val sym = when(stmt.kind) {
-            TokenKind.VAR -> SymbolField(stmt.location, stmt.name, type, true)
-            TokenKind.VAL -> SymbolField(stmt.location, stmt.name, type, false)
-            TokenKind.LOCAL -> SymbolEmbeddedField(stmt.location, stmt.name, type, true)
-            else -> error("Unknown declaration kind '${stmt.kind}'")
-        }
+        val mutable = stmt.kind==TokenKind.VAR
+        val sym = if (type.isInline())
+            SymbolEmbeddedField(stmt.location, stmt.name, type, mutable)
+        else
+            SymbolField(stmt.location, stmt.name, type, mutable)
         classType.addSymbol(sym)
-        if (sym is SymbolEmbeddedField && sym.type !is TypeFixedArray)
-            Log.error(stmt.location, "Embedded fields must be FixedArrays")
+//        if (sym is SymbolEmbeddedField && sym.type !is TypeFixedArray)
+//            Log.error(stmt.location, "Embedded fields must be FixedArrays")
         addSymbol(sym)
         if (tcExpr!=null) {
             sym.type.checkCompatibleWith(tcExpr)

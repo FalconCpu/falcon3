@@ -26,14 +26,15 @@ class TstReturn(location: Location, val expr: TstExpr?) : TstExpr(location, Type
 class TstBreak(location: Location) : TstExpr(location, TypeNothing)
 class TstContinue(location: Location) : TstExpr(location, TypeNothing)
 class TstMinus(location: Location, val expr: TstExpr, type:Type) : TstExpr(location,type)
+class TstBitwiseNot(location: Location, val expr: TstExpr, type:Type) : TstExpr(location,type)
 class TstIfExpr(location: Location, val cond: TstExpr, val thenExpr: TstExpr, val elseExpr: TstExpr, type:Type) : TstExpr(location,type)
 class TstRange(location: Location, val start: TstExpr, val end: TstExpr, val op:AluOp,type:Type) : TstExpr(location,type)
 class TstCall(location: Location, val func:Function, val args: List<TstExpr>, val thisArg: TstExpr?, type:Type) : TstExpr(location,type)
 class TstIndirectCall(location:Location, val expr:TstExpr, val args: List<TstExpr>, type:Type) : TstExpr(location,type)
-class TstNewArray(location: Location, val size: TstExpr, val initializer:TstLambda?, val local:Boolean, type:Type) : TstExpr(location,type)
-class TstNewArrayInitializer(location: Location, val initializer:List<TstExpr>, val local:Boolean, type:Type) : TstExpr(location,type)
-class TstNewFixedArray(location: Location, val initializer:TstLambda?, val local:Boolean, type:Type) : TstExpr(location,type)
-class TstNewObject(location: Location, val args:List<TstExpr>, type:TypeClassInstance, val local: Boolean) : TstExpr(location,type)
+class TstNewArray(location: Location, val size: TstExpr, val initializer:TstLambda?, val kind:TokenKind, type:Type) : TstExpr(location,type)
+class TstNewArrayInitializer(location: Location, val initializer:List<TstExpr>, val kind:TokenKind, type:Type) : TstExpr(location,type)
+//class TstNewFixedArray(location: Location, val initializer:TstLambda?, val local:Boolean, type:Type) : TstExpr(location,type)
+class TstNewObject(location: Location, val args:List<TstExpr>, type:TypeClassInstance, val kind:TokenKind) : TstExpr(location,type)
 class TstLambda(location: Location, val params: List<SymbolVar>, val body: TstExpr, type:Type) : TstExpr(location,type)
 class TstMethod(location: Location, val thisExpr:TstExpr, val func:SymbolFunction, type:Type) : TstExpr(location,type)
 class TstCast(location: Location, val expr: TstExpr, type:Type) : TstExpr(location,type)
@@ -328,16 +329,21 @@ fun Tst.prettyPrint(sb: StringBuilder, indent:Int) {
                 arg.prettyPrint(sb, indent+1)
         }
 
-        is TstNewFixedArray -> {
-            sb.append("new-fixed-array ($type)\n")
-            initializer?.prettyPrint(sb, indent+1)
-        }
+//        is TstNewFixedArray -> {
+//            sb.append("new-fixed-array ($type)\n")
+//            initializer?.prettyPrint(sb, indent+1)
+//        }
 
         is TstSetCall -> {
             sb.append("set-call  $func\n")
             thisArg.prettyPrint(sb, indent+1)
             for(arg in args)
                 arg.prettyPrint(sb, indent+1)
+        }
+
+        is TstBitwiseNot -> {
+            sb.append("bitwise-not\n")
+            expr.prettyPrint(sb, indent+1)
         }
     }
 }

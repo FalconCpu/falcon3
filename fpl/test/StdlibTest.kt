@@ -4,7 +4,7 @@ import java.io.FileReader
 import java.io.StringReader
 
 class StdLibTest {
-    private val stdlibFiles = listOf("stdlib/memory.fpl","stdlib/list.fpl","stdlib/printf.fpl")
+    private val stdlibFiles = listOf("stdlib/memory.fpl","stdlib/list.fpl","stdlib/printf.fpl", "stdlib/bitVector.fpl")
     private val stdLibAsm = listOf("Stdlib/start_stdlib.f32")
 
 
@@ -264,11 +264,40 @@ class StdLibTest {
         """.trimIndent()
 
         val expected = """
+            hello!
+                 hello!
+            hello     !
+            123!
+            00123!
+              123!
+            123  !
+            -456!
+            -0456!
+             -456!
+            -456 !
+            8AC!
+            008AC!
+              8AC!
+            8AC  !
+
         """.trimIndent()
 
         runTest(prog, expected)
     }
 
+    @Test
+    fun bitVector() {
+        val prog = """
+            fun main()
+                val bv = new BitVector(64)
+
+        """.trimIndent()
+
+        val expected = """
+        """.trimIndent()
+
+        runTest(prog, expected)
+    }
 
 
 

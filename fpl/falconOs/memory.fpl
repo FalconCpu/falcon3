@@ -21,7 +21,9 @@ const HEAP_START = 0x1000
 const HEAP_END   = 0x10000
 
 const ERR_OUT_OF_MEMORY = 0xE01
-const ERR_DOUBLE_FREE = 0xE02
+const ERR_DOUBLE_FREE  = 0xE02
+const ERR_NULL_POINTER = 0xE03
+const ERR_INVALID_ARG  = 0xE04
 
 # FreeMemBlock
 # Blocks are always a multiple of 16 bytes in size - this means the lower 4 bits are always 0
@@ -168,3 +170,75 @@ fun dumpMemorySystem()
         p += size
     end while
 end fun
+
+
+
+# ###################################################################
+#                      Buddy allocator
+# ###################################################################
+# The buddy allocator is used to allocate large blocks of memory.
+# Blocks are always allocated power of 2 multiples of 4kB.
+#
+# Blocks are represented as Integers, with the The low 4 bits show
+# the size of the block as a power of 2 times 4kB (0=4k, 1=8k, 2=16k, ...)
+# and the upper 20 bits show the address of the block.
+#
+# The maximum size of a block is 2^15 * 4kB = 128MB.
+#
+# So for example a integer 0x12345003 represents a block of 32kB at address 0x12345000.
+
+# Keep a list of free blocks of each size:-
+var freeBlocks : FixedArray< List<Int> >(16)
+
+fun getBuddy(blk:Int) -> Int
+    val size = blk & 0xF
+    return blk ^ (0x1000<<size)
+
+fun mergeBuddy(blk:Int) -> Int
+    val size = blk & 0xF
+    val base = blk & ( 0xFFFFE000 << size)
+    return base | (size+1)
+
+fun freeBlock(b:Int)
+    var blk = b
+    # Look to see if the buddy is free - if so merge the two blocks to form a larger block and repeat
+    while freeBlocks[blk&0xF].remove( getBuddy(blk))
+        blk = mergeBuddy(blk)
+    freeBlocks[blk&0xF].add(blk)
+
+fun allocateBlock(logSize:Int) -> Int
+    # find the first block equal to or larger than the requested size
+    var slot = logSize
+    while freeBlocks[slot].isEmpty()
+        slot += 1
+        if slot=16 then abort ERR_OUT_OF_MEMORY
+
+    var blk = freeBlocks[slot].take()
+
+    # split blocks down until we get to the requested size
+    while (blk&0xF)>logSize
+        blk -= 1      # decrement -> cut the block in half
+        freeBlocks[blk&0xF].add(getBuddy(blk))
+
+    return blk
+
+fun initializeBuddyAllocator()
+    # Initialize the free block lists
+    freeBlocks = new FixedArray< List<Int> >(16){ new List<Int>() }
+    const startOfBuddyAllocator = 0x10000
+    const endOfBuddyAllocator = 0x20000
+#    const endOfBuddyAllocator = 0x3f80000
+    var blk = startOfBuddyAllocator
+    while blk < endOfBuddyAllocator
+        freeBlock(blk)
+        blk += 4096
+
+fun dumpBuddyAllocator()
+    kPrintString("Buddy allocator dump\n")
+    for i in 0..<16
+        kPrintString("Size=")
+        kPrintInt2(i)
+        kPrintString(" ")
+        for blk in freeBlocks[i]
+            kPrintHex8(blk)
+            kPrintString(" ")

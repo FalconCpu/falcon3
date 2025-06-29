@@ -221,7 +221,7 @@ always_comb begin
 
         `OP_LD:     p3_alu_out = p3_data_b;
         `OP_LDPC:   p3_alu_out = branch_target;
-        default:    begin end
+        default:    p3_alu_out = 32'hx;
     endcase
 
     if (stall || p4_jump_taken) begin
@@ -237,7 +237,7 @@ always_comb begin
     // nullify this instruction if the previous one is a jump
     if (p4_jump_taken) begin
         p3_request = 0;
-        p3_alu_out = 32'h51515151;
+        p3_alu_out = 32'hx;
         p3_jump_taken = 0;
         p3_misaligned_address = 0;
     end

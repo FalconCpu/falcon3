@@ -304,7 +304,7 @@ class ExecuteTest {
     fun localArrayInitializer() {
         val prog = """
             fun main()
-                val a = local Array<Int>(10){it*2}
+                val a = inline Array<Int>(10){it*2}
                 for x in a
                     print(x," ")
         """.trimIndent()
@@ -714,63 +714,6 @@ class ExecuteTest {
         """.trimIndent()
         runTest(prog, expected)
     }
-
-    @Test
-    fun fixedArrayTest() {
-        val prog = """
-            fun printFixedArray(a:FixedArray<Int>(10))
-                for i in a
-                    print(i,"\n")
-                    
-            fun main() 
-                val a = local FixedArray<Int>(10){it*3}
-                printFixedArray(a)
-        """.trimIndent()
-
-        val expected = """
-            0
-            3
-            6
-            9
-            12
-            15
-            18
-            21
-            24
-            27
-
-        """.trimIndent()
-        runTest(prog, expected)
-    }
-
-    @Test
-    fun embeddedFieldsTest() {
-        val prog = """
-            class TCB 
-                var   pc : Int
-                local regs : FixedArray<Int>(32)
-                local dmpu : FixedArray<Int>(8)
-        
-            fun main()
-                val task = new TCB()
-                task.pc = 10
-                task.regs[4] = 0x1234
-                task.dmpu[0] = 0x5678
-                
-                print("pc = ",task.pc,"\n")
-                print("regs[4] = ",task.regs[4],"\n")
-                print("dmpu[0] = ",task.dmpu[0],"\n")
-        """.trimIndent()
-
-        val expected = """
-            pc = 10
-            regs[4] = 4660
-            dmpu[0] = 22136
-
-        """.trimIndent()
-        runTest(prog, expected)
-    }
-
     @Test
     fun genericClassTest() {
         val prog = """

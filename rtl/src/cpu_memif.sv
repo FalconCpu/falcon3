@@ -4,37 +4,37 @@
 // Keep track of the CPU's memory requests
 
 module cpu_memif(
-    (* preserve_for_debug *)input logic clock,
+    input logic clock,
     input logic reset,
     input logic stall,
 
     // Drive the CPU Data bus
-    (* preserve_for_debug *)output logic        cpud_request,     // CPU requests a bus transaction. Asserts for one cycle.
-    (* preserve_for_debug *)output logic [31:0] cpud_addr,        // Address of data to read/write
-    (* preserve_for_debug *)output logic        cpud_write,       // 1 = write, 0 = read
-    (* preserve_for_debug *)output logic [3:0]  cpud_byte_enable, // For a write, which bytes to write.
-    (* preserve_for_debug *)output logic [31:0] cpud_wdata,       // Data to write
-    (* preserve_for_debug *)input  logic [31:0] cpud_rdata,       // Data read from memory
-    (* preserve_for_debug *)input  logic        cpud_ack,         // Memory has responded to the request.
+    output logic        cpud_request,     // CPU requests a bus transaction. Asserts for one cycle.
+    output logic [31:0] cpud_addr,        // Address of data to read/write
+    output logic        cpud_write,       // 1 = write, 0 = read
+    output logic [3:0]  cpud_byte_enable, // For a write, which bytes to write.
+    output logic [31:0] cpud_wdata,       // Data to write
+    input  logic [31:0] cpud_rdata,       // Data read from memory
+    input  logic        cpud_ack,         // Memory has responded to the request.
 
     // Connections to the Execute stage
-    (* preserve_for_debug *)input  logic        p3_request,       // CPU requests a bus transaction. Asserts for one cycle.
-    (* preserve_for_debug *)input  logic [31:0] p3_addr,          // Address of data to read/write
-    (* preserve_for_debug *)input  logic        p3_write,         // 1 = write, 0 = read
-    (* preserve_for_debug *)input  logic [3:0]  p3_byte_enable,   // For a write, which bytes to write.
-    (* preserve_for_debug *)input  logic [31:0] p3_wdata,         // Data to write
-    (* preserve_for_debug *)input  logic [1:0]  p3_size,          // 00 = byte, 01 = halfword, 10 = word
-    (* preserve_for_debug *)input  logic        p3_misaligned_address,    
-    (* preserve_for_debug *)input  logic        p3_access_deny,
+    input  logic        p3_request,       // CPU requests a bus transaction. Asserts for one cycle.
+    input  logic [31:0] p3_addr,          // Address of data to read/write
+    input  logic        p3_write,         // 1 = write, 0 = read
+    input  logic [3:0]  p3_byte_enable,   // For a write, which bytes to write.
+    input  logic [31:0] p3_wdata,         // Data to write
+    input  logic [1:0]  p3_size,          // 00 = byte, 01 = halfword, 10 = word
+    input  logic        p3_misaligned_address,    
+    input  logic        p3_access_deny,
 
     // output signals to cpu_completion stage
-    (* preserve_for_debug *)output logic        p4_write_pending,
-    (* preserve_for_debug *)output logic        p4_read_pending, 
-    (* preserve_for_debug *)output logic        p4_misaligned_address,
-    (* preserve_for_debug *)output logic        p4_load_access_fault,
-    (* preserve_for_debug *)output logic        p4_store_access_fault,
-    (* preserve_for_debug *)output logic [31:0] p4_mem_rdata,
-    (* preserve_for_debug *)output logic [31:0] p4_mem_addr
+    output logic        p4_write_pending,
+    output logic        p4_read_pending, 
+    output logic        p4_misaligned_address,
+    output logic        p4_load_access_fault,
+    output logic        p4_store_access_fault,
+    output logic [31:0] p4_mem_rdata,
+    output logic [31:0] p4_mem_addr
 );  
 
 logic        next_cpud_request;     // CPU requests a bus transaction. Asserts for one cycle.
@@ -46,15 +46,15 @@ logic [31:0] next_cpud_wdata;       // Data to write
 
 
 
-(* preserve_for_debug *) logic        p4_write_pending_d, p4_write_pending_q;
-(* preserve_for_debug *) logic        p4_read_pending_d,  p4_read_pending_q;
-(* preserve_for_debug *) logic [1:0]  read_size, read_size_d;
-(* preserve_for_debug *) logic [1:0]  addr_lsb_d, addr_lsb_q;
-(* preserve_for_debug *) logic [31:0] p4_mem_rdata_d;
-(* preserve_for_debug *) logic [31:0] p4_mem_addr_d;
-(* preserve_for_debug *) logic        p3_load_access_fault, p3_store_access_fault;
+ logic        p4_write_pending_d, p4_write_pending_q;
+ logic        p4_read_pending_d,  p4_read_pending_q;
+ logic [1:0]  read_size, read_size_d;
+ logic [1:0]  addr_lsb_d, addr_lsb_q;
+ logic [31:0] p4_mem_rdata_d;
+ logic [31:0] p4_mem_addr_d;
+ logic        p3_load_access_fault, p3_store_access_fault;
 
-(* preserve_for_debug *)logic        qualified_request;
+logic        qualified_request;
 
 // synthesis translate_off
 integer fh;

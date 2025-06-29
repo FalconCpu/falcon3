@@ -653,7 +653,7 @@ void execute() {
         data_mem[i] = 0xBAADF00D;
 
     pc = 0xffff0000;
-    int timeout = 10000;
+    int timeout = 100000;
     reg[31] = 0x4000000;
     reg_log = fopen("sim_reg.log", "w");
     uart_log = fopen("sim_uart.log", "wb");

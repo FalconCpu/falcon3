@@ -1,5 +1,6 @@
 `timescale 1ns / 1ps
 
+
 // Module for the hardware registers
 //
 // This creates a 64kb block sitting at address 0xE0000000 in the CPU address space.
@@ -14,6 +15,18 @@
 // E0000018  GPIO0          W    32 bits of GPIO0
 // E000001C  GPIO1          W    32 bits of GPIO1
 // E0000020  GPIO1A         W    4  bits of GPIO1A
+// E0000024  VGA_ROW        R    Current row of the VGA display
+// E0000028  MOUSE_X        R    Current X position of the mouse
+// E000002C  MOUSE_Y        R    Current Y position of the mouse
+// E0000030  MOUSE_BTN      R    Current button state of the mouse
+// E0000034  BLIT_CMD       W    Command to the blitter, read=number of slots free in fifo
+// E0000038  BLIT_ARG1      W    First arg for blitter
+// E000003C  BLIT_ARG2      W    Second aeg for blitter
+// E0000040  BLIT_STATUS    R    Blitter Status register
+// E0001XXX  VGA            W    256 words of VGA registers (write only)
+
+// verilator lint_off PINCONNECTEMPTY
+
 
 module hwregs (
     input  logic clock,
@@ -28,6 +41,18 @@ module hwregs (
     output logic [31:0] cpud_rdata,       // Data read from memory
     output logic        cpud_ack,         // Memory has responded to the request.
 
+    // connections to the vga controller
+    output logic [8:0]  hwregs_vga_addr,
+    output logic [25:0] hwregs_vga_wdata,
+    output logic        hwregs_vga_select,
+    output logic [9:0]  mouse_x,
+    output logic [9:0]  mouse_y,
+
+    output logic [95:0] blit_cmd,
+    output logic        blit_cmd_valid,
+    input  logic [8:0]  blit_fifo_slots_free,
+    input  logic [31:0] blit_status,
+
     // Connections to the chip pins
     output logic [6:0]	HEX0,
 	output logic [6:0]	HEX1,
@@ -41,7 +66,11 @@ module hwregs (
     output logic        UART_TX,
     input  logic        UART_RX,
     output logic [31:0] GPIO_0,
-    output logic [35:0] GPIO_1
+    output logic [35:0] GPIO_1,
+    inout               PS2_CLK,
+    inout               PS2_DAT,
+
+    input  logic [9:0]  vga_row
 );
 
 logic [23:0] seven_seg;
@@ -53,17 +82,22 @@ logic [7:0]  fifo_rx_data;
 logic        fifo_rx_not_empty;
 logic [7:0]  uart_rx_data;
 logic        uart_rx_complete;
+logic [2:0] mouse_buttons;
+
 
 // synthesis translate_off
 integer fh;
 initial 
    fh =  $fopen("rtl_uart.log", "w");
-
 // synthesis translate_on
 
 always_ff @(posedge clock) begin
     cpud_ack <= cpud_request;
     cpud_rdata <= 32'b0;
+    hwregs_vga_addr <= cpud_addr[10:2];
+    hwregs_vga_wdata <= cpud_wdata[25:0];
+    hwregs_vga_select <= cpud_request && cpud_write && cpud_addr[15:12] == 4'h1;
+    blit_cmd_valid <= 1'b0;
 
     if (cpud_request && cpud_write) begin
         // Write to hardware registers
@@ -103,6 +137,18 @@ always_ff @(posedge clock) begin
             16'h0020: begin
                 if (cpud_byte_enable[0])  GPIO_1[35:32] <= cpud_wdata[3:0];
             end
+
+            16'h0034: begin
+                blit_cmd[31:0] <= cpud_wdata;
+                blit_cmd_valid <= 1;
+            end
+
+            16'h0038: blit_cmd[63:32] <= cpud_wdata;
+
+            16'h003C: blit_cmd[95:64] <= cpud_wdata;
+
+
+            default: begin end
         endcase
 
     end else if (cpud_request && !cpud_write) begin
@@ -114,6 +160,15 @@ always_ff @(posedge clock) begin
             16'h000C: cpud_rdata <= {28'b0, KEY};
             16'h0010: cpud_rdata <= {22'b0, fifo_tx_slots_free};
             16'h0014: cpud_rdata <= fifo_rx_not_empty ? {24'b0, fifo_rx_data} : 32'hffffffff;
+            16'h0024: cpud_rdata <= {22'b0, vga_row};
+            16'h0028: cpud_rdata <= {22'b0, mouse_x};
+            16'h002C: cpud_rdata <= {22'b0, mouse_y};
+            16'h0030: cpud_rdata <= {29'b0, mouse_buttons};
+            16'h0034: cpud_rdata <= {23'b0, blit_fifo_slots_free};
+            16'h0038: cpud_rdata <= {blit_cmd[63:32]};
+            16'h003C: cpud_rdata <= {blit_cmd[95:64]};
+            16'h0040: cpud_rdata <= blit_status;
+            default:  cpud_rdata <= 32'bx;
         endcase
     end
 
@@ -172,5 +227,14 @@ byte_fifo  uart_rx_fifo (
     .not_empty(fifo_rx_not_empty)
   );
 
+mouse_interface  mouse_interface_inst (
+    .clock(clock),
+    .reset(reset),
+    .PS2_CLK(PS2_CLK),
+    .PS2_DAT(PS2_DAT),
+    .mouse_x(mouse_x),
+    .mouse_y(mouse_y),
+    .mouse_buttons(mouse_buttons)
+  );  
 
 endmodule

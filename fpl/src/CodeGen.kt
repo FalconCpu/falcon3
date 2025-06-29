@@ -14,34 +14,36 @@ fun TstExpr.codeGenRvalue() : Reg {
         is TstBinop -> {
             val lhsReg = lhs.codeGenRvalue()
             val rhsReg = rhs.codeGenRvalue()
-            when(op) {
+            when (op) {
                 AluOp.ADD_I,
                 AluOp.SUB_I,
                 AluOp.MUL_I,
                 AluOp.DIV_I,
                 AluOp.MOD_I,
                 AluOp.AND_I,
-                AluOp.OR_I ,
+                AluOp.OR_I,
                 AluOp.XOR_I,
                 AluOp.SHL_I,
                 AluOp.SHR_I,
-                AluOp.EQ_I ,
+                AluOp.EQ_I,
                 AluOp.NEQ_I,
-                AluOp.LT_I ,
-                AluOp.GT_I ,
+                AluOp.LT_I,
+                AluOp.GT_I,
                 AluOp.LTE_I,
                 AluOp.GTE_I -> currentFunc.addAlu(op, lhsReg, rhsReg)
+
                 AluOp.ADD_R,
                 AluOp.SUB_R,
                 AluOp.MUL_R,
                 AluOp.DIV_R,
                 AluOp.MOD_R,
-                AluOp.EQ_R ,
+                AluOp.EQ_R,
                 AluOp.NEQ_R,
-                AluOp.LT_R ,
-                AluOp.GT_R ,
+                AluOp.LT_R,
+                AluOp.GT_R,
                 AluOp.LTE_R,
                 AluOp.GTE_R -> TODO("Floating point")
+
                 AluOp.EQ_S -> {
                     currentFunc.addMov(allMachineRegs[1], lhsReg)
                     currentFunc.addMov(allMachineRegs[2], rhsReg)
@@ -66,12 +68,12 @@ fun TstExpr.codeGenRvalue() : Reg {
 
         is TstCall -> {
             val argReg = evaluateArgs(args, func.isVararg, func.parameters.map { it.type })
-            val thisReg : Reg?
-            val thisType : Type ?
-            if (thisArg!=null) {
+            val thisReg: Reg?
+            val thisType: Type?
+            if (thisArg != null) {
                 thisReg = thisArg.codeGenRvalue()
                 thisType = thisArg.type
-            } else if (currentFunc.thisSymbol!=null) {
+            } else if (currentFunc.thisSymbol != null) {
                 thisReg = currentFunc.getVar(currentFunc.thisSymbol!!)
                 thisType = currentFunc.thisSymbol!!.type
             } else {
@@ -87,10 +89,7 @@ fun TstExpr.codeGenRvalue() : Reg {
         is TstIndex -> {
             val exprReg = expr.codeGenRvalue()
             val indexReg = index.codeGenRvalue()
-            val lengthReg = if (expr.type is TypeFixedArray)
-                    currentFunc.addMov(expr.type.numElements)
-                else
-                    currentFunc.addLoadMem(exprReg, sizeField)
+            val lengthReg = currentFunc.addLoadMem(exprReg, sizeField)
             val size = type.sizeInBytes()
             val indexScaled = currentFunc.addIndexOp(size, indexReg, lengthReg)
             val indexAdded = currentFunc.addAlu(AluOp.ADD_I, exprReg, indexScaled)
@@ -100,16 +99,17 @@ fun TstExpr.codeGenRvalue() : Reg {
         is TstAnd -> TODO()
 
         is TstBreak -> {
-            assert(breakLabel!=null) {"Internal error - got break outside a loop"}
+            assert(breakLabel != null) { "Internal error - got break outside a loop" }
             currentFunc.addJump(breakLabel!!)
             regZero  // dummy return value
         }
 
         is TstContinue -> {
-            assert(continueLabel!=null) {"Internal error - got continue outside a loop"}
+            assert(continueLabel != null) { "Internal error - got continue outside a loop" }
             currentFunc.addJump(continueLabel!!)
             regZero   // dummy return value
         }
+
         is TstError -> TODO()
         is TstFunctionName -> {
             currentFunc.addLea(ValueFunctionName(symbol))
@@ -153,7 +153,7 @@ fun TstExpr.codeGenRvalue() : Reg {
         is TstReallit -> TODO()
 
         is TstReturn -> {
-            if (expr!=null)
+            if (expr != null)
                 currentFunc.addMov(regResult, expr.codeGenRvalue())
             currentFunc.addJump(currentFunc.retLabel)
             regZero   // return value is not used, but we need a value.
@@ -162,67 +162,76 @@ fun TstExpr.codeGenRvalue() : Reg {
         is TstStringlit -> currentFunc.addLea(ValueString.create(value, TypeString))
 
         is TstNewArray -> {
-            require(type is TypeArray)
-            if (local) {
-                require(size is TstIntLit)
-                val numElements = size.value
-                val numElementsReg = currentFunc.addMov(numElements)
-                val elementSize = type.elementType.sizeInBytes()
-                val sizeRounded = (numElements * elementSize + 3) and -4  // round up to nearest 4 bytes
-                val stackOffset = currentFunc.stackAlloc(sizeRounded+4)   // +4 to allow for size field
-                val ret = currentFunc.addAlu(AluOp.ADD_I, allMachineRegs[31], stackOffset+4)
-                currentFunc.addStoreMem(numElementsReg, ret, sizeField)
-                if (initializer==null)
-                    clearMem(ret, sizeRounded)
-                else
-                    initializeArray(ret, initializer, elementSize, numElementsReg)
-                ret
-            } else {
+            when (type) {
+                is TypeInlineArray -> {
+                    TODO("Inlime arrays as rvalue")
+                //                    val numElements = type.
+//
+//                    val numElementsReg = currentFunc.addMov(numElements)
+//                    val elementSize = type.elementType.sizeInBytes()
+//                    val sizeRounded = (numElements * elementSize + 3) and -4  // round up to nearest 4 bytes
+//                    val stackOffset = currentFunc.stackAlloc(sizeRounded + 4)   // +4 to allow for size field
+//                    val ret = currentFunc.addAlu(AluOp.ADD_I, allMachineRegs[31], stackOffset + 4)
+//                currentFunc.addStoreMem(numElementsReg, ret, sizeField)
+//                    if (initializer == null)
+//                    clearMem(ret
+//
+//                    , sizeRounded)
+//                else
+//                    initializeArray
+//
+//                (ret, initializer, elementSize, numElementsReg)
+//                    ret
+            }
+            is TypeArray -> {
                 val numElementsReg = size.codeGenRvalue()
                 val elementSize = type.elementType.sizeInBytes()
                 val elementSizeReg = currentFunc.addMov(elementSize)
-                val clearMemReg = currentFunc.addMov(if (initializer==null) 1 else 0)
+                val clearMemReg = currentFunc.addMov(if (initializer == null) 1 else 0)
                 val args = listOf(numElementsReg, elementSizeReg, clearMemReg)
                 val ret = currentFunc.addCall(Stdlib.mallocArray, args)
-                if (initializer!=null)
+                if (initializer != null)
                     initializeArray(ret, initializer, elementSize, numElementsReg)
                 ret
             }
-        }
 
-        is TstNewFixedArray -> {
-            require(type is TypeFixedArray)
-            val numElements = type.numElements
-            val elementSize = type.elementType.sizeInBytes()
-            if (local) {
-                // Allocating on the stack
-                val sizeRounded = (numElements * elementSize + 3) and -4  // round up to nearest 4 bytes
-                val stackOffset = currentFunc.stackAlloc(sizeRounded)
-                val ret = currentFunc.addAlu(AluOp.ADD_I, allMachineRegs[31], stackOffset)
-                if (initializer==null)
-                    clearMem(ret, sizeRounded)
-                else
-                    initializeArray(ret, initializer, elementSize, numElements)
-                ret
-            } else {
-                // Slightly wasteful - but when we allocate on the heap - for now just allocate a regular array.
-                // We could save the 4 bytes for the header - but that would mean replicating all the code for mallocArray
-                // in the stdlib.
-                val elementSizeReg = currentFunc.addMov(elementSize)
-                val numElementsReg = currentFunc.addMov(numElements)
-                val clearMemReg = currentFunc.addMov(if (initializer==null) 1 else 0)
-                val args = listOf(numElementsReg, elementSizeReg, clearMemReg)
-                val ret = currentFunc.addCall(Stdlib.mallocArray, args)
-                if (initializer!=null)
-                    initializeArray(ret, initializer, elementSize, numElements)
-                ret
-            }
+            else -> error("Internal error - unknown array type: $type")
         }
+    }
+
+//        is TstNewFixedArray -> {
+//            require(type is TypeFixedArray)
+//            val numElements = type.numElements
+//            val elementSize = type.elementType.sizeInBytes()
+//            if (local) {
+//                // Allocating on the stack
+//                val sizeRounded = (numElements * elementSize + 3) and -4  // round up to nearest 4 bytes
+//                val stackOffset = currentFunc.stackAlloc(sizeRounded)
+//                val ret = currentFunc.addAlu(AluOp.ADD_I, allMachineRegs[31], stackOffset)
+//                if (initializer==null)
+//                    clearMem(ret, sizeRounded)
+//                else
+//                    initializeArray(ret, initializer, elementSize, numElements)
+//                ret
+//            } else {
+//                // Slightly wasteful - but when we allocate on the heap - for now just allocate a regular array.
+//                // We could save the 4 bytes for the header - but that would mean replicating all the code for mallocArray
+//                // in the stdlib.
+//                val elementSizeReg = currentFunc.addMov(elementSize)
+//                val numElementsReg = currentFunc.addMov(numElements)
+//                val clearMemReg = currentFunc.addMov(if (initializer==null) 1 else 0)
+//                val args = listOf(numElementsReg, elementSizeReg, clearMemReg)
+//                val ret = currentFunc.addCall(Stdlib.mallocArray, args)
+//                if (initializer!=null)
+//                    initializeArray(ret, initializer, elementSize, numElements)
+//                ret
+//            }
+//        }
 
 
         is TstNewArrayInitializer -> {
             val elementSize = (type as TypeArray).elementType.sizeInBytes()
-            val ret = if (local) {
+            val ret = if (kind==TokenKind.INLINE) {
                 val reqSize = initializer.size * elementSize + 4
                 val offset = currentFunc.stackAlloc(reqSize)
                 val numElementsReg = currentFunc.addMov(initializer.size)
@@ -244,7 +253,7 @@ fun TstExpr.codeGenRvalue() : Reg {
             body.codeGenRvalue()
 
         is TstNewObject -> {
-            if (local) {
+            if (kind==TokenKind.INLINE) {
                 TODO("Stack allocated objects not yet implemented")
             } else {
                 val classType = type as TypeClassInstance
@@ -276,6 +285,11 @@ fun TstExpr.codeGenRvalue() : Reg {
 
         is TstIndirectCall -> TODO()
         is TstSetCall -> error("Set calls should not appear as rvalues")
+
+        is TstBitwiseNot -> {
+            val exprReg = expr.codeGenRvalue()
+            currentFunc.addAlu(AluOp.XOR_I, exprReg, -1)
+        }
     }
 }
 
@@ -392,12 +406,10 @@ fun TstExpr.codeGenLvalue(value:Reg, op:AluOp)  {
         }
 
         is TstIndex -> {
+            require(expr.type is TypeArray)
             val exprReg = expr.codeGenRvalue()
             val indexReg = index.codeGenRvalue()
-            val lengthReg = if (expr.type is TypeFixedArray)
-                currentFunc.addMov(expr.type.numElements)
-            else
-                currentFunc.addLoadMem(exprReg, sizeField)
+            val lengthReg =  currentFunc.addLoadMem(exprReg, sizeField)
             val size = type.sizeInBytes()
             val indexScaled = currentFunc.addIndexOp(size, indexReg, lengthReg)
             val indexAdded = currentFunc.addAlu(AluOp.ADD_I, exprReg, indexScaled)
@@ -445,6 +457,24 @@ fun TstExpr.codeGenLvalue(value:Reg, op:AluOp)  {
         else -> error("Malformed TST: Has assignment to $this")
     }
 }
+
+// ================================================================
+//                  Code Gen Lvalue Inline
+// ================================================================
+// For inline assignements - calcluate the address of the destination
+// and evaluate the RHS into it.
+
+fun TstExpr.codeGenLvalueInline(value:Reg) : Reg  {
+    when(this) {
+        is TstVariable -> {
+            require(symbol in Sym)
+            return currentFunc.getVar(symbol)
+        }
+
+        else -> TODO("Inline Assignment to $this")
+    }
+}
+
 
 // ================================================================
 //                         genCodeBranch
@@ -652,19 +682,15 @@ fun TstStmt.codeGen()  {
                 breakLabel = oldBreakLabel
                 continueLabel = oldContinueLabel
 
-            } else if (expr.type is TypeArray || expr.type is TypeString || expr.type is TypeFixedArray) {
+            } else if (expr.type is TypeArray || expr.type is TypeString) {
                 // calculate the range we need to iterate over
                 val elementSize = when (expr.type) {
                     is TypeArray -> expr.type.elementType.sizeInBytes()
-                    is TypeFixedArray -> expr.type.elementType.sizeInBytes()
                     is TypeString -> 1
                     else -> error("Invalid type for array")
                 }
                 val regArray = expr.codeGenRvalue()
-                val regNumElements = if (expr.type is TypeFixedArray)
-                    currentFunc.addMov(expr.type.numElements)
-                else
-                    currentFunc.addLoadMem(regArray, sizeField)
+                val regNumElements = currentFunc.addLoadMem(regArray, sizeField)
                 val scaledNumElements = currentFunc.addAlu(AluOp.MUL_I, regNumElements, elementSize)
                 val endPointer = currentFunc.addAlu(AluOp.ADD_I, regArray, scaledNumElements)
                 val regIterator = currentFunc.newVar()      // Needs to be a var not a temp, so that we can mutate it

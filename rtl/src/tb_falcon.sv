@@ -119,7 +119,7 @@ micron_sdram  micron_sdram_inst (
 initial begin
     $dumpfile("dump.vcd");
     $dumpvars(0, tb_falcon);
-    # 2000000;
+    # 200000;
     $finish;
 end
 

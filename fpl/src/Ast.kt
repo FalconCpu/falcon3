@@ -21,10 +21,11 @@ class AstBreak(location: Location) : AstExpr(location)
 class AstContinue(location: Location) : AstExpr(location)
 class AstNot(location: Location, val expr: AstExpr) : AstExpr(location)
 class AstMinus(location: Location, val expr: AstExpr) : AstExpr(location)
+class AstBitwiseNot(location: Location, val expr: AstExpr) : AstExpr(location)
 class AstIfExpr(location: Location, val cond: AstExpr, val thenExpr: AstExpr, val elseExpr: AstExpr) : AstExpr(location)
 class AstRange(location: Location, val start: AstExpr, val end: AstExpr, val op:TokenKind) : AstExpr(location)
-class AstNew(location: Location, val type:AstTypeExpr, val args: List<AstExpr>, val lambda:AstLambda?, val local:Boolean) : AstExpr(location)
-class AstNewWithInitialiser(location: Location, val type:AstTypeExpr, val initializer: List<AstExpr>, val local:Boolean) : AstExpr(location)
+class AstNew(location: Location, val type:AstTypeExpr, val args: List<AstExpr>, val lambda:AstLambda?, val kind:TokenKind) : AstExpr(location)
+class AstNewWithInitialiser(location: Location, val type:AstTypeExpr, val initializer: List<AstExpr>, val kind:TokenKind) : AstExpr(location)
 class AstCast(location: Location, val expr:AstExpr, val typeExpr:AstTypeExpr) : AstExpr(location)
 class AstAbort(location: Location, val expr: AstExpr) : AstExpr(location)
 
@@ -38,7 +39,6 @@ sealed class AstTypeExpr(location: Location) : Ast(location)
 class AstTypeId(location: Location, val name:String, val astTypeArgs:List<AstTypeExpr>) : AstTypeExpr(location)
 class AstTypeArray(location: Location, val base: AstTypeExpr?) : AstTypeExpr(location)
 class AstTypeRange(location: Location, val base: AstTypeExpr) : AstTypeExpr(location)
-class AstTypeFixedArray(location: Location, val numElements:AstExpr, val base: AstTypeExpr) : AstTypeExpr(location)
 class AstTypeNullable(location: Location, val base: AstTypeExpr) : AstTypeExpr(location)
 
 // ================================================
@@ -280,7 +280,7 @@ fun Ast.prettyPrint(sb: StringBuilder, indent:Int) {
         }
 
         is AstNew -> {
-            sb.append("New $local\n")
+            sb.append("New $kind\n")
             type.prettyPrint(sb, indent+1)
             for (arg in args)
                 arg.prettyPrint(sb, indent+1)
@@ -288,7 +288,7 @@ fun Ast.prettyPrint(sb: StringBuilder, indent:Int) {
         }
 
         is AstNewWithInitialiser -> {
-            sb.append("New $local\n")
+            sb.append("New $kind\n")
             type.prettyPrint(sb, indent+1)
             for (arg in initializer)
                 arg.prettyPrint(sb, indent+1)
@@ -340,10 +340,9 @@ fun Ast.prettyPrint(sb: StringBuilder, indent:Int) {
                 field.prettyPrint(sb, indent+1)
         }
 
-        is AstTypeFixedArray -> {
-            sb.append("TypeFixedArray\n")
-            numElements.prettyPrint(sb, indent+1)
-            base.prettyPrint(sb, indent+1)
+        is AstBitwiseNot -> {
+            sb.append("BitwiseNot\n")
+            expr.prettyPrint(sb, indent+1)
         }
     }
 }

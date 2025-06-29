@@ -9,6 +9,7 @@ sealed class Symbol(val location: Location, val name:String, val type:Type, val 
         is SymbolField -> "FIELD:$name:$type"
         is SymbolConstant -> "CONST:$name:$type"
         is SymbolEmbeddedField -> "EMBED:$name:$type"
+        is SymbolInlineVar -> "INLINE:$name:$type"
     }
 }
 
@@ -23,6 +24,9 @@ class SymbolField(location: Location, name:String, type:Type, mutable: Boolean) 
 }
 class SymbolConstant(location: Location, name:String, type:Type, val value:Value) : Symbol(location, name, type, false)
 
+class SymbolInlineVar(location: Location, name:String, type:Type, mutable:Boolean) : Symbol(location, name, type, mutable) {
+    var offset = -1;
+}
 class SymbolEmbeddedField(location: Location, name:String, type:Type, mutable: Boolean) : Symbol(location, name, type, false) {
     var offset = -1;
 }
@@ -90,6 +94,7 @@ fun AstBlock.setParent(parent:AstBlock) {
         is SymbolGlobal -> this
         is SymbolTypeName -> TODO()
         is SymbolVar -> SymbolVar(location, name, type.substitute(map), mutable)
+        is SymbolInlineVar -> SymbolInlineVar(location, name, type.substitute(map), mutable)
     }
 }
 
