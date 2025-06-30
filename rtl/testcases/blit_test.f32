@@ -1,0 +1,107 @@
+HWREGS_BASE = 0xE0000000
+HWREGS_MOUSE_X  = 0x0028
+HWREGS_MOUSE_Y = 0x002C
+HWREGS_MOUSE_BTN = 0x0030
+HWREGS_BLIT_CMD = 0x0034
+HWREGS_BLIT_ARG1 = 0x0038
+HWREGS_BLIT_ARG2 = 0x003C
+
+
+BLIT_NOP        = 0x00       
+BLIT_SET_DEST   = 0x01       # arg1=bitmap addr, arg2=bytes per line
+BLIT_SET_CLIP   = 0x02       # arg1=y1/x1, arg2=y2/x2
+BLIT_SET_OFFSET = 0x03       # arg1=y/x
+BLIT_SET_COLOR  = 0x04       # arg1=foreground, arg2=background
+BLIT_RECT       = 0x05       # arg1=y1/x1, arg2=y2/x2
+BLIT_LINE       = 0x06       # arg1=y1/x1, arg2=y2/x2
+
+VGA_LAYERS_BASE = 0xE0001000
+VGA_LAYER0_ADDR = 0x00000000
+VGA_LAYER0_X1   = 0x00000004   
+VGA_LAYER0_Y1   = 0x00000008
+VGA_LAYER0_X2   = 0x0000000C
+VGA_LAYER0_Y2   = 0x00000010
+VGA_LAYER0_BPL  = 0x00000014
+VGA_LAYER0_BPP  = 0x00000018
+
+start:
+
+# create layer0 covering the whole screen
+ld $1, VGA_LAYERS_BASE
+ld $2, 0x3f80000    # start of display memory
+stw $2, $1[VGA_LAYER0_ADDR]
+stw 0, $1[VGA_LAYER0_X1]
+stw 0, $1[VGA_LAYER0_Y1]
+ld $2, 640
+stw $2, $1[VGA_LAYER0_BPL]
+stw $2, $1[VGA_LAYER0_X2]
+ld $2, 480
+stw $2, $1[VGA_LAYER0_Y2]
+ld $2,1
+stw $2, $1[VGA_LAYER0_BPP]
+
+
+# setup the blitter
+ld $6, HWREGS_BASE
+ld $1, BLIT_SET_DEST
+ld $2, 0x3f80000
+ld $3, 640
+stw $2, $6[HWREGS_BLIT_ARG1]
+stw $3, $6[HWREGS_BLIT_ARG2]
+stw $1, $6[HWREGS_BLIT_CMD]
+
+ld $1, BLIT_SET_CLIP
+ld $2, 0x0
+ld $3, 0x01E00280               # 480:640 in hex
+stw $2, $6[HWREGS_BLIT_ARG1]
+stw $3, $6[HWREGS_BLIT_ARG2]
+stw $1, $6[HWREGS_BLIT_CMD]
+
+ld $1, BLIT_SET_COLOR
+ld $2, 31
+ld $3, 0
+stw $2, $6[HWREGS_BLIT_ARG1]
+stw $3, $6[HWREGS_BLIT_ARG2]
+stw $1, $6[HWREGS_BLIT_CMD]
+
+ld $1, BLIT_SET_OFFSET
+ld $2, 0
+ld $3, 0
+stw $2, $6[HWREGS_BLIT_ARG1]
+stw $3, $6[HWREGS_BLIT_ARG2]
+stw $1, $6[HWREGS_BLIT_CMD]
+
+
+ld $1, BLIT_RECT
+ld $2, 0x00100020
+ld $3, 0x00300040
+stw $2, $6[HWREGS_BLIT_ARG1]
+stw $3, $6[HWREGS_BLIT_ARG2]
+stw $1, $6[HWREGS_BLIT_CMD]
+
+ld $12, 0                   # $12 cycle through the colors
+blit_line:
+
+ld $1, BLIT_SET_COLOR
+stw $12, $6[HWREGS_BLIT_ARG1]
+stw 0,   $6[HWREGS_BLIT_ARG2]
+stw $1,  $6[HWREGS_BLIT_CMD]
+add $12, 1
+
+ld $7, HWREGS_BASE
+ldw $2, $7[HWREGS_MOUSE_X]
+ldw $3, $7[HWREGS_MOUSE_Y]
+lsl $3, 16
+or $3, $2
+stw $3, $6[HWREGS_BLIT_ARG1]
+ld $3, 0x00F00140               # 320:240 in hex - center of screen
+stw $3, $6[HWREGS_BLIT_ARG2]
+ld $1, BLIT_LINE
+stw $1, $6[HWREGS_BLIT_CMD]
+
+ld $1, 1000000
+wait1:
+sub $1, 1
+bne $1, 0, wait1
+
+jmp blit_line

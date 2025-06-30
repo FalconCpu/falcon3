@@ -50,7 +50,20 @@ module sdram_arbiter(
     output  logic        bus3_ack,
     output  logic [31:0] bus3_rdata,
     output  logic        bus3_rdvalid,
-    output  logic        bus3_complete
+    output  logic        bus3_complete,
+
+    // Bus master 4
+    input   logic        bus4_request,
+    input   logic [25:0] bus4_addr,
+    input   logic        bus4_write,
+    input   logic        bus4_burst,
+    input   logic [3:0]  bus4_byte_enable,
+    input   logic [31:0] bus4_wdata,
+    output  logic        bus4_ack,
+    output  logic [31:0] bus4_rdata,
+    output  logic        bus4_rdvalid,
+    output  logic        bus4_complete
+
 );
 
 logic [2:0]  bus_master, bus_master_q;
@@ -70,24 +83,31 @@ always_comb begin
             bus_master = 2;
         else if (bus3_request) 
             bus_master = 3;
+        else if (bus4_request) 
+            bus_master = 4;
     end
 
     sdram_req = bus_master;
     sdram_addr =  bus_master==1 ? bus1_addr :
                   bus_master==2 ? bus2_addr :
-                  bus_master==3 ? bus3_addr : 26'bx;
+                  bus_master==3 ? bus3_addr : 
+                  bus_master==4 ? bus4_addr : 26'bx;
     sdram_write = bus_master==1 ? bus1_write :
                   bus_master==2 ? bus2_write :
-                  bus_master==3 ? bus3_write : 1'bx;
+                  bus_master==3 ? bus3_write :
+                  bus_master==4 ? bus4_write : 1'bx;
     sdram_byte_enable = bus_master==1 ? bus1_byte_enable :
                   bus_master==2 ? bus2_byte_enable :
-                  bus_master==3 ? bus3_byte_enable : 4'bx;
+                  bus_master==3 ? bus3_byte_enable : 
+                  bus_master==4 ? bus4_byte_enable : 4'bx;
     sdram_wdata = bus_master==1 ? bus1_wdata :
                   bus_master==2 ? bus2_wdata :
-                  bus_master==3 ? bus3_wdata : 32'bx;
+                  bus_master==3 ? bus3_wdata : 
+                  bus_master==4 ? bus4_wdata : 32'bx;
     sdram_burst = bus_master==1 ? bus1_burst :
                   bus_master==2 ? bus2_burst :
-                  bus_master==3 ? bus3_burst : 1'bx;
+                  bus_master==3 ? bus3_burst :
+                  bus_master==4 ? bus4_burst : 1'bx;
 
     // Pass data from the SDRAM controller to the bus master
     bus1_rdvalid = (sdram_rdvalid==1);
@@ -99,12 +119,15 @@ always_comb begin
     bus3_rdvalid = (sdram_rdvalid==3);
     bus3_rdata = bus3_rdvalid ? sdram_rdata : 32'bx;
     bus3_complete = sdram_complete && bus3_rdvalid;
-
+    bus4_rdvalid = (sdram_rdvalid==4);
+    bus4_rdata = bus4_rdvalid ? sdram_rdata : 32'bx;
+    bus4_complete = sdram_complete && bus4_rdvalid;
 
     // Pass on the ack from the bus master to the SDRAM controller
     bus1_ack = (bus_master==1) ? sdram_ack : 1'b0;
     bus2_ack = (bus_master==2) ? sdram_ack : 1'b0;
     bus3_ack = (bus_master==3) ? sdram_ack : 1'b0;
+    bus4_ack = (bus_master==4) ? sdram_ack : 1'b0;
 
     if (sdram_ack || reset)    
         bus_master = 0;

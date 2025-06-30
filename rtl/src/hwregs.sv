@@ -50,7 +50,7 @@ module hwregs (
 
     output logic [95:0] blit_cmd,
     output logic        blit_cmd_valid,
-    input  logic [8:0]  blit_fifo_slots_free,
+    input  logic [7:0]  blit_fifo_slots_free,
     input  logic [31:0] blit_status,
 
     // Connections to the chip pins
@@ -143,9 +143,19 @@ always_ff @(posedge clock) begin
                 blit_cmd_valid <= 1;
             end
 
-            16'h0038: blit_cmd[63:32] <= cpud_wdata;
+            16'h0038: begin
+                if (cpud_byte_enable[0])  blit_cmd[39:32] <= cpud_wdata[7:0];
+                if (cpud_byte_enable[1])  blit_cmd[47:40] <= cpud_wdata[15:8];
+                if (cpud_byte_enable[2])  blit_cmd[55:48] <= cpud_wdata[23:16];
+                if (cpud_byte_enable[3])  blit_cmd[63:56] <= cpud_wdata[31:24];
+            end
 
-            16'h003C: blit_cmd[95:64] <= cpud_wdata;
+            16'h003C: begin
+               if (cpud_byte_enable[0])  blit_cmd[71:64] <= cpud_wdata[7:0];
+               if (cpud_byte_enable[1])  blit_cmd[79:72] <= cpud_wdata[15:8];
+               if (cpud_byte_enable[2])  blit_cmd[87:80] <= cpud_wdata[23:16];
+               if (cpud_byte_enable[3])  blit_cmd[95:88] <= cpud_wdata[31:24];
+            end
 
 
             default: begin end
@@ -164,7 +174,7 @@ always_ff @(posedge clock) begin
             16'h0028: cpud_rdata <= {22'b0, mouse_x};
             16'h002C: cpud_rdata <= {22'b0, mouse_y};
             16'h0030: cpud_rdata <= {29'b0, mouse_buttons};
-            16'h0034: cpud_rdata <= {23'b0, blit_fifo_slots_free};
+            16'h0034: cpud_rdata <= {24'b0, blit_fifo_slots_free};
             16'h0038: cpud_rdata <= {blit_cmd[63:32]};
             16'h003C: cpud_rdata <= {blit_cmd[95:64]};
             16'h0040: cpud_rdata <= blit_status;

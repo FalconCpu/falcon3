@@ -1,0 +1,86 @@
+HWREGS_BASE = 0xE0000000
+HWREGS_BLIT_CMD   = 0x0034
+HWREGS_BLIT_ARG1  = 0x0038
+HWREGS_BLIT_ARG2  = 0x003C
+
+BLIT_SET_DEST     = 0x01
+BLIT_SET_CLIP     = 0x02
+BLIT_SET_OFFSET   = 0x03
+BLIT_SET_COLOR    = 0x04
+BLIT_SET_SRC      = 0x07
+BLIT_SRC_OFFSET   = 0x08
+BLIT_IMAGE        = 0x09
+
+VGA_LAYERS_BASE = 0xE0001000
+
+start:
+# === Set up framebuffer (VGA layer 0) ===
+ld $1, VGA_LAYERS_BASE
+ld $2, 0x3F80000
+stw $2, $1[0x00]     # ADDR
+stw 0,   $1[0x04]     # X1
+stw 0,   $1[0x08]     # Y1
+ld $2, 640
+stw $2, $1[0x0C]     # X2
+stw $2, $1[0x14]     # BPL
+ld $2, 480
+stw $2, $1[0x10]     # Y2
+ld $2, 1
+stw $2, $1[0x18]     # BPP
+
+# === Set up BLIT destination ===
+ld $6, HWREGS_BASE
+ld $1, BLIT_SET_DEST
+ld $2, 0x3F80000       # Framebuffer base
+ld $3, 640
+stw $2, $6[HWREGS_BLIT_ARG1]
+stw $3, $6[HWREGS_BLIT_ARG2]
+stw $1, $6[HWREGS_BLIT_CMD]
+
+# === Set CLIP region (full screen) ===
+ld $1, BLIT_SET_CLIP
+stw 0, $6[HWREGS_BLIT_ARG1]
+ld $2, 0x01E00280      # 480 << 16 | 640
+stw $2, $6[HWREGS_BLIT_ARG2]
+stw $1, $6[HWREGS_BLIT_CMD]
+
+# === Set source image ===
+ld $1, BLIT_SET_SRC
+ld $2, 0x3F70000       # Location of image data
+ld $3, 4               # Bytes per line (width = 4)
+stw $2, $6[HWREGS_BLIT_ARG1]
+stw $3, $6[HWREGS_BLIT_ARG2]
+stw $1, $6[HWREGS_BLIT_CMD]
+
+# == Create an image to blit ===
+ld $1, 0x03030404
+stw $1, $2[0]
+stw $1, $2[4]
+ld $1, 0x05050606
+stw $1, $2[8]
+stw $1, $2[12]
+
+# === Source offset (start at 0,0) ===
+ld $1, BLIT_SRC_OFFSET
+stw 0, $6[HWREGS_BLIT_ARG1]
+stw 0, $6[HWREGS_BLIT_ARG2]
+stw $1, $6[HWREGS_BLIT_CMD]
+
+# === Set offset (draw image at 100,100) ===
+ld $1, BLIT_SET_OFFSET
+ld $2, 100
+stw $2, $6[HWREGS_BLIT_ARG1]
+stw $2, $6[HWREGS_BLIT_ARG2]
+stw $1, $6[HWREGS_BLIT_CMD]
+
+# === Issue image blit ===
+ld $1, BLIT_IMAGE
+ld $2, 0x00640064     # (100 << 16) | 100
+ld $3, 0x00040004     # (4 << 16) | 4   -- 4x4 pixels
+stw $2, $6[HWREGS_BLIT_ARG1]
+stw $3, $6[HWREGS_BLIT_ARG2]
+stw $1, $6[HWREGS_BLIT_CMD]
+
+# === Done ===
+idle:
+jmp idle

@@ -112,6 +112,11 @@ logic [25:0] hwregs_vga_wdata;
 logic        hwregs_vga_select;
 logic [9:0]  mouse_x;
 logic [9:0]  mouse_y;
+logic [95:0] blit_cmd;
+logic        blit_cmd_valid;
+logic [7:0]  blit_fifo_slots_free;
+logic [31:0] blit_status;
+
 
 logic [2:0]  sdram_req;
 logic [25:0] sdram_addr;
@@ -140,6 +145,20 @@ logic [31:0] vga_sdram_rdata;
 logic        vga_sdram_rdvalid;
 logic        vga_sdram_complete;
 logic [9:0]  vga_row;
+
+logic        blitw_sdram_req;
+logic [25:0] blitw_sdram_addr;
+logic [31:0] blitw_sdram_wdata;
+logic [3:0]  blitw_sdram_byte_enable;
+logic        blitw_sdram_ack;
+
+logic        blitr_sdram_req;
+logic [25:0] blitr_sdram_addr;
+logic        blitr_sdram_ack;
+logic [31:0] blitr_sdram_rdata;
+logic        blitr_sdram_rdvalid;
+logic        blitr_sdram_complete;
+
 
 assign GPIO_0[3:1] = 3'bzzz;
 assign GPIO_0[0] = UART_TX;
@@ -237,6 +256,10 @@ cpu_dcache  cpu_dcache_inst (
     .hwregs_vga_addr(hwregs_vga_addr),
     .hwregs_vga_wdata(hwregs_vga_wdata),
     .hwregs_vga_select(hwregs_vga_select),
+    .blit_cmd(blit_cmd),
+    .blit_cmd_valid(blit_cmd_valid),
+    .blit_fifo_slots_free(blit_fifo_slots_free),
+    .blit_status(blit_status),
     .HEX0(HEX0),
     .HEX1(HEX1),
     .HEX2(HEX2),
@@ -271,7 +294,7 @@ sdram_arbiter  sdram_arbiter_inst (
     .sdram_rdata(sdram_rdata),
     .sdram_rdvalid(sdram_rdvalid),
     .sdram_complete(sdram_complete),
-    .bus1_request(vga_sdram_request),
+    .bus1_request(vga_sdram_request),     // Master1 = VGA display
     .bus1_addr(vga_sdram_addr),
     .bus1_write(1'b0),
     .bus1_burst(1'b1),
@@ -281,7 +304,7 @@ sdram_arbiter  sdram_arbiter_inst (
     .bus1_rdata(vga_sdram_rdata),
     .bus1_rdvalid(vga_sdram_rdvalid),
     .bus1_complete(vga_sdram_complete),
-    .bus2_request(dcache_sdram_request),
+    .bus2_request(dcache_sdram_request),  // Master2 = CPU data cache
     .bus2_addr(dcache_sdram_addr),
     .bus2_write(dcache_sdram_write),
     .bus2_burst(1'b0),
@@ -291,16 +314,26 @@ sdram_arbiter  sdram_arbiter_inst (
     .bus2_rdata(dcache_sdram_rdata),
     .bus2_rdvalid(dcache_sdram_rdvalid),
     .bus2_complete(),
-    .bus3_request(1'b0),
-    .bus3_addr(26'bx),
-    .bus3_write(1'bx),
-    .bus3_burst(1'b0),
+    .bus3_request(blitr_sdram_req),     // Master3 = Blitter read port
+    .bus3_addr(blitr_sdram_addr),
+    .bus3_write(1'b0),
+    .bus3_burst(1'b1),
     .bus3_byte_enable(4'bx),
     .bus3_wdata(32'bx),
-    .bus3_ack(),
-    .bus3_rdata(),
-    .bus3_rdvalid(),
-    .bus3_complete()
+    .bus3_ack(blitr_sdram_ack),
+    .bus3_rdata(blitr_sdram_rdata),
+    .bus3_rdvalid(blitr_sdram_rdvalid),
+    .bus3_complete(blitr_sdram_complete),
+    .bus4_request(blitw_sdram_req),     // Master4 = Blitter write port
+    .bus4_addr(blitw_sdram_addr),
+    .bus4_write(1'b1),
+    .bus4_burst(1'b0),
+    .bus4_byte_enable(blitw_sdram_byte_enable),
+    .bus4_wdata(blitw_sdram_wdata),
+    .bus4_ack(blitw_sdram_ack),
+    .bus4_rdata(),
+    .bus4_rdvalid(),
+    .bus4_complete()
   );
 
 sdram_controller  sdram_controller_inst (
@@ -353,5 +386,25 @@ vga_control  vga_control_inst (
     .vga_row(vga_row),
     .SW(SW[2:0])
   );
+
+blit_top  blit_top_inst (
+  .clock(clock),
+  .reset(reset),
+  .blit_cmd(blit_cmd),
+  .blit_cmd_valid(blit_cmd_valid),
+  .blit_fifo_slots_free(blit_fifo_slots_free),
+  .blit_status(blit_status),
+  .blitw_sdram_req(blitw_sdram_req),
+  .blitw_sdram_addr(blitw_sdram_addr),
+  .blitw_sdram_wdata(blitw_sdram_wdata),
+  .blitw_sdram_byte_enable(blitw_sdram_byte_enable),
+  .blitw_sdram_ack(blitw_sdram_ack),
+  .blitr_sdram_req(blitr_sdram_req),
+  .blitr_sdram_addr(blitr_sdram_addr),
+  .blitr_sdram_ack(blitr_sdram_ack),
+  .blitr_sdram_rdata(blitr_sdram_rdata),
+  .blitr_sdram_rdvalid(blitr_sdram_rdvalid),
+  .blitr_sdram_complete(blitr_sdram_complete)
+);
 
 endmodule
