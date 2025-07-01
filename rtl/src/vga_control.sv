@@ -126,18 +126,18 @@ end
 endgenerate
 
 // find the top layer
+logic p2_on_screen;
 always_ff @(posedge clk) begin
     // Update the top layer
     if (stall) begin
         // Do nothing
     end else begin
-        p3_addr <= 26'hx;
-        p3_valid <= 1'b0;
+        p2_on_screen <= p1_valid && (p1_x<640) && (p1_y<480);
+        p3_addr <= 26'h0;
+        p3_valid <= p2_on_screen;
         for (i = 0; i < 8; i++) begin
-            if (p2_valid[i]) begin
+            if (p2_valid[i]) 
                 p3_addr <= p2_addr[i];
-                p3_valid <= 1'b1;
-            end
         end
     end
 end

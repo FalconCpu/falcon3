@@ -1,0 +1,12 @@
+class WindowManager
+    val windows = new List<Window>()
+
+    fun newWindow(x:Int, y:Int, width:Int, height:Int, title:String) -> Window
+        val wdw = new Window(x,y,width,height,title, windows.size)
+        windows.add(wdw)
+
+        # TODO - handle layers properly -> for now let's just count
+        wdw.updateLayer()
+        wdw.drawBorders()
+
+        return wdw

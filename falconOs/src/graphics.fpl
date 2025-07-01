@@ -49,12 +49,6 @@ class VgaLayer
     var bpl : Int
     var bpp : Int
 
-var layerNumber : Int
-
-fun initializeWindows()
-    layerNumber = 0
-
-
 const blitter = 0xE0000034 as Blitter
 
 class GraphicsContext(var bitmap : Int, var width : Int, var height : Int)
@@ -181,15 +175,3 @@ class Window(var x:Int, var y:Int, var width:Int, var height:Int, var title:Stri
         x = newX
         y = newY
         updateLayer()
-
-
-
-fun newWindow(x:Int, y:Int, width:Int, height:Int, title:String) -> Window
-    val wdw = new Window(x,y,width,height,title, layerNumber)
-    layerNumber += 1
-
-    # TODO - handle layers properly -> for now let's just count
-    wdw.updateLayer()
-    wdw.drawBorders()
-
-    return wdw

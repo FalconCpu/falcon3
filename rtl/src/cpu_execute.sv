@@ -214,7 +214,7 @@ always_comb begin
         end
 
         `OP_IDX4:   begin
-            p3_alu_out = p3_data_a;
+            p3_alu_out = p3_data_a << 2;
             p3_overflow = p3_data_a >= p3_data_b;
         end
 

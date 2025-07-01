@@ -29,7 +29,7 @@ reg [1:0]  cache_addr_lsb;        // Cache address in bytes
 reg        prev_stall;            // Previous stall signal
 
 wire cache_hit = cache_valid && cache_addr == pixel_addr[25:6];
-assign stall = pixel_addr_valid && !cache_hit;
+assign stall = pixel_addr_valid && !cache_hit && !reset;
 assign pixel_data = cache_rdata[cache_addr_lsb*8 +: 8];
 
 always_ff @(posedge clk) begin
@@ -60,6 +60,7 @@ always_ff @(posedge clk) begin
 
     if (reset) begin
         cache_valid <= 1'b0;
+        cache_addr <= 20'h0;
         cache_wptr <= 4'h0;
     end
 end

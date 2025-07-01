@@ -42,7 +42,7 @@ class TstCast(location: Location, val expr: TstExpr, type:Type) : TstExpr(locati
 class TstAbort(location: Location, val expr: TstExpr) : TstExpr(location, TypeNothing)
 class TstSetCall(location: Location, val func: Function, val args: List<TstExpr>, val thisArg: TstExpr, type:Type) : TstExpr(location,type)   // A call to something.set(args, RVALUE)
 
-class TstError(location: Location, val message: String) : TstExpr(location, TypeError) {
+class TstError(location: Location, val message: String = "") : TstExpr(location, TypeError) {
     init {
         if (message != "")
             Log.error(location, message)

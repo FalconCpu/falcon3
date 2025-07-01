@@ -246,10 +246,10 @@ always_ff @(posedge clock) begin
                 p2_dest_y <= dest_y + y;
                 p2_write  <= 1'b1;
                 p2_op     <= `OP_COLOR;
-                if (x+1==width) begin
+                if (x==width) begin
                     x <= 0;
                     y <= y + 16'h1;
-                    if (y+1==height)
+                    if (y==height)
                         state <= WAIT;
                 end else
                     x <= x + 16'h1;

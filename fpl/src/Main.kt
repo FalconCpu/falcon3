@@ -1,9 +1,59 @@
+import java.io.FileNotFoundException
+import java.io.FileReader
 import java.io.FileWriter
 
 var debug = false
-//TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
-// click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
-fun main() {
+
+val stdLibFiles = listOf("stdlib/memory.fpl",
+                         "stdlib/stringBuilder.fpl",
+                         "stdlib/list.fpl",
+                         "stdlib/bitVector.fpl",
+                         "stdlib/printf.fpl")
+val osStdLibFiles = listOf("stdlib/stringBuilder.fpl","stdlib/list.fpl","stdlib/bitVector.fpl")
+const val stdLibPath = "C:\\Users\\simon\\falcon3\\fpl\\"
+const val startFile =  "${stdLibPath}stdlib\\start_stdlib.f32"
+
+fun main(args:Array<String>) {
+    Log.clear()
+    val files = mutableListOf<String>()
+    val asmFiles = mutableListOf<String>()
+    var stopAt = StopAt.HEXFILE
+    var noStdLib = false
+    var osProject = false
+    for (arg in args) {
+        when (arg) {
+            "-d" -> debug = true
+            "-parse" -> stopAt = StopAt.PARSE
+            "-typecheck" -> stopAt = StopAt.TYPECHECK
+            "-codegen" -> stopAt = StopAt.CODEGEN
+            "-execute" -> stopAt = StopAt.EXECUTE
+            "-assembly" -> stopAt = StopAt.ASSEMBLY
+            "-noStdlib" -> noStdLib = true
+            "-os" -> osProject = true
+            else -> if (arg.startsWith("-")) {
+                println("Unknown option $arg")
+                return
+            } else if (arg.endsWith(".fpl"))
+                files.add(arg)
+            else if (arg.endsWith(".f32"))
+                asmFiles.add(arg)
+            else
+                Log.error("Unknown argument $arg")
+            }
+        }
+
+    try {
+        val sf = if (noStdLib) emptyList() else
+                          if (osProject) osStdLibFiles
+                          else stdLibFiles
+        val assemblyFiles = (if (noStdLib) emptyList() else listOf(startFile) ) + asmFiles
+
+        val lexers = sf.map { Lexer(it, FileReader(stdLibPath+it)) } + files.map { Lexer(it, FileReader(it)) }
+        println(compile(lexers, stopAt, assemblyFiles, true))
+
+    } catch (e: FileNotFoundException) {
+        println("File not found ${e.message}")
+    }
 }
 
 

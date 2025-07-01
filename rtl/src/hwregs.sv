@@ -23,6 +23,7 @@
 // E0000038  BLIT_ARG1      W    First arg for blitter
 // E000003C  BLIT_ARG2      W    Second aeg for blitter
 // E0000040  BLIT_STATUS    R    Blitter Status register
+// E0000044  SIM            R    Reads as 1 in a simulation, 0 on hardware
 // E0001XXX  VGA            W    256 words of VGA registers (write only)
 
 // verilator lint_off PINCONNECTEMPTY
@@ -178,6 +179,12 @@ always_ff @(posedge clock) begin
             16'h0038: cpud_rdata <= {blit_cmd[63:32]};
             16'h003C: cpud_rdata <= {blit_cmd[95:64]};
             16'h0040: cpud_rdata <= blit_status;
+            16'h0044: begin 
+                cpud_rdata <= 0;
+                // synthesis translate_off
+                cpud_rdata <= 1;
+                // synthesis translate_on
+            end
             default:  cpud_rdata <= 32'bx;
         endcase
     end

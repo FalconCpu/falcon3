@@ -293,6 +293,8 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
 
                 is TypeNullable -> TstError(location, "Cannot access '$name' as expression may be null")
 
+                is TypeError -> tcExpr
+
                 else -> TstError(location, "Cannot access field '$name' of expression of type ${tcExpr.type}")
             }
         }
@@ -382,6 +384,8 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
                 }
 
                 is TypeClassGeneric -> TstError(location, "Cannot create instance of generic class")
+
+                is TypeError -> TstError(location)
 
                 else -> TstError(location, "Cannot create instance of type $tcType")
             }
@@ -791,7 +795,7 @@ fun AstStmt.typeCheck(context:AstBlock) : TstStmt {
             }
             var tcOp = AluOp.EQ_I
             if (op==TokenKind.PLUSEQ || op==TokenKind.MINUSEQ)
-                if (tcLhs.type==TypeInt || tcLhs.type==TypeChar)
+                if (tcLhs.type==TypeInt || tcLhs.type==TypeChar || tcLhs.type==TypeError)
                     tcOp = if (op==TokenKind.PLUSEQ) AluOp.ADD_I else AluOp.SUB_I
                 else
                     Log.error(location,"+= and -= currently only supported on integers")

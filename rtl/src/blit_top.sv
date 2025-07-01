@@ -69,8 +69,12 @@ logic [25:0] p4_addr;
 logic        p4_idle;
 logic        p5_write;
 logic [25:0] p5_addr;
-logic [31:0] p5_data;
-logic [3:0]  p5_byte_enable;
+logic [7:0]  p5_data;
+logic        p5_idle;
+logic        p6_write;
+logic [25:0] p6_addr;
+logic [31:0] p6_data;
+logic [3:0]  p6_byte_enable;
 logic        fifo_full;
 
 
@@ -168,29 +172,42 @@ blit_mem_read  blit_mem_read_inst (
     .blitr_patram_rdvalid(blitr_patram_rdvalid)
   );
 
-// Pipeline stage 4
-blit_merge  blit_merge_inst (
+  // pipeline stage 4
+blit_transparency  blit_transparency_inst (
     .clock(clock),
-    .reset(reset),
-    .transparent_color(p4_transparent_color),
     .p4_addr(p4_addr),
     .p4_data(p4_src_data),
     .p4_write(p4_write),
     .p4_idle(p4_idle),
+    .transparent_color(p4_transparent_color),
     .p5_addr(p5_addr),
     .p5_data(p5_data),
-    .p5_byte_enable(p5_byte_enable),
-    .p5_write(p5_write)
+    .p5_write(p5_write),
+    .p5_idle(p5_idle)
   );
 
 // Pipeline stage 5
+blit_merge  blit_merge_inst (
+    .clock(clock),
+    .reset(reset),
+    .p5_addr(p5_addr),
+    .p5_data(p5_data),
+    .p5_write(p5_write),
+    .p5_idle(p5_idle),
+    .p6_addr(p6_addr),
+    .p6_data(p6_data),
+    .p6_byte_enable(p6_byte_enable),
+    .p6_write(p6_write)
+  );
+
+// Pipeline stage 6
 blit_write_fifo  blit_write_fifo_inst (
     .clock(clock),
     .reset(reset),
-    .in_write(p5_write),
-    .in_addr(p5_addr),
-    .in_data(p5_data),
-    .in_byte_enable(p5_byte_enable),
+    .in_write(p6_write),
+    .in_addr(p6_addr),
+    .in_data(p6_data),
+    .in_byte_enable(p6_byte_enable),
     .out_req(blitw_sdram_req),
     .out_addr(blitw_sdram_addr),
     .out_data(blitw_sdram_wdata),
