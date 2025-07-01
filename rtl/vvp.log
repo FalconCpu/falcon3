@@ -1,5 +1,12 @@
 WARNING: .\src\cpu_icache.sv:32: $readmemh(asm.hex): Not enough words in the file for the requested range [0:16383].
+ERROR: .\src\pattern_memory.sv:39: $readmemh: Unable to open font0.hex for reading.
+ERROR: .\src\pattern_memory.sv:40: $readmemh: Unable to open font1.hex for reading.
+ERROR: .\src\pattern_memory.sv:41: $readmemh: Unable to open font2.hex for reading.
+ERROR: .\src\pattern_memory.sv:42: $readmemh: Unable to open font3.hex for reading.
 VCD info: dumpfile dump.vcd opened for output.
-WARNING: .\src\tb_falcon.sv:145: $readmemh(uart.txt): Too many words in the file for the requested range [0:1023].
-.\src\tb_falcon.sv:123: $finish called at 2000000000 (1ps)
-Timeout
+WARNING: .\src\tb_falcon.sv:145: $readmemh(uart.txt): Not enough words in the file for the requested range [0:1023].
+EXCEPTION CAUSE=00000008 EPC=FFFF0054 EDATA=00000016
+END OF PROGRAM
+.\src\cpu_ifetch.sv:160: $finish called at 8935000 (1ps)
+EXCEPTION CAUSE=00000008 EPC=FFFF0054 EDATA=00000016
+END OF PROGRAM

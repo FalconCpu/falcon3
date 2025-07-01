@@ -55,15 +55,15 @@ module tb_falcon;
 assign KEY = 4'b1111;
 
   Falcon3  Falcon3_inst (
-    .AUD_ADCDAT(AUD_ADCDAT),
-    .AUD_ADCLRCK(AUD_ADCLRCK),
-    .AUD_BCLK(AUD_BCLK),
-    .AUD_DACDAT(AUD_DACDAT),
-    .AUD_DACLRCK(AUD_DACLRCK),
-    .AUD_XCK(AUD_XCK),
-    .CLOCK2_50(CLOCK2_50),
-    .CLOCK3_50(CLOCK3_50),
-    .CLOCK4_50(CLOCK4_50),
+    // .AUD_ADCDAT(AUD_ADCDAT),
+    // .AUD_ADCLRCK(AUD_ADCLRCK),
+    // .AUD_BCLK(AUD_BCLK),
+    // .AUD_DACDAT(AUD_DACDAT),
+    // .AUD_DACLRCK(AUD_DACLRCK),
+    // .AUD_XCK(AUD_XCK),
+    // .CLOCK2_50(CLOCK2_50),
+    // .CLOCK3_50(CLOCK3_50),
+    // .CLOCK4_50(CLOCK4_50),
     .CLOCK_50(CLOCK_50),
     .DRAM_ADDR(DRAM_ADDR),
     .DRAM_BA(DRAM_BA),
@@ -76,8 +76,8 @@ assign KEY = 4'b1111;
     .DRAM_RAS_N(DRAM_RAS_N),
     .DRAM_UDQM(DRAM_UDQM),
     .DRAM_WE_N(DRAM_WE_N),
-    .FPGA_I2C_SCLK(FPGA_I2C_SCLK),
-    .FPGA_I2C_SDAT(FPGA_I2C_SDAT),
+    // .FPGA_I2C_SCLK(FPGA_I2C_SCLK),
+    // .FPGA_I2C_SDAT(FPGA_I2C_SDAT),
     .HEX0(HEX0),
     .HEX1(HEX1),
     .HEX2(HEX2),
@@ -119,7 +119,7 @@ micron_sdram  micron_sdram_inst (
 initial begin
     $dumpfile("dump.vcd");
     $dumpvars(0, tb_falcon);
-    # 200000;
+    # 2000000;
     $finish;
 end
 

@@ -31,6 +31,8 @@ public/private
 static class fields
 static methods
 default arguments to functions
+fallthrough in function with return type should be error
+
 
 Longer term:
 tuples

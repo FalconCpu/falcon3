@@ -5,6 +5,7 @@ import re
 command = ["iverilog.exe", "-g2012", "-s", "tb_falcon", ".\\src\\*.sv"]
 pattern1 = re.compile(r"^.*constant selects in always.*$")
 pattern2 = re.compile(r"^.*cannot be synthesized in an always_ff process.*$")
+pattern3 = re.compile(r"^.*cannot be synthesized in an always_comb process.*$")
 
 # --- Run the command ---
 try:
@@ -18,7 +19,7 @@ try:
 
     # --- Filter and print output ---
     for line in result.stdout.splitlines():
-        if (not pattern1.search(line)) and (not pattern2.search(line)):
+        if (not pattern1.search(line)) and (not pattern2.search(line) and (not pattern3.search(line))):
             print(line)
 
 except FileNotFoundError:

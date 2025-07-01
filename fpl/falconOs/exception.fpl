@@ -30,8 +30,8 @@ const DMPU_512k    =  0x00000700
 
 class TCB
     var pc   : Int
-    local regs : FixedArray<Int>(32)
-    local dmpu : FixedArray<Int>(8)
+    val regs : inline Array<Int>(32)
+    val dmpu : inline Array<Int>(8)
 
 enum ExceptionCause[NONE,
     INSTRUCTION_ACCESS_FAULT,
@@ -208,8 +208,6 @@ fun startup()
     bMemPointer = 0x10000       # Allow rest of space for general use
     initializeMemorySystem()
     initializeBuddyAllocator()
-    dumpMemorySystem()
-    dumpBuddyAllocator()
     kPrintString("Allocating task\n")
 
     # Create our first task  (We can't use new() yet as proper memory allocator not yet implemented)

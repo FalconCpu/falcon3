@@ -23,7 +23,14 @@ module blit_top(
     input  logic        blitr_sdram_ack,
     input  logic [31:0] blitr_sdram_rdata,
     input  logic        blitr_sdram_rdvalid,
-    input  logic        blitr_sdram_complete
+    input  logic        blitr_sdram_complete,
+
+    // Connections to the patram
+    output logic        blitr_patram_req,
+    output logic [15:0] blitr_patram_addr,
+    input  logic [31:0] blitr_patram_rdata,
+    input  logic        blitr_patram_rdvalid
+
 );
 
 // Temporary tie-off for now
@@ -39,6 +46,9 @@ logic [25:0] dest_addr;
 logic [15:0] dest_bpl;
 logic [31:0] src_addr;
 logic [15:0] src_bpl;
+logic [7:0]  fg_color;
+logic [7:0]  bg_color;
+logic [8:0]  p4_transparent_color;
 logic [15:0] clip_x1;
 logic [15:0] clip_y1;
 logic [15:0] clip_x2;
@@ -47,24 +57,23 @@ logic [15:0] p2_dest_x;
 logic [15:0] p2_dest_y;
 logic [15:0] p2_src_x;
 logic [15:0] p2_src_y;
-logic [15:0] p2_color;
-logic [1:0]  p3_op;
 logic        p2_write;
-logic [25:0] p5_addr;
-logic [15:0] p4_data;
-logic        p4_write;
-logic [7:0]  p5_data;
-logic        p3_write;
+logic [1:0]  p2_op;
+logic [1:0]  p3_op;
 logic [31:0] p3_src_addr;
+logic [2:0]  p3_src_bit_index;
+logic        p4_write;
+logic        p3_write;
 logic [7:0]  p4_src_data;
-logic [1:0]  p4_op;
-logic        p5_idle;
+logic [25:0] p4_addr;
+logic        p4_idle;
 logic        p5_write;
-logic [25:0] p6_addr;
-logic [31:0] p6_data;
-logic [3:0]  p6_byte_enable;
-logic        p6_write;
+logic [25:0] p5_addr;
+logic [31:0] p5_data;
+logic [3:0]  p5_byte_enable;
 logic        fifo_full;
+
+
 
 
 blit_fifo  blit_fifo_inst (
@@ -95,15 +104,17 @@ blit_command  blit_command_inst (
     .clip_y1(clip_y1),
     .clip_x2(clip_x2),
     .clip_y2(clip_y2),
+    .fg_color(fg_color),
+    .bg_color(bg_color),
+    .p4_transparent_color(p4_transparent_color),
     .p2_dest_x(p2_dest_x),
     .p2_dest_y(p2_dest_y),
     .p2_src_x(p2_src_x),
     .p2_src_y(p2_src_y),
+    .p2_op(p2_op),
     .p3_op(p3_op),
-    .p4_op(p4_op),
-    .p2_color(p2_color),
     .p2_write(p2_write),
-    .p5_idle(p5_idle),
+    .p4_idle(p4_idle),
     .fifo_full(fifo_full)
   );
 
@@ -120,23 +131,26 @@ blit_command  blit_command_inst (
     .clip_y1(clip_y1),
     .clip_x2(clip_x2),
     .clip_y2(clip_y2),
+    .p2_op(p2_op),
     .p2_dest_x(p2_dest_x),
     .p2_dest_y(p2_dest_y),
     .p2_src_x(p2_src_x),
     .p2_src_y(p2_src_y),
-    .p2_color(p2_color),
     .p2_write(p2_write),
-    .p5_addr(p5_addr),
-    .p4_data(p4_data),
+    .p4_addr(p4_addr),
     .p3_write(p3_write),
-    .p3_src_addr(p3_src_addr)
+    .p3_src_addr(p3_src_addr),
+    .p3_src_bit_index(p3_src_bit_index)
   );
 
 // Pipeline stage 3
 blit_mem_read  blit_mem_read_inst (
     .clk(clock),
     .reset(reset),
-    .p3_src_addr(p3_src_addr[25:0]),
+    .p3_src_addr(p3_src_addr),
+    .p3_src_bit_index(p3_src_bit_index),
+    .fg_color(fg_color),
+    .bg_color(bg_color),
     .p3_op(p3_op),
     .p3_write(p3_write),
     .p4_src_data(p4_src_data),
@@ -147,42 +161,36 @@ blit_mem_read  blit_mem_read_inst (
     .blitr_sdram_ack(blitr_sdram_ack),
     .blitr_sdram_rdata(blitr_sdram_rdata),
     .blitr_sdram_rdvalid(blitr_sdram_rdvalid),
-    .blitr_sdram_complete(blitr_sdram_complete)
+    .blitr_sdram_complete(blitr_sdram_complete),
+    .blitr_patram_req(blitr_patram_req),
+    .blitr_patram_addr(blitr_patram_addr),
+    .blitr_patram_rdata(blitr_patram_rdata),
+    .blitr_patram_rdvalid(blitr_patram_rdvalid)
   );
 
 // Pipeline stage 4
-blit_data_select  blit_data_select_inst (
+blit_merge  blit_merge_inst (
     .clock(clock),
-    .stall(stall),
-    .p4_data(p4_data[7:0]),
-    .p4_src_data(p4_src_data),
-    .p4_op(p4_op),
+    .reset(reset),
+    .transparent_color(p4_transparent_color),
+    .p4_addr(p4_addr),
+    .p4_data(p4_src_data),
     .p4_write(p4_write),
+    .p4_idle(p4_idle),
+    .p5_addr(p5_addr),
     .p5_data(p5_data),
+    .p5_byte_enable(p5_byte_enable),
     .p5_write(p5_write)
   );
 
 // Pipeline stage 5
-blit_merge  blit_merge_inst (
-    .clock(clock),
-    .reset(reset),
-    .p5_addr(p5_addr),
-    .p5_data(p5_data[7:0]),
-    .p5_write(p5_write),
-    .p5_idle(p5_idle),
-    .p6_addr(p6_addr),
-    .p6_data(p6_data),
-    .p6_byte_enable(p6_byte_enable),
-    .p6_write(p6_write)
-  );
-
 blit_write_fifo  blit_write_fifo_inst (
     .clock(clock),
     .reset(reset),
-    .in_write(p6_write),
-    .in_addr(p6_addr),
-    .in_data(p6_data),
-    .in_byte_enable(p6_byte_enable),
+    .in_write(p5_write),
+    .in_addr(p5_addr),
+    .in_data(p5_data),
+    .in_byte_enable(p5_byte_enable),
     .out_req(blitw_sdram_req),
     .out_addr(blitw_sdram_addr),
     .out_data(blitw_sdram_wdata),

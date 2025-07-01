@@ -39,6 +39,7 @@ sealed class AstTypeExpr(location: Location) : Ast(location)
 class AstTypeId(location: Location, val name:String, val astTypeArgs:List<AstTypeExpr>) : AstTypeExpr(location)
 class AstTypeArray(location: Location, val base: AstTypeExpr?) : AstTypeExpr(location)
 class AstTypeRange(location: Location, val base: AstTypeExpr) : AstTypeExpr(location)
+class AstTypeInlineArray(location: Location, val base: AstTypeExpr, val numElements:AstExpr) : AstTypeExpr(location)
 class AstTypeNullable(location: Location, val base: AstTypeExpr) : AstTypeExpr(location)
 
 // ================================================
@@ -215,6 +216,12 @@ fun Ast.prettyPrint(sb: StringBuilder, indent:Int) {
         is AstTypeArray -> {
             sb.append("TypeArray\n")
             base?.prettyPrint(sb, indent+1)
+        }
+
+        is AstTypeInlineArray -> {
+            sb.append("TypeInlineArray\n")
+            base.prettyPrint(sb, indent+1)
+            numElements.prettyPrint(sb, indent+1)
         }
 
         is AstTypeRange -> {

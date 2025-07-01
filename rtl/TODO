@@ -1,0 +1,10 @@
+
+Add a BLIT_PIXEL command to plot a single pixel
+ICACHE for cpu
+DCACHE for cpu
+Implement write to palette regs and mouse sprite
+Add plot triangle command to blitter
+Allow blitter to write to pattern memory as well as read from it
+Add a 16-bit color mode to VGA and blitter (half resoultion)
+    * Maybe make this selectable per layer?
+

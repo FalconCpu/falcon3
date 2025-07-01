@@ -18,7 +18,7 @@ fun printInt(value:Int, width:Int, justify:Justify)
     if n<0
         minus = 1
         n = -n
-    val buffer = local Array<Char>(16)
+    val buffer = inline Array<Char>(16)
     var index = 0
     repeat
         buffer[index] = (n%10) + '0' as Char
@@ -51,7 +51,7 @@ fun printInt(value:Int, width:Int, justify:Justify)
 
 fun printHex(value:Int, width:Int, justify:Justify)
     var n = value
-    val buffer = local Array<Char>(16)
+    val buffer = inline Array<Char>(16)
     var index = 0
     repeat
         var digit = n & 0xF

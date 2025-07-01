@@ -533,6 +533,7 @@ set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to VGA_G[*]
 set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to VGA_B[*]
 set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to VGA_HS
 set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to VGA_VS
+set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/src/pattern_memory.sv
 set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/src/blit_mem_read.sv
 set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/src/blit_data_select.sv
 set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/src/blit_write_fifo.sv
@@ -574,5 +575,6 @@ set_global_assignment -name QIP_FILE pll.qip
 set_global_assignment -name SIP_FILE pll.sip
 set_global_assignment -name QIP_FILE regfile_ram.qip
 set_global_assignment -name SIGNALTAP_FILE stp1.stp
+set_global_assignment -name QIP_FILE ram64k.qip
 set_global_assignment -name SLD_FILE db/stp1_auto_stripped.stp
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top

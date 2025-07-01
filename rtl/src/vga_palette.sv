@@ -19,13 +19,8 @@ initial begin
 end
 
 always_ff @(posedge clk) begin
-    if (in_valid) begin
-        out_color <= palette[in_code];
-        out_valid <= 1'b1;
-    end else begin
-        out_valid <= 1'b0;
-        out_color <= 24'h0;
-    end
+    out_color <= palette[in_code];
+    out_valid <= in_valid;
 end
 
 endmodule

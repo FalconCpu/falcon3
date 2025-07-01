@@ -12,6 +12,7 @@ class TstIntLit(location: Location, val value: Int, type:Type) : TstExpr(locatio
 class TstReallit(location: Location, val value: Double, type:Type) : TstExpr(location, type)
 class TstStringlit(location: Location, val value: String, type:Type) : TstExpr(location, type)
 class TstVariable(location: Location, val symbol:SymbolVar, type:Type) : TstExpr(location, type)
+class TstInlineVariable(location: Location, val symbol:SymbolInlineVar, type:Type) : TstExpr(location, type)
 class TstGlobalVar(location: Location, val symbol:SymbolGlobal, type:Type) : TstExpr(location, type)
 class TstTypeName(location: Location, type:Type) : TstExpr(location, type)
 class TstFunctionName(location: Location, val symbol:SymbolFunction, type:Type) : TstExpr(location, type)
@@ -183,6 +184,10 @@ fun Tst.prettyPrint(sb: StringBuilder, indent:Int) {
         }
 
         is TstVariable -> {
+            sb.append("var: $symbol ($type)\n")
+        }
+
+        is TstInlineVariable -> {
             sb.append("var: $symbol ($type)\n")
         }
 

@@ -1,6 +1,8 @@
 
 HWREGS_BASE = 0xE0000000
+HWREGS_LEDR = 0x04
 HWREGS_UART_TX = 0x10
+HWREGS_SIM = 0x44
 
 # Temporary - keep global variables at address 0x0000000
 SYSVARS_BASE = 0x00000000
@@ -8,6 +10,7 @@ SYSVARS_HEAP_PTR = 0x0004
 
 
 # Entry point for the program
+start:
 ld $31, 0x4000000    # Initialize stack pointer to top of memory
 ld $29, 0x100        # initialize globals pointer to below the heap start
 
@@ -17,8 +20,25 @@ stw $10, $9[SYSVARS_HEAP_PTR]
 
 # jsr /init          # Call the initialization function
 jsr /main()          # Call the main function
-ld $30,0             # Do a jump to address zero to exit the program
+
+# check to see if we are in a simulation
+ld $1, HWREGS_BASE
+ldw $2, $1[HWREGS_SIM]
+beq $2, 0, not_sim
+ld $30,0             # In a simulation do a jump to address zero to exit the program
 jmp $30[0]
+
+.not_sim:
+# flash LEDs to show finished
+ld 2,0
+.finished_loop:
+stw $2, $1[HWREGS_LEDR]
+ld $3, 10000000
+.delay:
+sub $3,1
+bne $3, 0, .delay
+xor $2, 0xFFF
+jmp .finished_loop
 
 
 # ==========================================================

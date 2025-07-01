@@ -688,6 +688,38 @@ class CodeGenTest {
         """.trimIndent()
 
         val expected = """
+            Function main()
+            start
+            ADD_I T0, SP, 0
+            ld T1, 10
+            ld V34, T0
+            ADD_I T2, T0, 40
+            L1:
+            stw 0, V34[0]
+            ADD_I T3, V34, 4
+            ld V34, T3
+            blt V34, T2, L1
+            ld T4, 0
+            ld i, T4
+            ld T5, 10
+            ld T6, T5
+            jmp L5
+            L2:
+            ADD_I T7, SP, 0
+            ld T8, 10
+            idx4 T9, i, T8
+            ADD_I T10, T7, T9
+            stw i, T10[0]
+            L4:
+            ADD_I T11, i, 1
+            ld i, T11
+            L5:
+            blt i, T6, L2
+            jmp L3
+            L3:
+            L0:
+            ret
+
 
         """.trimIndent()
         runTest(prog, expected)
@@ -697,9 +729,9 @@ class CodeGenTest {
     fun embeddedFieldsTest() {
         val prog = """
             class TCB 
-                var   pc : Int
-                local regs : FixedArray<Int>(32)
-                local dmpu : FixedArray<Int>(8)
+                var pc : Int
+                val regs : inline Array<Int>(32)
+                val dmpu : inline Array<Int>(8)
         
             fun main()
                 val task = new TCB()

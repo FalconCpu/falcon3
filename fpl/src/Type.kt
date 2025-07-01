@@ -172,7 +172,7 @@ fun Type.substitute(typeArgs:Map<TypeParameter, Type>) : Type {
             val newArgs = typeArgs.mapValues { (_, type) -> type.substitute(typeArgs) }
             TypeClassInstance.create(genericClass , newArgs)
         }
-        is TypeInlineArray -> TypeInlineArray.create(base.substitute(typeArgs), numElements)
+        is TypeInlineArray -> TypeInlineArray.create(elementType.substitute(typeArgs), numElements)
         is TypeInlineInstance -> TypeInlineInstance.create(base.substitute(typeArgs) as TypeClassInstance)
         is TypeEnum,
         TypeError,
@@ -188,14 +188,14 @@ fun Type.substitute(typeArgs:Map<TypeParameter, Type>) : Type {
     }
 }
 
-class TypeInlineArray private constructor (val base:TypeArray, val numElements:Int) : Type("inline $base") {
+class TypeInlineArray private constructor (val elementType:Type, val numElements:Int) : Type("inline Array<$elementType>($numElements)") {
     companion object {
         val allInlineTypes = mutableListOf<TypeInlineArray>()
-        fun create(base:Type, numElements:Int) : Type {
-            val ret = allInlineTypes.find { it.base == base && it.numElements == numElements }
+        fun create(elementType:Type, numElements:Int) : Type {
+            val ret = allInlineTypes.find { it.elementType == elementType && it.numElements == numElements }
             if (ret != null)
                 return ret
-            val new = TypeInlineArray(base as TypeArray, numElements)
+            val new = TypeInlineArray(elementType, numElements)
             allInlineTypes.add(new)
             return new
         }
@@ -245,13 +245,13 @@ fun Type.defaultPromotions() : Type {
     return this
 }
 
-fun Type.dropInline() : Type {
-    return when (this) {
-        is TypeInlineArray -> base.dropInline()
-        is TypeInlineInstance -> base.dropInline()
-        else -> this
-    }
-}
+//fun Type.dropInline() : Type {
+//    return when (this) {
+//        is TypeInlineArray -> base.dropInline()
+//        is TypeInlineInstance -> base.dropInline()
+//        else -> this
+//    }
+//}
 
 fun Type.isInline() = this is TypeInlineArray || this is TypeInlineInstance
 
@@ -276,7 +276,7 @@ fun Type.sizeInBytes() : Int {
         is TypeEnum -> 4  // References to an enum are integers
         is TypeParameter -> 4
         is TypeClassInstance -> 4
-        is TypeInlineArray-> base.sizeInBytes() * numElements
+        is TypeInlineArray-> elementType.sizeInBytes() * numElements
         is TypeInlineInstance -> base.genericClass.sizeInBytes
     }
 }

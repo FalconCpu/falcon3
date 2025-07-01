@@ -366,12 +366,26 @@ class Parser(val lexer: Lexer) {
         return AstTypeRange(tok.location, ret)
     }
 
+    private fun parseTypeInline() : AstTypeExpr {
+        val tok = match(INLINE)
+        if (canTake(ARRAY)) {
+            match(LT)
+            val elementType = parseTypeExpr()
+            match(GT)
+            match(OPENB)
+            val numElements = parseExpression()
+            match(CLOSEB)
+            return AstTypeInlineArray(tok.location, elementType, numElements)
+        } else
+            throw ParseError(tok.location, "Expected array type after inline")
+    }
 
     private fun parseTypeExpr() : AstTypeExpr {
         var ret = when(currentToken.kind) {
             ID -> parseTypeId()
             ARRAY -> parseTypeArray()
             RANGE -> parseTypeRange()
+            INLINE -> parseTypeInline()
             else -> throw ParseError(currentToken.location, "Got '$currentToken' when expecting type expression")
         }
 

@@ -158,11 +158,8 @@ always_comb begin
             next_count = 8'h00;
 
             if (refresh_needed) begin
-                if (write_pipeline==0) begin
-                    next_cmd = `CMD_PRECHARGE;
-                    next_addr = 13'h0400;
+                if (write_pipeline==0) 
                     next_state = `STATE_REFRESH;
-                end
 
             end else if (sdram_req!=0 && selected_bank_open && selected_bank_row!=addr_row && write_pipeline==0) begin
                 // The addressed bank is not open at the row we want to access - precharge it
@@ -251,11 +248,15 @@ always_comb begin
 
 
         `STATE_REFRESH: begin 
-            if (count==1) begin
+            if (count==0) begin
+                next_cmd = `CMD_PRECHARGE;
+                next_addr = 13'h0400;
+            end
+            if (count==2) begin
                 next_cmd   = `CMD_REFRESH;
                 next_refresh_needed = 1'b0;
             end
-            if (count==7)
+            if (count==8)
                 next_state = `STATE_READY;
         end
     endcase

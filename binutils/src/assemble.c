@@ -1,6 +1,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include "f32.h"
 
 int org = 0xffff0000;
@@ -155,7 +156,7 @@ static void generate_load_immediate(int d, int c) {
 
 static int is_label_global(Token label) {
     for(int i=0; label->text[i]; i++)
-        if (label->text[i]=='.' || label->text[i]=='@')
+        if ((label->text[i]=='.' && isalnum(label->text[i+1])) || label->text[i]=='@')
             return 0;
     return 1;
 }

@@ -25,7 +25,7 @@ class StringBuilder
 
     fun appendInt(i:Int, fieldWidth:Int)
         var n = i
-        val buf = local Array<Char>(12)
+        val buf = inline Array<Char>(12)
         var index = 0
         var minus = false
         if n<0
@@ -46,7 +46,7 @@ class StringBuilder
 
     fun appendHex(i:Int, fieldWidth:Int)
         var n = i
-        val buf = local Array<Char>(8)
+        val buf = inline Array<Char>(8)
         var index = 0
         repeat
             val digit = n & 0xF

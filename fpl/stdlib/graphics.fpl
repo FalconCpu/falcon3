@@ -1,0 +1,195 @@
+
+class HwRegs
+    var seven_seg   : Int  # 6 digit hexadecimal seven segment display
+    var ledr        : Int  # 10 LEDs
+    var sw          : Int  # 10 Switches
+    var key         : Int  # 4 Push buttons
+    var uart_tx     : Int  # Write = byte of data to transmit, read = number of slots free in fifo
+    var uart_rx     : Int  # 1 byte of data from the uart, -1 if no data
+    var gpio0       : Int  # 32 bits of GPIO0
+    var gpio1       : Int  # 32 bits of GPIO1
+    var gpio1a      : Int  # 4  bits of GPIO1A
+    var vga_row     : Int  # Current row of the VGA display
+    var mouse_x     : Int  # Current X position of the mouse
+    var mouse_y     : Int  # Current Y position of the mouse
+    var mouse_btn   : Int  # Current button state of the mouse
+    var blit_cmd    : Int  # Command to the blitter, read=number of slots free in fifo
+    var blit_arg1   : Int  # First arg for blitter
+    var blit_arg2   : Int  # Second aeg for blitter
+    var blit_status : Int  # Blitter Status register
+    var sim         : Int  # Reads as 1 in a simulation, 0 on hardware
+
+
+enum BlitCmd [
+    NOP,
+    SET_DEST,    # arg1=bitmap addr, arg2=bytes per line
+    SET_CLIP,    # arg1=y1/x1, arg2=y2/x2
+    SET_OFFSET,  # arg1=x, arg2=y
+    SET_COLOR,   # arg1=foreground, arg2=background
+    RECT,        # arg1=y1/x1, arg2=y2/x2
+    LINE,        # arg1=y1/x1, arg2=y2/x2
+    SET_SRC,     # arg1=bitmap addr, arg2=bytes per line
+    SRC_OFFSET,  # arg1=x, arg2=y
+    IMAGE,       # arg1=y1/x1 arg2=height/width
+    CHAR,        # arg1=y/x, arg2=char
+    FONT,        # arg1=font addr, arg2=Offset/BytePerChar/Height/Width
+    TRANSPARENT] # arg1=color
+
+class Blitter
+    var cmd : BlitCmd   # Write:Send command to blitter, Read:Number of slots free in blitter command fifo
+    var arg1: Int
+    var arg2: Int
+
+class VgaLayer
+    var addr : Int
+    var x1  : Int
+    var y1  : Int
+    var x2  : Int
+    var y2  : Int
+    var bpl : Int
+    var bpp : Int
+
+var layerNumber : Int
+
+fun initializeWindows()
+    layerNumber = 0
+
+
+const blitter = 0xE0000034 as Blitter
+
+class GraphicsContext(var bitmap : Int, var width : Int, var height : Int)
+    var clipX1 = 0
+    var clipX2 = width
+    var clipY1 = 0
+    var clipY2 = height
+    var fgColor = 255
+    var bgColor = 0
+    var transparentColor = 256
+    var fontAddr = 0xF0000000
+    var fontWidth = 8
+    var fontHeight = 12
+
+    fun ownBlitter()
+        while (blitter.cmd as Int) < 8
+            val dummy = 0
+
+        blitter.arg1 = bitmap
+        blitter.arg2 = width
+        blitter.cmd = BlitCmd.SET_DEST
+
+        blitter.arg1 = clipY1<<16 | clipX1
+        blitter.arg2 = clipY2<<16 | clipX2
+        blitter.cmd = BlitCmd.SET_CLIP
+
+        blitter.arg1 = clipX1
+        blitter.arg2 = clipY1
+        blitter.cmd = BlitCmd.SET_OFFSET
+
+        blitter.arg1 = fgColor
+        blitter.arg2 = bgColor
+        blitter.cmd = BlitCmd.SET_COLOR
+
+        blitter.arg1 = fontAddr
+        blitter.arg2 = (32<<24) | ((fontWidth*fontHeight/8)<<16) | (fontHeight<<8) | fontWidth
+        blitter.cmd = BlitCmd.FONT
+
+        blitter.arg1 = transparentColor
+        blitter.cmd = BlitCmd.TRANSPARENT
+
+    fun setColor(fg:Int)
+        fgColor = fg
+        blitter.arg1 = fgColor
+        blitter.arg2 = bgColor
+        while (blitter.cmd as Int) <= 1
+            val dummy = 0
+        blitter.cmd = BlitCmd.SET_COLOR
+
+    fun setColor(fg:Int, bg:Int)
+        fgColor = fg
+        bgColor = bg
+        blitter.arg1 = fgColor
+        blitter.arg2 = bgColor
+        while (blitter.cmd as Int) <= 1
+            val dummy = 0
+        blitter.cmd = BlitCmd.SET_COLOR
+
+    fun drawRect(x1:Int, y1:Int, x2:Int, y2:Int)
+        while (blitter.cmd as Int) <= 1
+            val dummy = 0
+        blitter.arg1 = y1<<16 | x1
+        blitter.arg2 = y2<<16 | x2
+        blitter.cmd = BlitCmd.RECT
+
+    fun drawLine(x1:Int, y1:Int, x2:Int, y2:Int)
+        blitter.arg1 = y1<<16 | x1
+        blitter.arg2 = y2<<16 | x2
+        while (blitter.cmd as Int) <= 1
+            val dummy = 0
+        blitter.cmd = BlitCmd.LINE
+
+    fun drawText(x:Int, y:Int, text:String)
+        for i in 0..<text.length
+            blitter.arg1 = (y<<16) | (x+i*fontWidth)
+            blitter.arg2 = text[i] as Int
+            while (blitter.cmd as Int) <= 1
+                val dummy = 0
+            blitter.cmd = BlitCmd.CHAR
+
+    fun waitVSync()
+        val hwRegs = 0xE0000000 as HwRegs
+        while hwRegs.vga_row >= 480
+            val dummy = 0
+        while hwRegs.vga_row < 480
+            val dummy1 = 0
+
+class Window(var x:Int, var y:Int, var width:Int, var height:Int, var title:String, var layerNumber:Int)
+    var bitmap = new Array<Int>((width*height)/4) as Int
+    val gc = new GraphicsContext(bitmap, width, height)
+
+    fun updateLayer()
+        val layer = (0xE0001000 + 32*layerNumber) as VgaLayer
+        layer.addr = bitmap
+        layer.x1 = x
+        layer.y1 = y
+        layer.x2 = x + width
+        layer.y2 = y + height
+        layer.bpl = width
+        layer.bpp = 1
+
+    fun drawBorders()
+        gc.ownBlitter()
+        gc.setColor(255)
+        gc.drawLine(0,0,width-1,0)
+        gc.drawLine(width-1,0,width-1,height-1)
+        gc.drawLine(width-1,height-1,0,height-1)
+        gc.drawLine(0,height-1,0,0)
+        gc.drawLine(0,14,width-1,14)
+        gc.drawText(2,2,title)
+
+    fun getGraphicsContext() -> GraphicsContext
+        val ret = new GraphicsContext(bitmap, width, height)
+        # Set the clip region to be the contents of the window, to prevent the user drawing over the borders
+        ret.clipX1 = 2
+        ret.clipY1 = 16
+        ret.clipX2 = width-2
+        ret.clipY2 = height-2
+
+        ret.ownBlitter()
+        return ret
+
+    fun move(newX:Int, newY:Int)
+        x = newX
+        y = newY
+        updateLayer()
+
+
+
+fun newWindow(x:Int, y:Int, width:Int, height:Int, title:String) -> Window
+    val wdw = new Window(x,y,width,height,title, layerNumber)
+    layerNumber += 1
+
+    # TODO - handle layers properly -> for now let's just count
+    wdw.updateLayer()
+    wdw.drawBorders()
+
+    return wdw

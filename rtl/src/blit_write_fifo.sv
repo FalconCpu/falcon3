@@ -23,7 +23,7 @@ logic [3:0]  be_fifo     [255:0];
 
 logic [7:0] rd_ptr, wr_ptr;
 wire [7:0] next_rd_ptr = rd_ptr + {7'b0, out_ack};
-wire [7:0] slots_free = rd_ptr - wr_ptr - 1;
+wire [7:0] slots_free = rd_ptr - wr_ptr - 8'h1;
 assign fifo_full = slots_free < 8'd8;
 
 
@@ -33,7 +33,7 @@ always_ff @(posedge clock) begin
         addr_fifo[wr_ptr] <= in_addr;
         data_fifo[wr_ptr] <= in_data;
         be_fifo[wr_ptr]   <= in_byte_enable;
-        wr_ptr <= wr_ptr + 1;
+        wr_ptr <= wr_ptr + 8'h1;
     end
 
     // Pop

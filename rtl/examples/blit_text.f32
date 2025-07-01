@@ -14,6 +14,13 @@ BLIT_SET_OFFSET = 0x03       # arg1=y/x
 BLIT_SET_COLOR  = 0x04       # arg1=foreground, arg2=background
 BLIT_RECT       = 0x05       # arg1=y1/x1, arg2=y2/x2
 BLIT_LINE       = 0x06       # arg1=y1/x1, arg2=y2/x2
+BLIT_SET_SRC    = 0x07       # arg1=bitmap addr, arg2=bytes per line
+BLIT_SRC_OFFSET = 0x08       # arg1=x, arg2=y
+BLIT_IMAGE      = 0x09       # arg1=y1/x1 arg2=height/width
+BLIT_CHAR       = 0x0a       # arg1=y/x, arg2=char
+BLIT_FONT       = 0x0b       # arg1=font addr, arg2=BytePerChar/Height/Width 
+BLIT_TRANSPARENT= 0x0c       # arg1=color to make transparent
+
 
 VGA_LAYERS_BASE = 0xE0001000
 VGA_LAYER0_ADDR = 0x00000000
@@ -64,6 +71,11 @@ stw $2, $6[HWREGS_BLIT_ARG1]
 stw $3, $6[HWREGS_BLIT_ARG2]
 stw $1, $6[HWREGS_BLIT_CMD]
 
+ld $1, BLIT_TRANSPARENT
+ld $2, 256
+stw $2, $6[HWREGS_BLIT_ARG1]
+stw $1, $6[HWREGS_BLIT_CMD]
+
 ld $1, BLIT_SET_OFFSET
 ld $2, 0
 ld $3, 0
@@ -71,37 +83,42 @@ stw $2, $6[HWREGS_BLIT_ARG1]
 stw $3, $6[HWREGS_BLIT_ARG2]
 stw $1, $6[HWREGS_BLIT_CMD]
 
-
-ld $1, BLIT_RECT
-ld $2, 0x00100020
-ld $3, 0x00300040
+ld $1, BLIT_FONT
+ld $2, 0xF0000000           # font address
+ld $3, 0x200C0C08           # 12x8 font, starting at char 32
 stw $2, $6[HWREGS_BLIT_ARG1]
 stw $3, $6[HWREGS_BLIT_ARG2]
 stw $1, $6[HWREGS_BLIT_CMD]
 
-ld $12, 0                   # $12 cycle through the colors
-blit_line:
+ld $5, 32                   # $5 = char to print
+ld $7, 80                   # $7 number of chars to print
+ld $8, 0x00200000           # $8 = coordinate 
 
-ld $1, BLIT_SET_COLOR
-stw $12, $6[HWREGS_BLIT_ARG1]
-stw 0,   $6[HWREGS_BLIT_ARG2]
-stw $1,  $6[HWREGS_BLIT_CMD]
-add $12, 1
+loop1:
+ld $1, BLIT_CHAR
+stw $8, $6[HWREGS_BLIT_ARG1]
+stw $5, $6[HWREGS_BLIT_ARG2]
+stw $1, $6[HWREGS_BLIT_CMD]
+add $8, 8
+add $5, 1
+bne $5, $7, loop1
 
-ld $7, HWREGS_BASE
-ldw $2, $7[HWREGS_MOUSE_X]
-ldw $3, $7[HWREGS_MOUSE_Y]
-lsl $3, 16
-or $3, $2
-stw $3, $6[HWREGS_BLIT_ARG1]
-ld $3, 0x00F00140               # 320:240 in hex - center of screen
-stw $3, $6[HWREGS_BLIT_ARG2]
-ld $1, BLIT_LINE
+# draw the next row with transparent background
+ld $1, BLIT_TRANSPARENT
+ld $2, 0
+stw $2, $6[HWREGS_BLIT_ARG1]
 stw $1, $6[HWREGS_BLIT_CMD]
 
-ld $1, 1000000
-wait1:
-sub $1, 1
-bne $1, 0, wait1
+ld $8, 0x00400000           # $8 = coordinate 
+ld $7, 127
+loop2:
+ld $1, BLIT_CHAR
+stw $8, $6[HWREGS_BLIT_ARG1]
+stw $5, $6[HWREGS_BLIT_ARG2]
+stw $1, $6[HWREGS_BLIT_CMD]
+add $8, 8
+add $5, 1
+bne $5, $7, loop2
 
-jmp blit_line
+forever:
+jmp forever

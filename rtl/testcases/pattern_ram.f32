@@ -1,0 +1,21 @@
+HWREGS_BASE = 0xE0000000
+SEVENSEG = 0x0000
+PATRAM_BASE = 0xF0000000
+
+ld $1, HWREGS_BASE
+ld $2, PATRAM_BASE
+add $3, $2, 1024
+
+loop:
+ldw $3, $2[0]
+stw $3, $1[SEVENSEG]
+add $2, 4
+
+ld $7, 10000000
+loop2:
+add $7, -1
+bne $7, 0, loop2
+
+bne $2, $3, loop
+
+ret

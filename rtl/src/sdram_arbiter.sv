@@ -66,75 +66,122 @@ module sdram_arbiter(
 
 );
 
-logic [2:0]  bus_master, bus_master_q;
+logic [2:0]  next_req;
+logic [25:0] next_addr;
+logic        next_write;
+logic        next_burst;
+logic [3:0]  next_byte_enable;
+logic [31:0] next_wdata;
 
 
 always_comb begin
+    next_req = sdram_req;
+    next_addr = sdram_addr;
+    next_write = sdram_write;
+    next_burst = sdram_burst;
+    next_byte_enable = sdram_byte_enable;
+    next_wdata = sdram_wdata;
+    bus1_ack = 1'b0;
+    bus2_ack = 1'b0;
+    bus3_ack = 1'b0;
+    bus4_ack = 1'b0;
+    bus1_rdvalid = 1'b0;
+    bus1_rdata = 32'bx;
+    bus1_complete = 1'b0;
+    bus2_rdvalid = 1'b0;
+    bus2_rdata = 32'bx;
+    bus2_complete = 1'b0;
+    bus3_rdvalid = 1'b0;
+    bus3_rdata = 32'bx;
+    bus3_complete = 1'b0;
+    bus4_rdvalid = 1'b0;
+    bus4_rdata = 32'bx;
+    bus4_complete = 1'b0;
 
 
-    // Keep the bus master from the previous cycle, if it hasn't finished
-    bus_master = bus_master_q;
-
-    // Chose the new bus master
-    if (bus_master==0) begin
-        if (bus1_request) 
-            bus_master = 1;
-        else if (bus2_request) 
-            bus_master = 2;
-        else if (bus3_request) 
-            bus_master = 3;
-        else if (bus4_request) 
-            bus_master = 4;
+    if (sdram_req==3'b000) begin
+        if (bus1_request) begin
+            next_req = 3'h1;
+            next_addr = bus1_addr;
+            next_write = bus1_write;
+            next_burst = bus1_burst;
+            next_byte_enable = bus1_byte_enable;
+            next_wdata = bus1_wdata;
+            bus1_ack = 1'b1;
+        end else if (bus2_request) begin
+            next_req = 3'h2;
+            next_addr = bus2_addr;
+            next_write = bus2_write;
+            next_burst = bus2_burst;
+            next_byte_enable = bus2_byte_enable;
+            next_wdata = bus2_wdata;
+            bus2_ack = 1'b1;
+        end else if (bus3_request) begin
+            next_req = 3'h3;
+            next_addr = bus3_addr;
+            next_write = bus3_write;
+            next_burst = bus3_burst;
+            next_byte_enable = bus3_byte_enable;
+            next_wdata = bus3_wdata;
+            bus3_ack = 1'b1;
+        end else if (bus4_request) begin
+            next_req = 3'h4;
+            next_addr = bus4_addr;
+            next_write = bus4_write;
+            next_burst = bus4_burst;
+            next_byte_enable = bus4_byte_enable;
+            next_wdata = bus4_wdata;
+            bus4_ack = 1'b1;
+        end
     end
 
-    sdram_req = bus_master;
-    sdram_addr =  bus_master==1 ? bus1_addr :
-                  bus_master==2 ? bus2_addr :
-                  bus_master==3 ? bus3_addr : 
-                  bus_master==4 ? bus4_addr : 26'bx;
-    sdram_write = bus_master==1 ? bus1_write :
-                  bus_master==2 ? bus2_write :
-                  bus_master==3 ? bus3_write :
-                  bus_master==4 ? bus4_write : 1'bx;
-    sdram_byte_enable = bus_master==1 ? bus1_byte_enable :
-                  bus_master==2 ? bus2_byte_enable :
-                  bus_master==3 ? bus3_byte_enable : 
-                  bus_master==4 ? bus4_byte_enable : 4'bx;
-    sdram_wdata = bus_master==1 ? bus1_wdata :
-                  bus_master==2 ? bus2_wdata :
-                  bus_master==3 ? bus3_wdata : 
-                  bus_master==4 ? bus4_wdata : 32'bx;
-    sdram_burst = bus_master==1 ? bus1_burst :
-                  bus_master==2 ? bus2_burst :
-                  bus_master==3 ? bus3_burst :
-                  bus_master==4 ? bus4_burst : 1'bx;
+    if (sdram_ack) begin
+        next_req = 3'b000;
+        next_addr = 26'bx;
+        next_write = 1'b0;
+        next_burst = 1'b0;
+        next_byte_enable = 4'bx;
+        next_wdata = 32'bx;
+    end
 
     // Pass data from the SDRAM controller to the bus master
-    bus1_rdvalid = (sdram_rdvalid==1);
-    bus1_rdata = bus1_rdvalid ? sdram_rdata : 32'bx;
-    bus1_complete = sdram_complete && bus1_rdvalid;
-    bus2_rdvalid = (sdram_rdvalid==2);
-    bus2_rdata = bus2_rdvalid ? sdram_rdata : 32'bx;
-    bus2_complete = sdram_complete && bus2_rdvalid;
-    bus3_rdvalid = (sdram_rdvalid==3);
-    bus3_rdata = bus3_rdvalid ? sdram_rdata : 32'bx;
-    bus3_complete = sdram_complete && bus3_rdvalid;
-    bus4_rdvalid = (sdram_rdvalid==4);
-    bus4_rdata = bus4_rdvalid ? sdram_rdata : 32'bx;
-    bus4_complete = sdram_complete && bus4_rdvalid;
+    if (sdram_rdvalid==3'h1) begin
+        bus1_rdvalid = 1'b1;
+        bus1_rdata = sdram_rdata;
+        bus1_complete = sdram_complete;
+    end
+    if (sdram_rdvalid==3'h2) begin
+        bus2_rdvalid = 1'b1;
+        bus2_rdata = sdram_rdata;
+        bus2_complete = sdram_complete;
+    end
+    if (sdram_rdvalid==3'h3) begin
+        bus3_rdvalid = 1'b1;
+        bus3_rdata = sdram_rdata;
+        bus3_complete = sdram_complete;
+    end
+    if (sdram_rdvalid==3'h4) begin
+        bus4_rdvalid = 1'b1;
+        bus4_rdata = sdram_rdata;
+        bus4_complete = sdram_complete;
+    end
 
-    // Pass on the ack from the bus master to the SDRAM controller
-    bus1_ack = (bus_master==1) ? sdram_ack : 1'b0;
-    bus2_ack = (bus_master==2) ? sdram_ack : 1'b0;
-    bus3_ack = (bus_master==3) ? sdram_ack : 1'b0;
-    bus4_ack = (bus_master==4) ? sdram_ack : 1'b0;
-
-    if (sdram_ack || reset)    
-        bus_master = 0;
+    if (reset) begin
+        next_req = 3'b000;
+    end
 end
 
 always_ff @(posedge clock) begin
-    bus_master_q <= bus_master;
+    sdram_req <= next_req;
+    sdram_addr <= next_addr;
+    sdram_write <= next_write;
+    sdram_burst <= next_burst;
+    sdram_byte_enable <= next_byte_enable;
+    sdram_wdata <= next_wdata;
+
+    if (sdram_req == 3'b000 && sdram_ack)
+        $display("Error: %t SDRAM arbiter received ack without a request", $time);
+
 end
 
 endmodule

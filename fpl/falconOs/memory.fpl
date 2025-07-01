@@ -58,14 +58,9 @@ class ClassDescriptor          # An instance of this class is created by the com
 var freeList : FreeMemBlock?         # linked list of free blocks sorted by size
 
 fun initializeMemorySystem()
-    kPrintString("Here1\n")
     freeList = HEAP_START as FreeMemBlock
-    kPrintString("Here2\n")
-    kPrintHex8(freeList as Int)
     freeList.size = HEAP_END - HEAP_START
-    kPrintString(" Here3\n")
     freeList.next = null
-    kPrintString("Here4\n")
 
 fun insertBlockIntoFreeList(block:FreeMemBlock, size:Int)
     # Insert the block into the freelist, keeping the list sorted by size
@@ -123,11 +118,11 @@ fun mallocArray(numElements:Int, elementSize:Int, clear:Bool) -> Int
     ret.size = size | BLOCK_ARRAY
     ret.numElements = numElements
     val retInt = (ret as Int)+8 # Skip past the object's header
-    if clear
-        val numWords = numElements * elementSize / 4
-        val ary = (retInt as Array<Int>)
-        for i in 0..<numWords
-            ary[i] = 0
+#    if clear
+#        val numWords = numElements * elementSize / 4
+#        val ary = (retInt as Array<Int>)
+#        for i in 0..<numWords
+#            ary[i] = 0
     return retInt
 
 fun free(ptr:Int)
@@ -188,7 +183,7 @@ end fun
 # So for example a integer 0x12345003 represents a block of 32kB at address 0x12345000.
 
 # Keep a list of free blocks of each size:-
-var freeBlocks : FixedArray< List<Int> >(16)
+var freeBlocks : Array< List<Int> >
 
 fun getBuddy(blk:Int) -> Int
     val size = blk & 0xF
@@ -224,7 +219,7 @@ fun allocateBlock(logSize:Int) -> Int
 
 fun initializeBuddyAllocator()
     # Initialize the free block lists
-    freeBlocks = new FixedArray< List<Int> >(16){ new List<Int>() }
+    freeBlocks = new Array(16){ new List<Int>() }
     const startOfBuddyAllocator = 0x10000
     const endOfBuddyAllocator = 0x20000
 #    const endOfBuddyAllocator = 0x3f80000

@@ -577,8 +577,8 @@ class TypeCheckTest {
             top
               file: test
                 function: main()
-                  decl: VAR:array:inline Array<Int>
-                    new-array (inline Array<Int>)
+                  decl: INLINE:array:inline Array<Int>(10)
+                    new-array (inline Array<Int>(10))
                       int: 10 (Int)
                   for: i
                     range: LT_I (Range<Int>)
@@ -586,7 +586,7 @@ class TypeCheckTest {
                       int: 10 (Int)
                     assign EQ_I
                       index (Int)
-                        var: array (inline Array<Int>)
+                        var: array (inline Array<Int>(10))
                         var: i (Int)
                       var: i (Int)
 
@@ -599,8 +599,8 @@ class TypeCheckTest {
         val prog = """
             class TCB 
                 var   pc : Int
-                local regs : FixedArray<Int>(32)
-                local dmpu : FixedArray<Int>(8)
+                val regs : inline Array<Int>(32)
+                val dmpu : inline Array<Int>(8)
         
             fun main()
                 val task = new TCB()
@@ -626,13 +626,13 @@ class TypeCheckTest {
                     int: 10 (Int)
                   assign EQ_I
                     index (Int)
-                      embeddedMember: regs (FixedArray<Int>(32))
+                      embeddedMember: regs (inline Array<Int>(32))
                         var: task (TCB)
                       int: 4 (Int)
                     int: 4660 (Int)
                   assign EQ_I
                     index (Int)
-                      embeddedMember: dmpu (FixedArray<Int>(8))
+                      embeddedMember: dmpu (inline Array<Int>(8))
                         var: task (TCB)
                       int: 0 (Int)
                     int: 22136 (Int)
@@ -645,7 +645,7 @@ class TypeCheckTest {
                   print
                     string: "regs[4] = " (String)
                     index (Int)
-                      embeddedMember: regs (FixedArray<Int>(32))
+                      embeddedMember: regs (inline Array<Int>(32))
                         var: task (TCB)
                       int: 4 (Int)
                     string: "
@@ -653,7 +653,7 @@ class TypeCheckTest {
                   print
                     string: "dmpu[0] = " (String)
                     index (Int)
-                      embeddedMember: dmpu (FixedArray<Int>(8))
+                      embeddedMember: dmpu (inline Array<Int>(8))
                         var: task (TCB)
                       int: 0 (Int)
                     string: "

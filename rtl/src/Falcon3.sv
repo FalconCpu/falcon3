@@ -5,17 +5,14 @@
 module Falcon3(
 
 	//////////// Audio //////////
-	input 		          		AUD_ADCDAT,
-	inout 		          		AUD_ADCLRCK,
-	inout 		          		AUD_BCLK,
-	output		          		AUD_DACDAT,
-	inout 		          		AUD_DACLRCK,
-	output		          		AUD_XCK,
+	// input 		          		AUD_ADCDAT,
+	// inout 		          		AUD_ADCLRCK,
+	// inout 		          		AUD_BCLK,
+	// output		          		AUD_DACDAT,
+	// inout 		          		AUD_DACLRCK,
+	// output		          		AUD_XCK,
 
 	//////////// CLOCK //////////
-	input 		          		CLOCK2_50,
-	input 		          		CLOCK3_50,
-	input 		          		CLOCK4_50,
 	input 		          		CLOCK_50,
 
 	//////////// SDRAM //////////
@@ -32,8 +29,8 @@ module Falcon3(
 	output		          		DRAM_WE_N,
 
 	//////////// I2C for Audio and Video-In //////////
-	output		          		FPGA_I2C_SCLK,
-	inout 		          		FPGA_I2C_SDAT,
+	// output		          		FPGA_I2C_SCLK,
+	// inout 		          		FPGA_I2C_SDAT,
 
 	//////////// SEG7 //////////
 	output		     [6:0]		HEX0,
@@ -100,6 +97,9 @@ logic [31:0] cpu_dcache_rdata;
 logic        cpu_hwregs_req;
 logic        cpu_hwregs_ack;
 logic [31:0] cpu_hwregs_rdata;
+logic        cpu_patram_req;
+logic        cpu_patram_ack;
+logic [31:0] cpu_patram_rdata;
 logic        UART_RX, UART_TX;
 logic locked;
 
@@ -159,6 +159,13 @@ logic [31:0] blitr_sdram_rdata;
 logic        blitr_sdram_rdvalid;
 logic        blitr_sdram_complete;
 
+logic        blit_patram_request;
+logic [15:0] blit_patram_addr;
+logic [31:0] blit_patram_rdata;
+logic        blit_patram_write = 1'b0;
+logic [3:0]  blit_patram_byte_enable = 4'b0;
+logic [31:0] blit_patram_wdata = 32'bx;
+logic        blit_patram_ack;
 
 assign GPIO_0[3:1] = 3'bzzz;
 assign GPIO_0[0] = UART_TX;
@@ -203,7 +210,10 @@ address_decoder  address_decoder_inst (
     .cpu_iram_rdata(cpu_iram_rdata),
     .cpu_hwregs_req(cpu_hwregs_req),
     .cpu_hwregs_ack(cpu_hwregs_ack),
-    .cpu_hwregs_rdata(cpu_hwregs_rdata)
+    .cpu_hwregs_rdata(cpu_hwregs_rdata),
+    .cpu_patram_req(cpu_patram_req),
+    .cpu_patram_ack(cpu_patram_ack),
+    .cpu_patram_rdata(cpu_patram_rdata)
   );
 
 cpu_icache  cpu_icache_inst (
@@ -404,7 +414,29 @@ blit_top  blit_top_inst (
   .blitr_sdram_ack(blitr_sdram_ack),
   .blitr_sdram_rdata(blitr_sdram_rdata),
   .blitr_sdram_rdvalid(blitr_sdram_rdvalid),
-  .blitr_sdram_complete(blitr_sdram_complete)
+  .blitr_sdram_complete(blitr_sdram_complete),
+  .blitr_patram_req(blit_patram_request),
+  .blitr_patram_addr(blit_patram_addr),
+  .blitr_patram_rdata(blit_patram_rdata),
+  .blitr_patram_rdvalid(blit_patram_ack)
 );
+
+pattern_memory  pattern_memory_inst (
+    .clock(clock),
+    .cpud_request(cpu_patram_req),
+    .cpud_addr(cpud_addr[15:0]),
+    .cpud_write(cpud_write),
+    .cpud_byte_enable(cpud_byte_enable),
+    .cpud_wdata(cpud_wdata),
+    .cpud_rdata(cpu_patram_rdata),
+    .cpud_ack(cpu_patram_ack),
+    .blit_request(blit_patram_request),
+    .blit_addr(blit_patram_addr),
+    .blit_write(blit_patram_write),
+    .blit_byte_enable(blit_patram_byte_enable),
+    .blit_wdata(blit_patram_wdata),
+    .blit_rdata(blit_patram_rdata),
+    .blit_ack(blit_patram_ack)
+  );
 
 endmodule

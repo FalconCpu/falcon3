@@ -22,7 +22,13 @@ module address_decoder(
     // connections to the HWREGS
     output logic        cpu_hwregs_req,
     input  logic        cpu_hwregs_ack,
-    input  logic [31:0] cpu_hwregs_rdata
+    input  logic [31:0] cpu_hwregs_rdata,
+
+    // connections to the PATTERN RAM
+    output logic        cpu_patram_req,
+    input  logic        cpu_patram_ack,
+    input  logic [31:0] cpu_patram_rdata
+
 );
 
 logic invalid_addr, invalid_addr_ack;
@@ -31,6 +37,7 @@ always_comb begin
     cpu_dcache_req = 1'b0;
     cpu_hwregs_req = 1'b0;
     cpu_iram_req = 1'b0;
+	 cpu_patram_req = 1'b0;
     invalid_addr = 1'b0;
 
     // Route the request to the correct device
@@ -41,17 +48,21 @@ always_comb begin
             cpu_hwregs_req = 1'b1;
         else if (cpud_addr[31:16] == 16'hFFFF)
             cpu_iram_req = 1'b1;
+        else if (cpud_addr[31:16] == 16'hF000)
+            cpu_patram_req = 1'b1;
         else
             invalid_addr = 1'b1;
     end
 
     // Merge the ack signals
-    cpud_ack = cpu_dcache_ack || cpu_hwregs_ack || cpu_iram_ack || invalid_addr_ack;
-    cpud_rdata = cpu_dcache_rdata | cpu_hwregs_rdata | cpu_iram_rdata;
+    cpud_ack = cpu_dcache_ack || cpu_hwregs_ack || cpu_iram_ack || cpu_patram_ack || invalid_addr_ack;
+    cpud_rdata = cpu_dcache_rdata | cpu_hwregs_rdata | cpu_iram_rdata | cpu_patram_rdata;
 end
 
 always_ff @(posedge clock) begin
     invalid_addr_ack <= invalid_addr;
 end
+
+wire _unused = &{1'b0,cpud_addr[15:0]};
 
 endmodule

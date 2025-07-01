@@ -86,7 +86,7 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
                 is SymbolField -> {
                     val thisSymbol = currentFunction?.thisSymbol
                     // do some sanity checks
-                    if (thisSymbol==null)error("Accessed a SymbolField when not in a method")
+                    if (thisSymbol==null)error("Accessed a SymbolField when not in a method  $currentFunction")
                     assert(symbol in (thisSymbol.type as TypeClassGeneric).symbols.values){
                         "Internal Compiler Error: Field '$name' found, but does not belong to 'this' type '${thisSymbol.type}'."
                     }
@@ -107,6 +107,7 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
                     TstEmbeddedMember(location, thisExpr, symbol, symbol.type)
                 }
                 is SymbolConstant -> symbol.toExpression()
+                is SymbolInlineVar -> TstInlineVariable(location, symbol, symbol.type)
             }
         }
 
@@ -213,13 +214,12 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
             if (tcExpr.type == TypeError) return tcExpr
             TypeInt.checkCompatibleWith(tcIndex)
 
-            val tcType = tcExpr.type.dropInline()
-
-            when (tcType) {
-                is TypeArray -> TstIndex(location, tcExpr, tcIndex, tcType.elementType)
+            when (tcExpr.type) {
+                is TypeArray -> TstIndex(location, tcExpr, tcIndex, tcExpr.type.elementType)
+                is TypeInlineArray -> TstIndex(location, tcExpr, tcIndex, tcExpr.type.elementType)
                 is TypeString -> TstIndex(location, tcExpr, tcIndex, TypeChar)
                 is TypeClassInstance -> {
-                    val sf = tcType.lookupSymbol("get")
+                    val sf = tcExpr.type.lookupSymbol("get")
                     if (sf is SymbolFunction && sf.functions.size==1 && sf.functions[0].parameters.size==1 && sf.functions[0].parameters[0].type==TypeInt)
                         TstCall(location, sf.functions[0].function, listOf(tcIndex), tcExpr, sf.functions[0].returnType)
                     else
@@ -369,7 +369,7 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
                         tcType.elementType.checkCompatibleWith(tcLambda.body)
                     if (kind==TokenKind.INLINE) {
                         if (tcSize.isCompileTimeConstant())
-                            tcType = TypeInlineArray.create(tcType, tcSize.getIntegerConstant())
+                            tcType = TypeInlineArray.create(tcType.elementType, tcSize.getIntegerConstant())
                         else
                             Log.error(location, "Array size must be a compile-time constant")
                     }
@@ -442,7 +442,7 @@ private fun checkParameters(location:Location, parameters:List<Type>, args:List<
         // Not a vararg
         if (args.size != parameters.size)
             Log.error(location, "Got ${args.size} arguments when expecting ${parameters.size}")
-        for (index in args.indices)
+        else for (index in args.indices)
             parameters[index].checkCompatibleWith(args[index])
 //    }
 }
@@ -537,6 +537,7 @@ fun AstExpr.typeCheckLvalue(context:AstBlock) : TstExpr {
                 is SymbolEmbeddedField -> {
                     TODO("Lvalue of embedded field '$name' not yet implemented")
                 }
+                is SymbolInlineVar -> TODO()
             }
         }
 
@@ -546,14 +547,13 @@ fun AstExpr.typeCheckLvalue(context:AstBlock) : TstExpr {
             if (tcExpr.type == TypeError) return tcExpr
             TypeInt.checkCompatibleWith(tcIndex)
 
-            val tcType = tcExpr.type.dropInline()
-
-            when (tcType) {
-                is TypeArray -> TstIndex(location, tcExpr, tcIndex, tcType.elementType)
+            when (tcExpr.type) {
+                is TypeArray -> TstIndex(location, tcExpr, tcIndex, tcExpr.type.elementType)
+                is TypeInlineArray -> TstIndex(location, tcExpr, tcIndex, tcExpr.type.elementType)
                 is TypeString -> TstIndex(location, tcExpr, tcIndex, TypeChar)
 
                 is TypeClassInstance -> {
-                    val sf = tcType.lookupSymbol("set")
+                    val sf = tcExpr.type.lookupSymbol("set")
                     if (sf is SymbolFunction && sf.functions.size == 1 && sf.functions[0].parameters.size == 2 && sf.functions[0].parameters[0].type == TypeInt) {
                         TstSetCall(location, sf.functions[0].function, listOf(tcIndex), tcExpr, sf.functions[0].parameters[1].type)
                     }
@@ -712,6 +712,15 @@ fun AstTypeExpr.resolveType(context:AstBlock) : Type = when(this) {
         val elementType = base.resolveType(context)
         TypeNullable.create(location, elementType)
     }
+
+    is AstTypeInlineArray -> {
+        val elementType = base.resolveType(context)
+        val tcNumElement = numElements.typeCheckRvalue(context)
+        if (tcNumElement.isIntegerConstant())
+            TypeInlineArray.create(elementType, tcNumElement.getIntegerConstant())
+        else
+            makeTypeError(location, "Inline array size must be a constant")
+    }
 }
 
 // ================================================================
@@ -727,10 +736,17 @@ fun AstStmt.typeCheck(context:AstBlock) : TstStmt {
                 "Cannot resolve type for '$name'"
             )
             val mutable = (kind == TokenKind.VAR)
-            val symbol = if (context is AstFile)
-                createGlobalVar(location, name, type, mutable)
-            else
-                SymbolVar(location, name, type, mutable)
+            val symbol = if (context is AstFile) {
+                if (type.isInline())
+                    TODO("Not yet implemented : Inline types as global variables")
+                else
+                    createGlobalVar(location, name, type, mutable)
+            } else {
+                if (type.isInline())
+                    SymbolInlineVar(location, name, type, mutable)
+                else
+                    SymbolVar(location, name, type, mutable)
+            }
             pathContext = if (tcExpr == null)
                 pathContext.addUninitialized(symbol)
             else
@@ -821,6 +837,7 @@ fun AstStmt.typeCheck(context:AstBlock) : TstStmt {
             val elementType = when (tcExpr.type) {
                 is TypeError -> TypeError
                 is TypeArray -> tcExpr.type.elementType
+                is TypeInlineArray -> tcExpr.type.elementType
                 is TypeRange -> tcExpr.type.elementType
                 is TypeString -> TypeChar
                 is TypeClassInstance -> {
@@ -1115,6 +1132,9 @@ private fun AstClass.createFieldSymbols(context: AstBlock) {
         }
 
     // Scan through the class body and identify any more fields
+    val oldFunction = currentFunction
+    currentFunction = classType.constructor
+
     for (stmt in body.filterIsInstance<AstDecl>()) {
         val tcExpr = stmt.expr?.typeCheckRvalue(astConstructor)
         val type = stmt.typeExpr?.resolveType(this) ?:
@@ -1126,8 +1146,6 @@ private fun AstClass.createFieldSymbols(context: AstBlock) {
         else
             SymbolField(stmt.location, stmt.name, type, mutable)
         classType.addSymbol(sym)
-//        if (sym is SymbolEmbeddedField && sym.type !is TypeFixedArray)
-//            Log.error(stmt.location, "Embedded fields must be FixedArrays")
         addSymbol(sym)
         if (tcExpr!=null) {
             sym.type.checkCompatibleWith(tcExpr)
@@ -1139,6 +1157,8 @@ private fun AstClass.createFieldSymbols(context: AstBlock) {
             constructorBody += TstAssign(sym.location, fieldExpr, tcExpr, AluOp.EQ_I)
         }
     }
+
+    currentFunction = oldFunction
 }
 
 private fun AstEnum.createEnumSymbol(context: AstBlock) {
