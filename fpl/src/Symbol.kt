@@ -1,3 +1,5 @@
+import java.io.File
+
 sealed class Symbol(val location: Location, val name:String, val type:Type, val mutable: Boolean) {
     override fun toString() = name
 
@@ -8,27 +10,29 @@ sealed class Symbol(val location: Location, val name:String, val type:Type, val 
         is SymbolTypeName -> "TYPE:$name:$type"
         is SymbolField -> "FIELD:$name:$type"
         is SymbolConstant -> "CONST:$name:$type"
-        is SymbolEmbeddedField -> "EMBED:$name:$type"
+        is SymbolInlineField -> "EMBED:$name:$type"
         is SymbolInlineVar -> "INLINE:$name:$type"
     }
+
+    val references = mutableSetOf<Location>()
 }
 
 class SymbolVar(location: Location, name:String, type:Type, mutable:Boolean) : Symbol(location, name, type, mutable)
 class SymbolGlobal(location: Location, name:String, type:Type, mutable:Boolean) : Symbol(location, name, type, mutable) {
-    var offset = -1;
+    var offset = -1
 }
 class SymbolFunction(location: Location, name:String, type:Type, val functions:MutableList<FunctionInstance>) : Symbol(location, name, type, false)
 class SymbolTypeName(location: Location, name:String, type:Type) : Symbol(location, name, type, false)
 class SymbolField(location: Location, name:String, type:Type, mutable: Boolean) : Symbol(location, name, type, mutable) {
-    var offset = -1;
+    var offset = -1
 }
 class SymbolConstant(location: Location, name:String, type:Type, val value:Value) : Symbol(location, name, type, false)
 
 class SymbolInlineVar(location: Location, name:String, type:Type, mutable:Boolean) : Symbol(location, name, type, mutable) {
-    var offset = -1;
+    var offset = -1
 }
-class SymbolEmbeddedField(location: Location, name:String, type:Type, mutable: Boolean) : Symbol(location, name, type, false) {
-    var offset = -1;
+class SymbolInlineField(location: Location, name:String, type:Type, mutable: Boolean) : Symbol(location, name, type, mutable) {
+    var offset = -1
 }
 
 
@@ -45,12 +49,15 @@ fun AstBlock.addSymbol(symbol:Symbol) {
     symbolTable[symbol.name] = symbol
 }
 
-fun AstBlock.lookupSymbol(name:String) : Symbol? {
-    return predefinedSymbols[name] ?: symbolTable[name] ?: parent?.lookupSymbol(name)
+fun AstBlock.lookupSymbol(location:Location, name:String) : Symbol? {
+    val ret = predefinedSymbols[name] ?: symbolTable[name] ?: parent?.lookupSymbol(location, name)
+    if (ret != null && location.filename!="")
+        ret.references += location
+    return ret
 }
 
 fun AstBlock.lookupOrDefault(location:Location, name:String) : Symbol {
-    val symbol = lookupSymbol(name)
+    val symbol = lookupSymbol(location, name)
     if (symbol != null)
         return symbol
     Log.error(location, "Undeclared identifier '$name'")
@@ -78,9 +85,9 @@ fun AstBlock.setParent(parent:AstBlock) {
             newSymbol.offset = offset
             newSymbol
         }
-        is SymbolEmbeddedField -> {
+        is SymbolInlineField -> {
             val newType = type.substitute(map)
-            val newSymbol = SymbolEmbeddedField(location, name, newType, mutable)
+            val newSymbol = SymbolInlineField(location, name, newType, mutable)
             newSymbol.offset = offset
             newSymbol
         }
@@ -123,3 +130,54 @@ private val predefinedSymbolList = listOf(
 val predefinedSymbols = predefinedSymbolList.associateBy { it.name }
 
 val sizeField = SymbolField(nullLocation, "size", TypeInt, false).also { it.offset = -4 }
+
+
+// ============================================================
+//                    SymbolMap
+// ============================================================
+// Output a JSON file containing a list of all symbols with their
+// types and locations.
+
+private fun Symbol.toJson():String {
+    val kind = when (this) {
+        is SymbolField -> "field"
+        is SymbolConstant -> "constant"
+        is SymbolFunction -> "function"
+        is SymbolTypeName -> when (type) {
+            is TypeClassGeneric -> "class"
+            is TypeClassInstance -> "class"
+            is TypeEnum -> "enum"
+            else -> "type"
+        }
+        is SymbolVar -> "var"
+        is SymbolInlineVar -> "inline var"
+        is SymbolInlineField -> "inline field"
+        is SymbolGlobal -> "global"
+    }
+
+    return """{"name":"$name", "kind":"$kind", "type":"$type", "definition":${location.toJson()}, "references":[${references.joinToString{ it.toJson() }}], "mutable":$mutable}"""
+}
+
+private fun AstBlock.getAllSymbols(out:MutableSet<Symbol>) {
+    for (symbol in symbolTable.values)
+        out += symbol
+    for (blk in body.filterIsInstance<AstBlock>())
+        blk.getAllSymbols(out)
+
+    for (cls in TypeClassInstance.Companion.allClassInstances)
+        out += cls.symbols.values
+
+    for (enum in TypeEnum.allEnumTypes)
+        out += enum.symbols.values
+}
+
+fun AstTop.writeSymbolMap() {
+    val fh = File("symbol-map.json").bufferedWriter()
+    val symbols = mutableSetOf<Symbol>()
+    getAllSymbols(symbols)
+    val json = """{"symbols":[
+        |${symbols.joinToString(",\n") { it.toJson() }}
+        |]}""".trimMargin()
+    fh.write(json)
+    fh.close()
+}

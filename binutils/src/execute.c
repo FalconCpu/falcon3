@@ -54,10 +54,9 @@ static FILE* blit_log;
 #define STATUS_SUPERVISOR 0x00000001
 #define STATUS_INTERRUPT  0x00000002
 
-#define DMPU_ENABLED 0x00000001
-#define DMPU_EXECUTE 0x00000002
-#define DMPU_WRITE   0x00000004
-#define DMPU_READ    0x00000008
+#define DMPU_EXECUTE 0x00000400
+#define DMPU_WRITE   0x00000200
+#define DMPU_READ    0x00000100
 
 static int epc;
 static int ecause;
@@ -308,11 +307,9 @@ static int check_dmpu(int access, int address) {
         return 1;       // Supervisor mode allows all accesses
 
     for(int i=0; i<8; i++) {
-        if (!(dmpu[i] & DMPU_ENABLED))
-            continue;   // Skip disabled entries
         if (!(dmpu[i] & access))
             continue;   // Skip entries that don't match the access type
-        int size = (dmpu[i]>>8) & 0x15;
+        int size = dmpu[i] & 0x0f;
         int mask = 0xFFFFF000 << size;
         if ((address & mask) == (dmpu[i] & mask))
             return 1;   // Match
@@ -405,8 +402,9 @@ static void write_memory_size(unsigned int addr, int value, int size) {
 // ================================================
 
 static int read_memory_size(unsigned int addr, int size) {
-    if (!check_dmpu(DMPU_READ, addr))
+    if (!check_dmpu(DMPU_READ, addr)) {
         raise_exception(CAUSE_LOAD_ACCESS_FAULT, addr);
+    }
 
     int value = read_memory(addr& 0xfffffffc);;
     int shift = (addr & 3) * 8;
@@ -486,14 +484,14 @@ static void write_cfg(int cfg_reg, int value) {
         case CFG_REG_ISTATUS:  istatus = value & 0xFF; break;
         case CFG_REG_INTVEC:   intvec = value; break;
         case CFG_REG_TIMER:    int_timer = value; break;
-        case CFG_REG_DMPU0:    dmpu[0] = value; break;
-        case CFG_REG_DMPU1:    dmpu[1] = value; break;
-        case CFG_REG_DMPU2:    dmpu[2] = value; break;
-        case CFG_REG_DMPU3:    dmpu[3] = value; break;
-        case CFG_REG_DMPU4:    dmpu[4] = value; break;
-        case CFG_REG_DMPU5:    dmpu[5] = value; break;
-        case CFG_REG_DMPU6:    dmpu[6] = value; break;
-        case CFG_REG_DMPU7:    dmpu[7] = value; break;
+        case CFG_REG_DMPU0:    dmpu[0] = value; printf("DMPU[0] = %08x\n", value); break;
+        case CFG_REG_DMPU1:    dmpu[1] = value; printf("DMPU[1] = %08x\n", value); break;
+        case CFG_REG_DMPU2:    dmpu[2] = value; printf("DMPU[2] = %08x\n", value); break;
+        case CFG_REG_DMPU3:    dmpu[3] = value; printf("DMPU[3] = %08x\n", value); break;
+        case CFG_REG_DMPU4:    dmpu[4] = value; printf("DMPU[4] = %08x\n", value); break;
+        case CFG_REG_DMPU5:    dmpu[5] = value; printf("DMPU[5] = %08x\n", value); break;
+        case CFG_REG_DMPU6:    dmpu[6] = value; printf("DMPU[6] = %08x\n", value); break;
+        case CFG_REG_DMPU7:    dmpu[7] = value; printf("DMPU[7] = %08x\n", value); break;
 
     }
 }

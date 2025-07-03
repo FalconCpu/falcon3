@@ -1,0 +1,134 @@
+
+enum Justify[LEFT,RIGHT,ZERO]
+
+fun printChar(c:Char)
+    while hwRegs.uart_tx <3
+        val dummy = 0
+    hwRegs.uart_tx = c as Int
+
+fun kprintString(s:String, width:Int, justify:Justify)
+    val pad = width - s.length
+    if justify != Justify.LEFT
+        for i in 0..<pad
+            printChar(' ')
+    for i in 0..<s.length
+        printChar(s[i])
+    if justify = Justify.LEFT
+        for i in 0..<pad
+            printChar(' ')
+
+fun kprintInt(value:Int, width:Int, justify:Justify)
+    var n = value
+    var minus = 0
+    if n<0
+        minus = 1
+        n = -n
+    val buffer = inline Array<Char>(16)
+    var index = 0
+    repeat
+        buffer[index] = (n%10) + '0' as Char
+        index+=1
+        n = n/10
+    until n=0
+    val pad = width - index - minus
+    when justify
+        Justify.LEFT ->
+            if minus = 1
+                printChar('-')
+            for i in index-1..>=0
+                printChar(buffer[i])
+            for i in 0..<pad
+                printChar(' ')
+        Justify.RIGHT ->
+            for i in 0..<pad
+                printChar(' ')
+            if minus = 1
+                printChar('-')
+            for i in index-1..>=0
+                printChar(buffer[i])
+        else ->
+            if minus = 1
+                printChar('-')
+            for i in 0..<pad
+                printChar('0')
+            for i in index-1..>=0
+                printChar(buffer[i])
+
+fun kprintHex(value:Int, width:Int, justify:Justify)
+    var n = value
+    val buffer = inline Array<Char>(16)
+    var index = 0
+    repeat
+        var digit = n & 0xF
+        if digit < 10
+            buffer[index] = digit + '0' as Char
+        else
+            buffer[index] = digit - 10 + 'A' as Char
+        index+=1
+        n = n >> 4
+    until n=0
+    val pad = width - index
+    when justify
+        Justify.LEFT ->
+            for i in index-1..>=0
+                printChar(buffer[i])
+            for i in 0..<pad
+                printChar(' ')
+        Justify.RIGHT ->
+            for i in 0..<pad
+                printChar(' ')
+            for i in index-1..>=0
+                printChar(buffer[i])
+        else ->
+            for i in 0..<pad
+                printChar('0')
+            for i in index-1..>=0
+                printChar(buffer[i])
+
+
+
+fun kprintf(format:String, args:Any...)
+    var inPercent = false
+    var width = 0
+    var justify = Justify.RIGHT
+    var index = 0
+    for c in format
+        if inPercent
+            if c = 'd'
+                kprintInt(args[index] as Int, width, justify)
+                index+=1
+                inPercent = false
+            else if c = 'x'
+                kprintHex(args[index] as Int, width, justify)
+                index+=1
+                inPercent = false
+            else if c = 's'
+                kprintString(args[index] as String, width, justify)
+                index+=1
+                inPercent = false
+            else if c = 'c'
+                printChar(args[index] as Char)
+                index+=1
+                inPercent = false
+            else if c = '0' and width = 0
+                justify = Justify.ZERO
+            else if c='-' and width=0
+                justify = Justify.LEFT
+            else if c>='0' and c<='9'
+                width = width * 10 + (c - '0')
+            else
+                printChar(c)
+                inPercent = false
+        else
+            if c = '%'
+                inPercent = true
+                width = 0
+                justify = Justify.RIGHT
+            else
+                printChar(c)
+
+fun kPrintBlock(ptr:Array<Char>, size:Int)
+    for i in 0..<size
+        while hwRegs.uart_tx = 0
+            val dummy = 0
+        hwRegs.uart_tx = ptr[i] as Int

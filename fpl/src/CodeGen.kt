@@ -426,9 +426,16 @@ fun TstExpr.codeGenLvalue(value:Reg, op:AluOp)  {
 // For inline assignements - calcluate the address of the destination
 // and evaluate the RHS into it.
 
-fun TstExpr.codeGenLvalueInline(value:Reg) : Reg  {
+fun TstExpr.codeGenLvalueInline() : Reg  {
     when(this) {
-        is TstVariable ->  TODO()
+        is TstInlineVariable -> {
+            return currentFunc.addAlu(AluOp.ADD_I, regSP, symbol.offset)
+        }
+
+        is TstEmbeddedMember -> {
+            val base = expr.codeGenRvalue()
+            return currentFunc.addAlu(AluOp.ADD_I, base, field.offset)
+        }
 
         else -> TODO("Inline Assignment to $this")
     }
@@ -589,8 +596,13 @@ fun TstStmt.codeGen()  {
         }
 
         is TstAssign -> {
-            val rhsVar = rhs.codeGenRvalue()
-            lhs.codeGenLvalue(rhsVar, op)
+            if (rhs.type.isInline()) {
+                val lhsVar = lhs.codeGenLvalueInline()
+                rhs.codeGenRvalueInline(lhsVar)
+            } else {
+                val rhsVar = rhs.codeGenRvalue()
+                lhs.codeGenLvalue(rhsVar, op)
+            }
         }
 
         is TstClass -> {
@@ -706,8 +718,8 @@ fun TstStmt.codeGen()  {
 
             } else if (expr.type is TypeClassInstance) {
                 // get the size and get symbols. The presence and types of these symbols has already been verified.
-                val sz = expr.type.lookupSymbol("size") as SymbolField
-                val gt = expr.type.lookupSymbol("get") as SymbolFunction
+                val sz = expr.type.lookupSymbol(location, "size") as SymbolField
+                val gt = expr.type.lookupSymbol(location, "get") as SymbolFunction
                 val instReg = expr.codeGenRvalue()
                 val sizeReg = currentFunc.addLoadMem(instReg, sz)
                 val regIterator = currentFunc.newVar()      // Needs to be a var not a temp, so that we can mutate it
@@ -875,7 +887,7 @@ fun TstStmt.codeGen()  {
             // See if the class has a method called free - if so call it
             val typex = if (expr.type is TypeNullable) expr.type.elementType else expr.type
             if (typex is TypeClassInstance) {
-                val destructor = typex.lookupSymbol("free")
+                val destructor = typex.lookupSymbol(location, "free")
                 if (destructor is SymbolFunction) {
                     // Call the destructor
                     currentFunc.addCall(destructor.functions[0], listOf(argReg))

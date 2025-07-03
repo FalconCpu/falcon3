@@ -331,7 +331,8 @@ static string read_word() {
             in_bracket--;
         add_to_string_buffer(c);
     } while (isalnum(lookahead) || lookahead=='_' || lookahead=='/' || lookahead=='@' || lookahead=='(' || lookahead==')' ||
-             (lookahead==',' && in_bracket)  || lookahead=='<' || lookahead=='>' || lookahead=='&' || lookahead=='|' || lookahead=='.');
+             (lookahead==',' && in_bracket)  || lookahead=='<' || lookahead=='>' || lookahead=='&' || 
+             lookahead=='|' || lookahead=='.' || lookahead=='?');
 
     return string_buffer;
 }

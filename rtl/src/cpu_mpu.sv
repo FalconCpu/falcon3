@@ -22,12 +22,12 @@ module cpu_mpu (
 
 // csr_dmpu format:-
 // 31:12   Base Address
-// 11:8    Size (0=4k, 1=8k, 2=16k, 3=32k, 4=64k, 5=128k, 6=256k, 7=512k,...))
+// 11      Reserved
+// 10      Executable
+// 9       Writable
+// 8       Readable
 // 7:4     Reserved
-// 3       Read Access
-// 2       Write Access
-// 1       Execute Access  (Not relevant in HW)
-// 0       Block enabled 
+// 3:0     Log2 Size (0=4k, 1=8k, 2=16k, 3=32k, 4=64k, 5=128k, 6=256k, 7=512k,...))
 
 integer i;
 logic        hit, read_match, write_match;
@@ -52,7 +52,7 @@ always_comb begin
     region_pass = 8'h0;
 
     for (i=0; i<1; i=i+1) begin
-        case(csr_dmpu[i][11:8])
+        case(csr_dmpu[i][3:0])
             5'h0    : mask = 20'b1111_1111_1111_1111_1111;   // 4k
             5'h1    : mask = 20'b1111_1111_1111_1111_1110;   // 8k
             5'h2    : mask = 20'b1111_1111_1111_1111_1100;   // 16k

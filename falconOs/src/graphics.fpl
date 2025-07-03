@@ -1,25 +1,4 @@
 
-class HwRegs
-    var seven_seg   : Int  # 6 digit hexadecimal seven segment display
-    var ledr        : Int  # 10 LEDs
-    var sw          : Int  # 10 Switches
-    var key         : Int  # 4 Push buttons
-    var uart_tx     : Int  # Write = byte of data to transmit, read = number of slots free in fifo
-    var uart_rx     : Int  # 1 byte of data from the uart, -1 if no data
-    var gpio0       : Int  # 32 bits of GPIO0
-    var gpio1       : Int  # 32 bits of GPIO1
-    var gpio1a      : Int  # 4  bits of GPIO1A
-    var vga_row     : Int  # Current row of the VGA display
-    var mouse_x     : Int  # Current X position of the mouse
-    var mouse_y     : Int  # Current Y position of the mouse
-    var mouse_btn   : Int  # Current button state of the mouse
-    var blit_cmd    : Int  # Command to the blitter, read=number of slots free in fifo
-    var blit_arg1   : Int  # First arg for blitter
-    var blit_arg2   : Int  # Second aeg for blitter
-    var blit_status : Int  # Blitter Status register
-    var sim         : Int  # Reads as 1 in a simulation, 0 on hardware
-
-
 enum BlitCmd [
     NOP,
     SET_DEST,    # arg1=bitmap addr, arg2=bytes per line
@@ -136,42 +115,3 @@ class GraphicsContext(var bitmap : Int, var width : Int, var height : Int)
         while hwRegs.vga_row < 480
             val dummy1 = 0
 
-class Window(var x:Int, var y:Int, var width:Int, var height:Int, var title:String, var layerNumber:Int)
-    var bitmap = new Array<Int>((width*height)/4) as Int
-    val gc = new GraphicsContext(bitmap, width, height)
-
-    fun updateLayer()
-        val layer = (0xE0001000 + 32*layerNumber) as VgaLayer
-        layer.addr = bitmap
-        layer.x1 = x
-        layer.y1 = y
-        layer.x2 = x + width
-        layer.y2 = y + height
-        layer.bpl = width
-        layer.bpp = 1
-
-    fun drawBorders()
-        gc.ownBlitter()
-        gc.setColor(255)
-        gc.drawLine(0,0,width-1,0)
-        gc.drawLine(width-1,0,width-1,height-1)
-        gc.drawLine(width-1,height-1,0,height-1)
-        gc.drawLine(0,height-1,0,0)
-        gc.drawLine(0,14,width-1,14)
-        gc.drawText(2,2,title)
-
-    fun getGraphicsContext() -> GraphicsContext
-        val ret = new GraphicsContext(bitmap, width, height)
-        # Set the clip region to be the contents of the window, to prevent the user drawing over the borders
-        ret.clipX1 = 2
-        ret.clipY1 = 16
-        ret.clipX2 = width-2
-        ret.clipY2 = height-2
-
-        ret.ownBlitter()
-        return ret
-
-    fun move(newX:Int, newY:Int)
-        x = newX
-        y = newY
-        updateLayer()

@@ -95,7 +95,7 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
                     TstMember(location, thisExpr, symbol, symbol.type)
                 }
 
-                is SymbolEmbeddedField -> {
+                is SymbolInlineField -> {
                     val thisSymbol = currentFunction?.thisSymbol
                     // do some sanity checks
                     if (thisSymbol==null)    error("Accessed a SymbolField when not in a method")
@@ -219,7 +219,7 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
                 is TypeInlineArray -> TstIndex(location, tcExpr, tcIndex, tcExpr.type.elementType)
                 is TypeString -> TstIndex(location, tcExpr, tcIndex, TypeChar)
                 is TypeClassInstance -> {
-                    val sf = tcExpr.type.lookupSymbol("get")
+                    val sf = tcExpr.type.lookupSymbol(location, "get")
                     if (sf is SymbolFunction && sf.functions.size==1 && sf.functions[0].parameters.size==1 && sf.functions[0].parameters[0].type==TypeInt)
                         TstCall(location, sf.functions[0].function, listOf(tcIndex), tcExpr, sf.functions[0].returnType)
                     else
@@ -247,7 +247,7 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
                 // Accessing static members of a type
                 when (tcExpr.type) {
                     is TypeEnum -> {
-                        val field = tcExpr.type.lookupSymbol(name)
+                        val field = tcExpr.type.lookupSymbol(location, name)
                         when (field) {
                             null -> TstError(location, "Enum ${tcExpr.type} does not have a field named '$name'")
                             is SymbolConstant -> field.toExpression()
@@ -281,12 +281,12 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
                 is TypeClassGeneric -> TstError(location, "Cannot access members of a generic class")
 
                 is TypeClassInstance -> {
-                    val field = tcExpr.type.lookupSymbol(name)
+                    val field = tcExpr.type.lookupSymbol(location, name)
                     when (field) {
                         null -> TstError(location,"Class ${tcExpr.type} does not have a field named '$name'")
                         is SymbolField -> TstMember(location, tcExpr, field, field.type)
                         is SymbolFunction -> TstMethod(location, tcExpr, field, field.type)
-                        is SymbolEmbeddedField -> TstEmbeddedMember(location, tcExpr, field, field.type)
+                        is SymbolInlineField -> TstEmbeddedMember(location, tcExpr, field, field.type)
                         else -> error("Unexpected Symbol type")
                     }
                 }
@@ -538,7 +538,7 @@ fun AstExpr.typeCheckLvalue(context:AstBlock) : TstExpr {
                         TstMember(location, thisExpr, symbol, symbol.type)
                 }
 
-                is SymbolEmbeddedField -> {
+                is SymbolInlineField -> {
                     TODO("Lvalue of embedded field '$name' not yet implemented")
                 }
                 is SymbolInlineVar -> TODO()
@@ -557,7 +557,7 @@ fun AstExpr.typeCheckLvalue(context:AstBlock) : TstExpr {
                 is TypeString -> TstIndex(location, tcExpr, tcIndex, TypeChar)
 
                 is TypeClassInstance -> {
-                    val sf = tcExpr.type.lookupSymbol("set")
+                    val sf = tcExpr.type.lookupSymbol(location, "set")
                     if (sf is SymbolFunction && sf.functions.size == 1 && sf.functions[0].parameters.size == 2 && sf.functions[0].parameters[0].type == TypeInt) {
                         TstSetCall(location, sf.functions[0].function, listOf(tcIndex), tcExpr, sf.functions[0].parameters[1].type)
                     }
@@ -693,7 +693,7 @@ fun Type.applyTypeArguments(location:Location, typeArguments:List<Type>) : Type 
 
 fun AstTypeExpr.resolveType(context:AstBlock) : Type = when(this) {
     is AstTypeId -> {
-        val sym = context.lookupSymbol(name)
+        val sym = context.lookupSymbol(location, name)
         val args = astTypeArgs.map { it.resolveType(context) }
         when (sym) {
             null -> makeTypeError(location, "Unknown type '$name'")
@@ -760,18 +760,21 @@ fun AstStmt.typeCheck(context:AstBlock) : TstStmt {
         }
 
         is AstConst -> {
-            val tcExpr = expr.typeCheckRvalue(context)
-            val type = typeExpr?.resolveType(context) ?: tcExpr.type
-            type.checkCompatibleWith(tcExpr)
-            if (tcExpr.isCompileTimeConstant()) {
-                val value = tcExpr.getValue()
-                val symbol = SymbolConstant(location, name, type, value)
+            if (!alreadyProcessed) { // Constant symbols get generated early, before main type checking phase
+                val tcExpr = expr.typeCheckRvalue(context)
+                val type = typeExpr?.resolveType(context) ?: tcExpr.type
+                type.checkCompatibleWith(tcExpr)
+                val symbol = if (tcExpr.isCompileTimeConstant()) {
+                    val value = tcExpr.getValue()
+                    SymbolConstant(location, name, type, value)
+                } else {
+                    Log.error(tcExpr.location, "Expression is not compile time constant")
+                    val value = ValueInt(0, TypeError)
+                    SymbolConstant(location, name, TypeError, value)
+                }
                 context.addSymbol(symbol)
-            } else {
-                Log.error(tcExpr.location,"Expression is not compile time constant")
-                val value=ValueInt(0,TypeError)
-                val symbol = SymbolConstant(location, name, TypeError,value)
-                context.addSymbol(symbol)
+
+                alreadyProcessed = true
             }
             TstNullStmt(location)
         }
@@ -847,8 +850,8 @@ fun AstStmt.typeCheck(context:AstBlock) : TstStmt {
                 is TypeClassInstance -> {
                     // We consider a class to be iterable if it has a field called 'size' which is an integer
                     // and a field called 'get' which takes an integer and returns an object
-                    val sz = tcExpr.type.lookupSymbol("size")
-                    val gt = tcExpr.type.lookupSymbol("get")
+                    val sz = tcExpr.type.lookupSymbol(location, "size")
+                    val gt = tcExpr.type.lookupSymbol(location, "get")
                     if (sz is SymbolField && gt is SymbolFunction && sz.type==TypeInt &&
                         gt.functions.size==1 && gt.functions[0].parameters.size==1 && gt.functions[0].parameters[0].type==TypeInt)
                         gt.functions[0].returnType
@@ -1061,6 +1064,8 @@ private fun AstFunction.createFunctionSymbol(context:AstBlock) {
 
     // Create the Function object to represent this function in the back end
     val thisSymbol = if (context is AstClass) SymbolVar(location, "this", context.classType, false) else null
+    if (thisSymbol!=null)
+        addSymbol(thisSymbol)
     function = Function(funcName+paramTypeNames, paramSymbols, thisSymbol, params.isVararg, retType, extern)
 
     allFunctions += function
@@ -1146,7 +1151,7 @@ private fun AstClass.createFieldSymbols(context: AstBlock) {
                    makeTypeError(location,"Cannot determine type for '${stmt.name}'")
         val mutable = stmt.kind==TokenKind.VAR
         val sym = if (type.isInline())
-            SymbolEmbeddedField(stmt.location, stmt.name, type, mutable)
+            SymbolInlineField(stmt.location, stmt.name, type, mutable)
         else
             SymbolField(stmt.location, stmt.name, type, mutable)
         classType.addSymbol(sym)
@@ -1155,7 +1160,7 @@ private fun AstClass.createFieldSymbols(context: AstBlock) {
             sym.type.checkCompatibleWith(tcExpr)
             val fieldExpr = when(sym) {
                 is SymbolField -> TstMember(sym.location, thisExpr, sym, sym.type)
-                is SymbolEmbeddedField -> TstEmbeddedMember(sym.location, thisExpr, sym, sym.type)
+                is SymbolInlineField -> TstEmbeddedMember(sym.location, thisExpr, sym, sym.type)
                 else -> error("Invalid symbol")
             }
             constructorBody += TstAssign(sym.location, fieldExpr, tcExpr, AluOp.EQ_I)
@@ -1167,6 +1172,7 @@ private fun AstClass.createFieldSymbols(context: AstBlock) {
 
 private fun AstEnum.createEnumSymbol(context: AstBlock) {
     val symbol = SymbolTypeName(location, name, enumType)
+    TypeEnum.allEnumTypes += enumType
     context.addSymbol(symbol)
 }
 
@@ -1196,6 +1202,7 @@ private fun AstBlock.identifyFields() {
             is AstClass -> stmt.createFieldSymbols(this)
             is AstEnum -> stmt.createFieldSymbols(this)
             is AstBlock -> stmt.identifyFields()
+            is AstConst -> stmt.typeCheck(this)
             else -> {}
         }
 }

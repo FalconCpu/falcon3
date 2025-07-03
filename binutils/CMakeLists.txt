@@ -34,7 +34,7 @@ set(FILESYS_SOURCES
 )
 
 # Set output directories for all build types
-set(EXECUTABLE_OUTPUT_PATH "c:/Users/simon/falcon/bin")
+set(EXECUTABLE_OUTPUT_PATH "c:/Users/simon/falcon3/bin")
 
 # Create executable
 add_executable(f32asm ${ASM_SOURCES})

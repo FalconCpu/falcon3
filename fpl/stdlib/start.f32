@@ -28,9 +28,9 @@ beq $2, 0, not_sim
 ld $30,0             # In a simulation do a jump to address zero to exit the program
 jmp $30[0]
 
-.not_sim:
+not_sim:
 # flash LEDs to show finished
-ld 2,0
+ld $2,0
 .finished_loop:
 stw $2, $1[HWREGS_LEDR]
 ld $3, 10000000

@@ -165,8 +165,8 @@ class Parser(val lexer: Lexer) {
 
     private fun parseMemberExpression(lhs:AstExpr) : AstExpr {
         match(DOT)
-        val name = match(ID).text
-        return AstMember(lhs.location, lhs, name)
+        val name = match(ID)
+        return AstMember(name.location, lhs, name.text)
     }
 
     private fun parseCallExpression(lhs:AstExpr) : AstExpr {
@@ -426,17 +426,17 @@ class Parser(val lexer: Lexer) {
         val optType = parseOptType()
         val optExpr = parseOptExpr()
         expectEol()
-        return AstDecl(tok.location, tok.kind, name.text, optType, optExpr)
+        return AstDecl(name.location, tok.kind, name.text, optType, optExpr)
     }
 
     private fun parseConst() : AstConst {
-        val tok = match(CONST)
+        match(CONST)
         val name = match(ID)
         val optType = parseOptType()
         match(EQ)
         val expr = parseExpression()
         expectEol()
-        return AstConst(tok.location, name.text, optType, expr)
+        return AstConst(name.location, name.text, optType, expr)
     }
 
 
@@ -482,14 +482,14 @@ class Parser(val lexer: Lexer) {
 
     private fun parseFunction() : AstFunction {
         val isExtern = canTake(EXTERN)
-        val loc = match(FUN).location
+        match(FUN)
         val name = match(ID,FREE)
         val params = parseParamList()
         val retType = if (canTake(ARROW)) parseTypeExpr() else null
         expectEol()
         val body = if (isExtern) emptyList() else  parseStatementBlock()
         checkEnd(FUN)
-        return AstFunction(loc, name.text, params, retType, body, isExtern)
+        return AstFunction(name.location, name.text, params, retType, body, isExtern)
     }
 
     private fun parseExpressionStatement() : AstStmt  {
@@ -596,7 +596,7 @@ class Parser(val lexer: Lexer) {
         val expr = parseExpression()
         val body = parseThenOrIndentedBlock()
         checkEnd(FOR)
-        return AstFor(loc, name.text, expr, body)
+        return AstFor(name.location, name.text, expr, body)
     }
 
     private fun parseRepeat() : AstRepeat {
@@ -624,19 +624,19 @@ class Parser(val lexer: Lexer) {
     }
 
     private fun parseClass() : AstStmt {
-        val loc = match(CLASS)
+        match(CLASS)
         val name = match(ID)
         val typeParams = parseOptTypeParameterList()
         val params = if (currentToken.kind==OPENB) parseParamList(forConstructor = true) else AstParameterList(emptyList(),false)
         expectEol()
         val body = if (currentToken.kind==INDENT) parseClassStatementBlock() else emptyList()
         checkEnd(CLASS)
-        return AstClass(loc.location, name.text, typeParams, params, body)
+        return AstClass(name.location, name.text, typeParams, params, body)
     }
 
     private fun parseEnum(): AstEnum {
         val values = mutableListOf<AstId>()
-        val loc = match(ENUM)
+        match(ENUM)
         val name = match(ID)
         match(OPENSQ)
         do {
@@ -645,7 +645,7 @@ class Parser(val lexer: Lexer) {
         } while (canTake(COMMA))
         match(CLOSESQ)
         expectEol()
-        return AstEnum(loc.location, name.text, values)
+        return AstEnum(name.location, name.text, values)
     }
 
     private fun parseStatement() : AstStmt {

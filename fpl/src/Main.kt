@@ -1,3 +1,4 @@
+import java.io.File
 import java.io.FileNotFoundException
 import java.io.FileReader
 import java.io.FileWriter
@@ -20,7 +21,16 @@ fun main(args:Array<String>) {
     var stopAt = StopAt.HEXFILE
     var noStdLib = false
     var osProject = false
-    for (arg in args) {
+
+    // If no arguments provided, try to load project file
+    val argsx = if (args.isEmpty())
+        parseProjectFile()
+    else
+        args.toList()
+
+    var i = 0
+    while (i < argsx.size) {
+        val arg = argsx[i]
         when (arg) {
             "-d" -> debug = true
             "-parse" -> stopAt = StopAt.PARSE
@@ -39,8 +49,9 @@ fun main(args:Array<String>) {
                 asmFiles.add(arg)
             else
                 Log.error("Unknown argument $arg")
-            }
         }
+        i++
+    }
 
     try {
         val sf = if (noStdLib) emptyList() else
@@ -56,6 +67,23 @@ fun main(args:Array<String>) {
     }
 }
 
+fun parseProjectFile(): List<String> {
+    try {
+        val args = mutableListOf<String>()
+        println("Debug: Current working directory: ${System.getProperty("user.dir")}")
+        val projectFile = File("files.fplprj")
+        val commentRegex = "#.+".toRegex()
+        for (line in projectFile.readLines()) {
+            val trimmedLine = line.replace(commentRegex,"").trim()
+            if (trimmedLine.isNotEmpty())
+                args += trimmedLine.split("\\s+".toRegex())
+        }
+        return args
+    } catch (e: Exception) {
+        println("Error reading project file: ${e.message}")
+        return emptyList()
+    }
+}
 
 fun runAssembler(filenames:List<String>) {
     val process = ProcessBuilder("f32asm.exe", *filenames.toTypedArray())
@@ -97,6 +125,7 @@ fun compile(lexers:List<Lexer>, stopAt: StopAt, assemblyFiles:List<String> = emp
 
     // Type check the program
     val tstTop = astTop.typeCheck()
+    astTop.writeSymbolMap()
     if (Log.hasErrors())   return Log.getErrors()
     if (stopAt == StopAt.TYPECHECK) return tstTop.prettyPrint()
 
@@ -127,7 +156,13 @@ fun compile(lexers:List<Lexer>, stopAt: StopAt, assemblyFiles:List<String> = emp
     runAssembler(assemblyFiles + "asm.f32")
     if (Log.hasErrors())             return Log.getErrors()
     if (stopAt == StopAt.HEXFILE)   {
-        println("HEX file created")
+        // Check if the hex file was created and get its size
+        val hexFile = File("asm.hex")
+        if (hexFile.exists()) {
+            val fileSize = (hexFile.length()/9)*4  // 8Hex digits + 1 byte for LF -> 4 bytes of code
+            println("HEX file created: asm.hex ($fileSize bytes)")
+        } else
+            error("Unknown error generating HEX file")
         return ""
     }
 

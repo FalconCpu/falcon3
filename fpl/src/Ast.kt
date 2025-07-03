@@ -51,6 +51,7 @@ class AstAssign(location: Location, val lhs: AstExpr, val rhs: AstExpr, val op:T
 class AstNullStmt(location: Location) : AstStmt(location)
 class AstDecl(location: Location, val kind:TokenKind, val name: String, val typeExpr: AstTypeExpr?, val expr: AstExpr?) : AstStmt(location)
 class AstConst(location: Location, val name:String, val typeExpr:AstTypeExpr?, val expr:AstExpr) : AstStmt(location)
+{ var alreadyProcessed = false }
 class AstPrint(location: Location, val exprs: List<AstExpr>) : AstStmt(location)
 class AstFree(location: Location, val expr: AstExpr) : AstStmt(location)
 class AstEnum(location: Location, val name:String, val values: List<AstId>) : AstStmt(location) {

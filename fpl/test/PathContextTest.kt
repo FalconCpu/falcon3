@@ -118,7 +118,7 @@ class PathContextTest {
         """.trimIndent()
 
         val expected = """
-            test.fpl:7.11-7.11: Cannot access field 'name' of expression of type Null
+            test.fpl:7.13-7.16: Cannot access field 'name' of expression of type Null
         """.trimIndent()
         runTest(prog, expected)
     }
@@ -200,8 +200,8 @@ class PathContextTest {
         """.trimIndent()
 
         val expected = """
-            test.fpl:24.9-24.13: Cannot access 'meow' as expression may be null
-            test.fpl:29.5-29.9: Cannot access 'meow' as expression may be null
+            test.fpl:24.15-24.18: Cannot access 'meow' as expression may be null
+            test.fpl:29.11-29.14: Cannot access 'meow' as expression may be null
         """.trimIndent()
 
         runTest(prog, expected)

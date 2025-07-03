@@ -312,7 +312,7 @@ class TypeCheckTest {
         """.trimIndent()
 
         val expected = """
-            test.fpl:4.11-4.11: Cannot access 'name' as expression may be null
+            test.fpl:4.13-4.16: Cannot access 'name' as expression may be null
         """.trimIndent()
         runTest(prog, expected)
     }
@@ -871,7 +871,7 @@ class TypeCheckTest {
         """.trimIndent()
 
         val expected = """
-            test.fpl:12.5-12.7: Cannot iterate over type 'List<Int>'
+            test.fpl:12.9-12.9: Cannot iterate over type 'List<Int>'
         """.trimIndent()
 
         runTest(prog, expected)

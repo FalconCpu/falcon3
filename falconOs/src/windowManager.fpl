@@ -1,5 +1,58 @@
+const TITLE_BAR_HEIGHT = 16
+
+class Window(var x:Int, var y:Int, var width:Int, var height:Int, var title:String, var layerNumber:Int)
+    var bitmap = new Array<Int>((width*height)/4) as Int
+    val gc = new GraphicsContext(bitmap, width, height)
+
+    fun updateLayer()
+        val layer = (0xE0001000 + 32*layerNumber) as VgaLayer
+        layer.addr = bitmap
+        layer.x1 = x
+        layer.y1 = y
+        layer.x2 = x + width
+        layer.y2 = y + height
+        layer.bpl = width
+        layer.bpp = 1
+
+    fun drawBorders(active:Bool)
+        gc.ownBlitter()
+        val titleColor = if active then 15 else 0
+        gc.setColor(titleColor,titleColor)
+        gc.drawRect(1,1,width-2,13)
+        gc.setColor(255)
+        gc.drawLine(0,0,width-1,0)
+        gc.drawLine(width-1,0,width-1,height-1)
+        gc.drawLine(width-1,height-1,0,height-1)
+        gc.drawLine(0,height-1,0,0)
+        gc.drawLine(0,14,width-1,14)
+        gc.drawText(2,2,title)
+
+    fun getGraphicsContext() -> GraphicsContext
+        val ret = new GraphicsContext(bitmap, width, height)
+        # Set the clip region to be the contents of the window, to prevent the user drawing over the borders
+        ret.clipX1 = 2
+        ret.clipY1 = 16
+        ret.clipX2 = width-2
+        ret.clipY2 = height-2
+
+        ret.ownBlitter()
+        return ret
+
+    fun move(newX:Int, newY:Int)
+        if newX>0 and newX<640 
+            x = newX
+        if newY>0 and newY<480
+            y = newY
+        updateLayer()
+
+
 class WindowManager
     val windows = new List<Window>()
+    var prevMouseButton = 0
+    var activeWindow : Window? = null
+    var draggingWindow : Window? = null
+    var dragX = 0
+    var dragY = 0
 
     fun newWindow(x:Int, y:Int, width:Int, height:Int, title:String) -> Window
         val wdw = new Window(x,y,width,height,title, windows.size)
@@ -7,6 +60,68 @@ class WindowManager
 
         # TODO - handle layers properly -> for now let's just count
         wdw.updateLayer()
-        wdw.drawBorders()
+        setActiveWindow(wdw)
 
         return wdw
+
+    fun getWindowAt(x:Int, y:Int) -> Window?
+        var ret : Window? = null
+        for wdw in windows
+            if x >= wdw.x and x < wdw.x+wdw.width and y >= wdw.y and y < wdw.y+wdw.height
+                ret = wdw
+        return ret
+
+    fun checkForEvents()
+        val hwRegs = 0xE0000000 as HwRegs
+        val mouse_x = hwRegs.mouse_x
+        val mouse_y = hwRegs.mouse_y
+        val mouse_btn = hwRegs.mouse_btn
+
+        val dw = draggingWindow
+
+        if dw != null
+            if mouse_btn = 0
+                draggingWindow = null
+            else
+                dw.move(mouse_x-dragX, mouse_y-dragY)
+        else if mouse_btn = 1 and prevMouseButton = 0
+            val wdw = getWindowAt(mouse_x, mouse_y)
+            setActiveWindow(wdw)
+            if wdw != null                
+                moveToFront(wdw)
+                dragX = mouse_x - wdw.x
+                dragY = mouse_y - wdw.y
+                if dragY < TITLE_BAR_HEIGHT
+                    draggingWindow = wdw
+
+        else if mouse_btn = 4 and prevMouseButton = 0
+            val wdw = getWindowAt(mouse_x, mouse_y)
+            if wdw != null and mouse_y-wdw.y < TITLE_BAR_HEIGHT
+                moveToBack(wdw)
+        
+        prevMouseButton = mouse_btn
+
+    fun setActiveWindow(active:Window?)
+        if activeWindow = active
+            return
+        activeWindow = active
+        for wdw in windows
+            wdw.drawBorders(wdw = active)
+
+    fun moveToFront(wdw:Window)
+        if windows.last()=wdw
+            return
+        windows.remove(wdw)
+        windows.add(wdw)
+        for i in 0..<windows.size
+            windows[i].layerNumber = i
+            windows[i].updateLayer()
+
+    fun moveToBack(wdw:Window)
+        if windows.first()=wdw
+            return
+        windows.remove(wdw)
+        windows.addAt(0,wdw)
+        for i in 0..<windows.size
+            windows[i].layerNumber = i
+            windows[i].updateLayer()

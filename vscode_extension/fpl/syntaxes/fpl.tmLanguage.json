@@ -1,0 +1,54 @@
+{
+	"scopeName": "text.fpl",
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "fpl",
+	"patterns": [
+		{	"name" : "comment.line.fpl",
+			"match": "#.*"
+		},{
+			"name": "keyword.control.fpl",
+			"match": "\\b(if|else|elsif|then|end|while|repeat|until|for|return|break|continue|fun|enum|class|val|var|const|new|inline|extern|abort)\\b"
+		},{
+			"name": "storage.type.fpl",
+			"match": "\\b(None|Char|Bool|Int|Real|String|Array|Any)\\b"
+		},{
+			"name": "string.quoted.double.fpl",
+			"begin": "\"",
+			"end": "\"",
+			"patterns": [
+				{
+					"name": "constant.character.escape.fpl",
+					"match": "\\\\."
+				}
+			]
+		},{
+			"name": "string.quoted.single.fpl",
+			"begin": "'",
+			"end": "'",
+			"patterns": [
+				{
+					"name": "constant.character.escape.fpl",
+					"match": "\\\\."
+				}
+			]
+		},{
+			"name": "constant.numeric.fpl",
+			"match": "\\b([0-9]+\\.?[0-9]*)\\b"
+		},{
+			"name": "constant.language.fpl",
+			"match": "\\b(true|false|null)\\b"
+		},{
+			"name": "constant.numeric.fpl",
+			"match": "\\b0x([0-9A-Za-z]+)\\b"
+		},{
+			"name": "keyword.operator.fpl",
+			"match": "[-<>+*/%&|^!~=]"
+		},{
+			"name": "keyword.operator.fpl",
+			"match": "\\b(and|or|not|as)\\b"
+		},{
+			"name": "variable.other.fpl",
+			"match": "\\b[a-zA-Z_][a-zA-Z0-9_]*"
+		}
+	]
+}

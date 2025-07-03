@@ -22,7 +22,7 @@ class TstOr(location: Location, val lhs: TstExpr, val rhs: TstExpr) : TstExpr(lo
 class TstNot(location: Location, val expr: TstExpr) : TstExpr(location, TypeBool)
 class TstIndex(location: Location, val expr: TstExpr, val index: TstExpr, type:Type) : TstExpr(location,type)
 class TstMember(location: Location, val expr: TstExpr, val field:SymbolField, type:Type) : TstExpr(location,type)
-class TstEmbeddedMember(location: Location, val expr: TstExpr, val field:SymbolEmbeddedField, type:Type) : TstExpr(location,type)
+class TstEmbeddedMember(location: Location, val expr: TstExpr, val field:SymbolInlineField, type:Type) : TstExpr(location,type)
 class TstReturn(location: Location, val expr: TstExpr?) : TstExpr(location, TypeNothing)
 class TstBreak(location: Location) : TstExpr(location, TypeNothing)
 class TstContinue(location: Location) : TstExpr(location, TypeNothing)

@@ -1,0 +1,10 @@
+-noStdlib
+src/start.f32
+src/exception.fpl
+src/kprintf.fpl
+stdlib/list.fpl
+src/hwregs.fpl
+src/memory.fpl
+src/tasks.fpl
+src/graphics.fpl
+src/windowManager.fpl

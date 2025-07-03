@@ -51,7 +51,7 @@ class TypeNullable private constructor(name:String, val elementType: Type) : Typ
             if (elementType is TypeError) return TypeError
             if (elementType is TypeNullable) return elementType
             if (elementType is TypeInt || elementType is TypeReal || elementType is TypeChar || elementType is TypeBool)
-                return makeTypeError(location, "Primitive types cannot be nullable")
+                return elementType // (location, "Primitive types cannot be nullable")
             return allNullableTypes.getOrPut(elementType) {
                 val name = "$elementType?"
                 TypeNullable(name, elementType)
@@ -85,8 +85,15 @@ class TypeEnum(name:String) : Type(name) {
         symbols[symbol.name] = symbol
     }
 
-    fun lookupSymbol(name:String) : Symbol? {
-        return symbols[name]
+    fun lookupSymbol(location:Location, name:String) : Symbol? {
+        val ret = symbols[name]
+        if (ret != null && ret.location.filename!="")
+            ret.references += location
+        return ret
+    }
+
+    companion object {
+        val allEnumTypes = mutableListOf<TypeEnum>()
     }
 }
 
@@ -111,7 +118,7 @@ class TypeClassGeneric private constructor(name:String, val typeParameters:List<
                 symbol.offset = sizeInBytes
                 sizeInBytes += symSize
             }
-            is SymbolEmbeddedField -> {
+            is SymbolInlineField -> {
                 val symSize = symbol.type.sizeInBytes()
                 val fieldAlignment = symbol.type.getAlignmentRequirement()
                 sizeInBytes = (sizeInBytes + fieldAlignment - 1) and -(fieldAlignment)
@@ -141,8 +148,11 @@ class TypeClassInstance private constructor (name:String, val genericClass:TypeC
     }
     val constructor by lazy {genericClass.constructor}
 
-    fun lookupSymbol(name:String) : Symbol? {
-        return symbols[name]
+    fun lookupSymbol(location: Location, name:String) : Symbol? {
+        val ret = symbols[name]
+        if (ret != null && location.filename!="")
+            ret.references += location
+        return ret
     }
 
     companion object {
@@ -227,6 +237,9 @@ fun Type.isAssignableFrom(other:Type) : Boolean {
         return true
 
     if (this is TypeClassGeneric && other is TypeClassInstance && other.genericClass == this)
+        return true
+
+    if (this is TypeClassInstance && other is TypeClassGeneric && this.genericClass == other)
         return true
 
     // Todo - should we allow for covariance on arrays and functions. For now, no. but maybe consider later.

@@ -1,0 +1,84 @@
+# The MPU hardware encodes memory protection regions as
+# Bit [31:12] = Region base address
+# Bit 10      = Executable
+# Bit 9       = Writable
+# Bit 8       = Readable
+# Bit 3:0     = Log2 of region size (0=4k, 1=8k, 2=16k, ...)
+
+const DMPU_READABLE  = 0x0000100
+const DMPU_WRITABLE  = 0x0000200
+const DMPU_EXECUTABLE= 0x0000400
+const DMPU_RW        = 0x0000300
+const DMPU_RX        = 0x0000500
+
+class TaskControlBlock(var pc:Int)
+    val regs = inline Array<Int>(32)
+    var status = 0
+    val memBlocks = inline Array<Int>(8)
+
+    fun addMemoryBlock(block:Int)
+        # Currently we only support max of 8 memory blocks
+        for i in 0..<8
+            if memBlocks[i] = 0
+                memBlocks[i] = block
+                return
+        dumpAndTerminate("memory slots full", ERR_MEM_SLOTS_FULL,this,0)
+    end fun
+
+# Assembler routine to perform task switch
+extern fun resumeTask(tcb:TaskControlBlock)
+extern fun endTask()
+extern fun shutdown(code:Int)
+
+fun dumpAndTerminate(message:String, code:Int, tcb:TaskControlBlock, data:Int)
+    kprintf("%s   %08x\n", message,code)
+    kprintf("DATA=%08x PC=%08x\n", data, tcb.pc)
+    for i in 1..31
+        kprintf("$%2d=%08x",i,tcb.regs[i])
+        if (i&7)=7
+            kprintf("\n")
+        else
+            kprintf(" ")
+    shutdown(code)
+end fun
+
+# ==========================================================================
+#                      startup
+# ==========================================================================
+# This routine gets called from the boot assembly routine
+
+fun startup()
+    kprintf("OS Starting up\n")
+    initializeMemorySystem()
+    initializeBuddyAllocator()
+    kprintf("Allocating task\n")
+
+    # Create our first task
+    val task = new TaskControlBlock(myFirstTask as Int)
+    kprintf("Allocated task at %08x\n", task)
+
+    # Allocate some space for the new task's stack
+    val taskStack = allocateBlock(4096)
+    task.regs[31] = (taskStack & MASK_ADDRESS_ONLY) + 4096
+    task.addMemoryBlock(taskStack | DMPU_RW)
+    kprintf("Allocated stack at %08x\n", taskStack)
+
+    # Allocate some space for the new task's globals area
+    val taskGlobals = allocateBlock(4096)
+    task.regs[29] = taskGlobals & MASK_ADDRESS_ONLY
+    task.addMemoryBlock(taskGlobals | DMPU_RX)
+    kprintf("Allocated globals at %08x\n", taskGlobals)
+
+    # Give the task read/execute access to the rom (where it is located)
+    task.addMemoryBlock(0xFFFF0004 | DMPU_RX)
+
+    # Set the task's return address to the endTask routine
+    task.regs[30]= endTask as Int
+
+    kprintf("Running task\n")
+    resumeTask(task)
+
+
+fun myFirstTask()
+    print("Hello from myFirstTask\n")
+

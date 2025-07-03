@@ -1,0 +1,46 @@
+{
+  "name": "fpl",
+  "displayName": "fpl",
+  "description": "Fpl language support",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.73.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "fpl",
+        "aliases": [
+          "fpl",
+          "fpl"
+        ],
+        "extensions": [
+          ".fpl"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "fpl",
+        "scopeName": "text.fpl",
+        "path": "./syntaxes/fpl.tmLanguage.json"
+      }
+    ]
+  },
+  "main": "./out/extension.js",
+  "devDependencies": {
+    "@types/node": "^24.0.10",
+    "@types/vscode": "^1.101.0",
+    "typescript": "^5.8.3"
+  },
+  "activationEvents": [],
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  }
+}

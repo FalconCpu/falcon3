@@ -1,0 +1,21 @@
+class HwRegs
+    var seven_seg   : Int  # 6 digit hexadecimal seven segment display
+    var ledr        : Int  # 10 LEDs
+    var sw          : Int  # 10 Switches
+    var key         : Int  # 4 Push buttons
+    var uart_tx     : Int  # Write = byte of data to transmit, read = number of slots free in fifo
+    var uart_rx     : Int  # 1 byte of data from the uart, -1 if no data
+    var gpio0       : Int  # 32 bits of GPIO0
+    var gpio1       : Int  # 32 bits of GPIO1
+    var gpio1a      : Int  # 4  bits of GPIO1A
+    var vga_row     : Int  # Current row of the VGA display
+    var mouse_x     : Int  # Current X position of the mouse
+    var mouse_y     : Int  # Current Y position of the mouse
+    var mouse_btn   : Int  # Current button state of the mouse
+    var blit_cmd    : Int  # Command to the blitter, read=number of slots free in fifo
+    var blit_arg1   : Int  # First arg for blitter
+    var blit_arg2   : Int  # Second aeg for blitter
+    var blit_status : Int  # Blitter Status register
+    var sim         : Int  # Reads as 1 in a simulation, 0 on hardware
+
+const hwRegs = 0xE0000000 as HwRegs

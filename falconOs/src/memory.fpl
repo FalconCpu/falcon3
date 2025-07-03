@@ -20,10 +20,11 @@
 const HEAP_START = 0x1000
 const HEAP_END   = 0x10000
 
-const ERR_OUT_OF_MEMORY = 0xE01
-const ERR_DOUBLE_FREE  = 0xE02
-const ERR_NULL_POINTER = 0xE03
-const ERR_INVALID_ARG  = 0xE04
+const ERR_OUT_OF_MEMORY  = 0xE01
+const ERR_DOUBLE_FREE    = 0xE02
+const ERR_NULL_POINTER   = 0xE03
+const ERR_INVALID_ARG    = 0xE04
+const ERR_MEM_SLOTS_FULL = 0xE05
 
 # FreeMemBlock
 # Blocks are always a multiple of 16 bytes in size - this means the lower 4 bits are always 0
@@ -118,11 +119,11 @@ fun mallocArray(numElements:Int, elementSize:Int, clear:Bool) -> Int
     ret.size = size | BLOCK_ARRAY
     ret.numElements = numElements
     val retInt = (ret as Int)+8 # Skip past the object's header
-#    if clear
-#        val numWords = numElements * elementSize / 4
-#        val ary = (retInt as Array<Int>)
-#        for i in 0..<numWords
-#            ary[i] = 0
+    if clear
+       val numWords = numElements * elementSize / 4
+       val ary = (retInt as Array<Int>)
+       for i in 0..<numWords
+           ary[i] = 0
     return retInt
 
 fun free(ptr:Int)
@@ -134,34 +135,22 @@ fun free(ptr:Int)
 
 fun dumpMemorySystem()
     var p = HEAP_START
-    kPrintString("MEMORY DUMP\n")
+    kprintf("MEMORY DUMP\n")
     while p < HEAP_END and p>=0
         val block = p as FreeMemBlock
         val sizeAndType = block.size
         val type = sizeAndType & 0xF
         val size = sizeAndType & 0xFFFFFFF0
-        kPrintHex8(p)
+        kprintf("%08x ",p)
         when type
             BLOCK_OBJECT ->
                 val className = (p as ObjectMemBlock).type.name
-                kPrintString(" Object: Size=")
-                kPrintHex8(size)
-                kPrintString(" type=")
-                kPrintString(className)
-                kPrintString("\n")
+                kprintf(" Object: Size=%08x type=%s\n",size,className)
             BLOCK_ARRAY ->
                 val numElements = (p as ArrayMemBlock).numElements
-                kPrintString(" Array: Size=")
-                kPrintHex8(size)
-                kPrintString(" NumElements=")
-                kPrintHex8(numElements)
-                kPrintString("\n")
+                kprintf(" Array: Size=%08x NumElements=%08x\n",size,numElements)
             BLOCK_FREE ->
-                kPrintString(" Free: ")
-                kPrintHex8(size)
-                kPrintString(" next=")
-                kPrintHex8(block.next as Int)
-                kPrintString("\n")
+                kprintf(" Free: Size=%08x next=%08x\n",size,block.next as Int)
         p += size
     end while
 end fun
@@ -201,7 +190,25 @@ fun freeBlock(b:Int)
         blk = mergeBuddy(blk)
     freeBlocks[blk&0xF].add(blk)
 
-fun allocateBlock(logSize:Int) -> Int
+fun buddyLog2(size:Int) -> Int
+    var s = size
+    var logSize = 0
+    while s>4096
+        s = s >> 1
+        logSize += 1
+    return logSize
+
+const MASK_ADDRESS_ONLY = 0xFFFFF000
+
+# ###################################################################
+#                          allocateBlock
+# ###################################################################
+# Allocates a block of memory of the requested size
+# returns a block ID (address or'd with logSize)
+
+fun allocateBlock(size:Int) -> Int
+    val logSize = buddyLog2(size) 
+    
     # find the first block equal to or larger than the requested size
     var slot = logSize
     while freeBlocks[slot].isEmpty()
@@ -229,11 +236,9 @@ fun initializeBuddyAllocator()
         blk += 4096
 
 fun dumpBuddyAllocator()
-    kPrintString("Buddy allocator dump\n")
+    kprintf("Buddy allocator dump\n")
     for i in 0..<16
-        kPrintString("Size=")
-        kPrintInt2(i)
-        kPrintString(" ")
+        kprintf("Size=%x:-",i)
         for blk in freeBlocks[i]
-            kPrintHex8(blk)
-            kPrintString(" ")
+            kprintf("%08x ",blk)
+        kprintf("\n")

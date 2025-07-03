@@ -1,4 +1,12 @@
 # ################################################################
+#                     Entry Point
+# ################################################################
+# This is the entry point after CPU reset
+
+jmp start
+
+
+# ################################################################
 #                     Task Control Block
 # ################################################################
 TCB_PC    = 0x00
@@ -52,15 +60,6 @@ TCB_DMPU7 = 0xA4
 SYSCALL_END   = 0
 SYSCALL_PRINT_CHAR = 1          # $1 = char to print
 SYSCALL_PRINT_STRING = 2        # $1 = pointer to string, $2 = length
-
-
-
-# ################################################################
-#                     Entry Point
-# ################################################################
-# This is the entry point after CPU reset
-
-jmp start
 
 # ################################################################
 #                     Exception Handler
@@ -118,7 +117,7 @@ cfg $3, !edata
 
 ld $sp, 0x4000000       # Set the supervisor stack pointer
 ld $29, 0x100           # Set the globals pointer to the kernal space
-jmp /handle_exception(TCB,ExceptionCause,Int)   # jump to fpl handler code
+jmp /handle_exception(TaskControlBlock,ExceptionCause,Int)   # jump to fpl handler code
 
 # ################################################################
 #                     Resume Task
@@ -126,7 +125,7 @@ jmp /handle_exception(TCB,ExceptionCause,Int)   # jump to fpl handler code
 # resume a task
 # $1 = TCB of the task to resume
 
-/resumeTask(TCB):
+/resumeTask(TaskControlBlock):
 ldw $2, $1[TCB_PC]
 cfg !epc, $2
 ldw $2, $1[TCB_STATUS]
@@ -193,6 +192,54 @@ ld $sp, 0x4000000       # Set stack pointer to top of memory
 ld $29, 0x100           # Set globals pointer to near bottom of memory
 jmp /startup()
 
+# ################################################################
+#                   shutdown
+# ################################################################
+# Shutdown the system - on the simulator jump to address zerp to halt the simulator
+# on the FPGA, Sit flashing the LEDs
+
+HWREGS_BASE = 0xE0000000
+HWREGS_7SEG = 0x00
+HWREGS_LED  = 0x04
+HWREGS_SIM  = 0x44
+
+/shutdown(Int):
+ld $2, HWREGS_BASE
+stw $1, $2[HWREGS_7SEG]
+ldw $3, $2[HWREGS_SIM]
+beq $3, 0, .shutdown_fpga
+
+.shutdown_sim:
+ld $30,0
+jmp $30[0]
+
+.shutdown_fpga:
+ld $1, 0
+.loop1:
+xor $1, 0xFFF
+stw $1, $2[HWREGS_LED]
+ld $3, 10000000
+.loop2:
+sub $3, 1
+bne $3, 0, .loop2
+jmp .loop1
+
+
+
+# ################################################################
+#                   stubs for system calls
+# ################################################################
+
+/printString:
+# Syscall takes $1=string address $2=string length
+ldw $2, $1[-4]          
+sys SYSCALL_PRINT_STRING
+ret
+
+/printChar:
+# $1 = char
+sys SYSCALL_PRINT_CHAR
+ret
 
 # ################################################################
 #                   end_task
@@ -200,52 +247,3 @@ jmp /startup()
 
 /endTask():
 sys SYSCALL_END
-
-
-HWREGS_BASE = 0xE0000000
-HWREGS_UART_TX = 0x10
-
-
-# ==========================================================
-#                     printString
-# ==========================================================
-# $1 = string to print
-
-/printString:
-    ldw $2, $1[-4]             # Fetch the length
-    sys SYSCALL_PRINT_STRING
-    ret
-
-# ==========================================================
-#                     printInt
-# ==========================================================
-# $1 = value to print
-
-/printInt:
-    sub $31, 16                # Allocate 16 bytes of stack space
-    ld $7, HWREGS_BASE         # Load base address of hardware registers
-    bge $1, 0, .positive       # If value is positive, skip
-    ld  $2, '-'                # Print the '-' character
-    stw $2, $7[HWREGS_UART_TX]
-    sub $1, 0, $1              # Negate the value
-
-.positive:
-    ld $6, $31                 # $6 = pointer to work space
-
-.loop:
-    modu $2, $1, 10            # $2 = next digit from number
-    divu $1, $1, 10            # $1 = remaining digits
-    add $2, '0'                # Convert digit to ASCII
-    stb $2, $6[0]              # Store digit in work space
-    add $6, 1
-    bne $1, 0, .loop           # Repeat until no more digits
-
-.print:
-    sub $6, 1                   # Decrement work space pointer
-    ldb $1, $6[0]               # Load digit from work space
-    sys SYSCALL_PRINT_CHAR
-    bne $6, $31, .print         # Repeat until work space pointer is at base
-
-.end:
-    add $31, 16                 # Deallocate stack space
-    ret
