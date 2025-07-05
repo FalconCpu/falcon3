@@ -151,16 +151,16 @@ always_comb begin
             p3_write = 1;
             if (address_lsb == 2'b00) begin
                 p3_byte_enable = 4'b0001;
-                p3_wdata = {24'bx, p3_data_b[7:0]};
+                p3_wdata = {24'b0, p3_data_b[7:0]};
             end else if (address_lsb == 2'b01) begin
                 p3_byte_enable = 4'b0010;
-                p3_wdata = {16'bx, p3_data_b[7:0], 8'bx};
+                p3_wdata = {16'b0, p3_data_b[7:0], 8'b0};
             end else if (address_lsb == 2'b10) begin
                 p3_byte_enable = 4'b0100;
-                p3_wdata = {8'bx, p3_data_b[7:0], 16'bx};
+                p3_wdata = {8'b0, p3_data_b[7:0], 16'b0};
             end else begin
                 p3_byte_enable = 4'b1000;
-                p3_wdata = {p3_data_b[7:0], 24'bx};
+                p3_wdata = {p3_data_b[7:0], 24'b0};
             end
          end
 
@@ -169,10 +169,10 @@ always_comb begin
             p3_write = 1;
             if (address_lsb == 2'b00) begin
                 p3_byte_enable = 4'b0011;
-                p3_wdata = {16'bx, p3_data_b[15:0]};
+                p3_wdata = {16'b0, p3_data_b[15:0]};
             end else if (address_lsb==2'b10) begin
                 p3_byte_enable = 4'b1100;
-                p3_wdata = {p3_data_b[15:0], 16'bx};
+                p3_wdata = {p3_data_b[15:0], 16'b0};
             end else begin
                 p3_misaligned_address = 1;
             end

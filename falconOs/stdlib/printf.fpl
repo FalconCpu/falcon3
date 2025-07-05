@@ -1,0 +1,123 @@
+
+enum Justify[LEFT,RIGHT,ZERO]
+
+fun printString(s:String, width:Int, justify:Justify)
+    val pad = width - s.length
+    if justify != Justify.LEFT
+        for i in 0..<pad
+            print(' ')
+    for i in 0..<s.length
+        print(s[i])
+    if justify = Justify.LEFT
+        for i in 0..<pad
+            print(' ')
+
+fun printInt(value:Int, width:Int, justify:Justify)
+    var n = value
+    var minus = 0
+    if n<0
+        minus = 1
+        n = -n
+    val buffer = inline Array<Char>(16)
+    var index = 0
+    repeat
+        buffer[index] = (n%10) + '0' as Char
+        index+=1
+        n = n/10
+    until n=0
+    val pad = width - index - minus
+    when justify
+        Justify.LEFT ->
+            if minus = 1
+                print('-')
+            for i in index-1..>=0
+                print(buffer[i])
+            for i in 0..<pad
+                print(' ')
+        Justify.RIGHT ->
+            for i in 0..<pad
+                print(' ')
+            if minus = 1
+                print('-')
+            for i in index-1..>=0
+                print(buffer[i])
+        else ->
+            if minus = 1
+                print('-')
+            for i in 0..<pad
+                print('0')
+            for i in index-1..>=0
+                print(buffer[i])
+
+fun printHex(value:Int, width:Int, justify:Justify)
+    var n = value
+    val buffer = inline Array<Char>(16)
+    var index = 0
+    repeat
+        var digit = n & 0xF
+        if digit < 10
+            buffer[index] = digit + '0' as Char
+        else
+            buffer[index] = digit - 10 + 'A' as Char
+        index+=1
+        n = n >> 4
+    until n=0
+    val pad = width - index
+    when justify
+        Justify.LEFT ->
+            for i in index-1..>=0
+                print(buffer[i])
+            for i in 0..<pad
+                print(' ')
+        Justify.RIGHT ->
+            for i in 0..<pad
+                print(' ')
+            for i in index-1..>=0
+                print(buffer[i])
+        else ->
+            for i in 0..<pad
+                print('0')
+            for i in index-1..>=0
+                print(buffer[i])
+
+
+
+fun printf(format:String, args:Any...)
+    var inPercent = false
+    var width = 0
+    var justify = Justify.RIGHT
+    var index = 0
+    for c in format
+        if inPercent
+            if c = 'd'
+                printInt(args[index] as Int, width, justify)
+                index+=1
+                inPercent = false
+            else if c = 'x'
+                printHex(args[index] as Int, width, justify)
+                index+=1
+                inPercent = false
+            else if c = 's'
+                printString(args[index] as String, width, justify)
+                index+=1
+                inPercent = false
+            else if c = 'c'
+                print(args[index] as Char)
+                index+=1
+                inPercent = false
+            else if c = '0' and width = 0
+                justify = Justify.ZERO
+            else if c='-' and width=0
+                justify = Justify.LEFT
+            else if c>='0' and c<='9'
+                width = width * 10 + (c - '0')
+            else
+                print(c)
+                inPercent = false
+        else
+            if c = '%'
+                inPercent = true
+                width = 0
+                justify = Justify.RIGHT
+            else
+                print(c)

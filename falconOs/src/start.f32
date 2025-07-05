@@ -224,26 +224,26 @@ sub $3, 1
 bne $3, 0, .loop2
 jmp .loop1
 
-
-
-# ################################################################
-#                   stubs for system calls
-# ################################################################
-
-/printString:
-# Syscall takes $1=string address $2=string length
-ldw $2, $1[-4]          
-sys SYSCALL_PRINT_STRING
-ret
-
-/printChar:
-# $1 = char
-sys SYSCALL_PRINT_CHAR
-ret
-
 # ################################################################
 #                   end_task
 # ################################################################
 
 /endTask():
 sys SYSCALL_END
+
+# ################################################################
+#                   memcpy
+# ################################################################
+# assumes all parameters are multiples of 4 bytes
+# $1 = destination address
+# $2 = source address
+# $3 = number of bytes to copy
+
+/memcpy:
+ldw $4, $2[0]
+stw $4, $1[0]
+add $1, 4
+add $2, 4
+sub $3, 4
+bne $3, 0, /memcpy
+ret

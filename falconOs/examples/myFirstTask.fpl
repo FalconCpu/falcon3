@@ -1,0 +1,10 @@
+class Cat(val name:String, val age:Int)
+    fun meow()
+        printf("%s says meow\n", name)
+
+
+fun main()
+    val cat1 = new Cat("Fluffy", 3)
+    val cat2 = new Cat("Tiger", 5)
+    cat1.meow()
+    cat2.meow()

@@ -14,6 +14,12 @@ typedef const char* string;
 
 static HANDLE hSerial = INVALID_HANDLE_VALUE;
 
+const char* YELLOW = "\x1b[33m";
+const char* RED = "\x1b[31m";
+const char* RESET = "\x1b[0m";
+
+FILE* dump_file;
+
 /// -----------------------------------------------------
 ///                       fatal
 /// -----------------------------------------------------
@@ -22,9 +28,9 @@ static HANDLE hSerial = INVALID_HANDLE_VALUE;
 static void fatal(string message, ...) {
     va_list va;
     va_start(va, message);
-    printf("FATAL: ");
+    printf("%sFATAL: ",RED);
     vprintf(message, va);
-    printf("\n");
+    printf("\n%s", RESET);
 
     if (hSerial != INVALID_HANDLE_VALUE)
         CloseHandle(hSerial);
@@ -97,14 +103,65 @@ static int read_word_from_com_port() {
     int c3 = read_from_com_port();
     int c4 = read_from_com_port();
     if (c1==-1 || c2==-1 || c3==-1 || c4==-1) {
-        printf("Error reading from com port\n");
+        printf("%sError reading from com port\n%s", RED, RESET);
         return -1;
     }
     return (c1&0xff) | ((c2&0xff)<<8) | ((c3&0xff)<<16) | ((c4&0xff)<<24);
 }
 
 /// -----------------------------------------------------------------
-///                    send_file_to_com_port
+//                    output_to_com_port
+/// -----------------------------------------------------------------
+/// Output a block of data to the com port
+
+static int output_to_com_port(char* s, int length) {
+    DWORD bytesWritten = 0;
+    if (!WriteFile(hSerial, s, length, &bytesWritten, NULL) || bytesWritten != length)
+        fatal("Error sending string to com port");
+    
+    // Also save a copy to the dump file
+    if (dump_file != NULL) {
+        for(int i=0; i<bytesWritten; i++)
+            fprintf(dump_file, "%x\n", s[i] & 0xff);
+    }
+    return bytesWritten;
+}
+
+/// -----------------------------------------------------------------
+//                    send_word_to_com_port
+/// -----------------------------------------------------------------
+
+static void send_word_to_com_port(int word) {
+    char buffer[4];
+    buffer[0] = word & 0xff;
+    buffer[1] = (word>>8) & 0xff;
+    buffer[2] = (word>>16) & 0xff;
+    buffer[3] = (word>>24) & 0xff;
+    DWORD bytesWritten = 0;
+    output_to_com_port(buffer, 4);
+}
+
+/// -----------------------------------------------------------------
+///                    send_packet_to_com_port
+/// -----------------------------------------------------------------
+/// send the boot rom to the com port
+
+static void send_packet_to_com_port(int command, int* data, int length) {
+    send_word_to_com_port(command);
+    send_word_to_com_port(length);
+    DWORD bytesWritten = 0;
+    output_to_com_port((char*)data, length*4);
+
+    int crc = 0;
+    for(int i=0; i<length; i++)
+        crc += data[i];
+    send_word_to_com_port(crc);
+    printf("%sSent %ld bytes\n%s", YELLOW,bytesWritten,RESET);
+}
+
+
+/// -----------------------------------------------------------------
+///                    send_boot_image
 /// -----------------------------------------------------------------
 /// send the boot rom to the com port
 
@@ -139,14 +196,45 @@ static void send_boot_image(char* file_name) {
     DWORD bytesWritten = 0;
     if (!WriteFile(hSerial, buffer, num_words*4, &bytesWritten, NULL) || bytesWritten != num_words*4)
         fatal("Error sending program data");
-    printf("Sent %ld bytes\n", bytesWritten);
+    printf("%sSent %ld bytes\n%s", YELLOW,bytesWritten,RESET);
+}
 
-    FILE* fh2 = fopen("uart.txt","w");
-    char *cb = (char*)buffer;
-    for(int i = 0; i<bytesWritten; i++) {
-        fprintf(fh2,"%02x\n", cb[i] & 0xff);
+/// -----------------------------------------------------------------
+///                    send_file_cmd
+/// -----------------------------------------------------------------
+
+void send_file_cmd() {
+    int length = read_word_from_com_port();
+    int* buf = malloc(length*4+4);
+    int i = 0;
+    int crc = 0;
+    printf("%sReceiving file of length %d\n%s", YELLOW,length,RESET);
+    for(; i<length; i++) {
+        buf[i] = read_word_from_com_port();
+        crc += buf[i];
     }
+    int rx_crc = read_word_from_com_port();
+    if (crc != rx_crc)
+        fatal("%sCRC error %x %x%s", RED,crc, rx_crc,RESET);
+
+    char*  filename = (char*)buf;
+
+    printf("%sSending file '%s'\n%s", YELLOW,filename,RESET);
+
+    int* fileBuf = malloc(65536); // HACK - fix this
+    FILE *fh = fopen(filename, "rb");
+    if (fh==0)
+        fatal("Cannot open file '%s'", filename);
+    int fileLength = fread(fileBuf, 1, 65536, fh);
     fclose(fh);
+    printf("%sFile length %d bytes\n%s", YELLOW,fileLength,RESET);
+    int padLength = (fileLength+3)/4;
+
+    send_packet_to_com_port(0x000202B0, fileBuf, padLength);
+    
+    free(fileBuf);
+    free(buf);
+    fflush(dump_file);
 }
 
 
@@ -169,9 +257,10 @@ static void command_mode() {
     int c = (0xB0) | (c1<<8) | (c2<<16) | (c3<<24);
     switch(c) {
         case 0x000002B0:       send_boot_image("asm.hex");       break;
+        case 0x000102B0:       send_file_cmd();       break;
 
         default:
-            printf("Unknown command %x\n", c);
+            printf("%sUnknown command %x%s\n", YELLOW, c, RESET);
             break;
     }
     return;
@@ -198,6 +287,10 @@ static void run_loop() {
 /// -----------------------------------------------------------------
 
 int main(int argc, char** argv) {
+    // keep a copy of everything we send to the com port so we can 
+    // replay it in the simulator later
+    dump_file = fopen("uart_input.hex", "w");  
+    
     open_com_port();
     run_loop();
 

@@ -589,6 +589,14 @@ class Parser(val lexer: Lexer) {
         return AstWhile(loc, expr, body)
     }
 
+    private fun parseUnsafe() : AstUnsafe {
+        val loc = match(UNSAFE).location
+        expectEol()
+        val body = parseStatementBlock()
+        checkEnd(UNSAFE)
+        return AstUnsafe(loc, body)
+    }
+
     private fun parseFor() : AstFor {
         val loc = match(FOR).location
         val name = match(ID)
@@ -665,6 +673,7 @@ class Parser(val lexer: Lexer) {
                 CLASS -> parseClass()
                 CONST -> parseConst()
                 ENUM -> parseEnum()
+                UNSAFE -> parseUnsafe()
                 else -> parseExpressionStatement()
             }
         } catch (e: ParseError) {

@@ -32,7 +32,6 @@ module cpu_mpu (
 integer i;
 logic        hit, read_match, write_match;
 logic [7:0]  region_pass;
-logic        this_access_deny;
 
 logic [31:0] csr_dmpu[0:7];
 assign csr_dmpu[0] = csr_dmpu0;
@@ -51,23 +50,23 @@ logic [19:0] addr_base;
 always_comb begin
     region_pass = 8'h0;
 
-    for (i=0; i<1; i=i+1) begin
+    for (i=0; i<8; i=i+1) begin
         case(csr_dmpu[i][3:0])
-            5'h0    : mask = 20'b1111_1111_1111_1111_1111;   // 4k
-            5'h1    : mask = 20'b1111_1111_1111_1111_1110;   // 8k
-            5'h2    : mask = 20'b1111_1111_1111_1111_1100;   // 16k
-            5'h3    : mask = 20'b1111_1111_1111_1111_1000;   // 32k
-            5'h4    : mask = 20'b1111_1111_1111_1111_0000;   // 64k
-            5'h5    : mask = 20'b1111_1111_1111_1110_0000;   // 128k
-            5'h6    : mask = 20'b1111_1111_1111_1100_0000;   // 256k
-            5'h7    : mask = 20'b1111_1111_1111_1000_0000;   // 512k
-            5'h8    : mask = 20'b1111_1111_1111_0000_0000;   // 1M
-            5'h9    : mask = 20'b1111_1111_1110_0000_0000;   // 2M
-            5'hA    : mask = 20'b1111_1111_1100_0000_0000;   // 4M
-            5'hB    : mask = 20'b1111_1111_1000_0000_0000;   // 8M
-            5'hC    : mask = 20'b1111_1111_0000_0000_0000;   // 16M
-            5'hD    : mask = 20'b1111_1110_0000_0000_0000;   // 32M
-            5'hE    : mask = 20'b1111_1100_0000_0000_0000;   // 64M
+            4'h0    : mask = 20'b1111_1111_1111_1111_1111;   // 4k
+            4'h1    : mask = 20'b1111_1111_1111_1111_1110;   // 8k
+            4'h2    : mask = 20'b1111_1111_1111_1111_1100;   // 16k
+            4'h3    : mask = 20'b1111_1111_1111_1111_1000;   // 32k
+            4'h4    : mask = 20'b1111_1111_1111_1111_0000;   // 64k
+            4'h5    : mask = 20'b1111_1111_1111_1110_0000;   // 128k
+            4'h6    : mask = 20'b1111_1111_1111_1100_0000;   // 256k
+            4'h7    : mask = 20'b1111_1111_1111_1000_0000;   // 512k
+            4'h8    : mask = 20'b1111_1111_1111_0000_0000;   // 1M
+            4'h9    : mask = 20'b1111_1111_1110_0000_0000;   // 2M
+            4'hA    : mask = 20'b1111_1111_1100_0000_0000;   // 4M
+            4'hB    : mask = 20'b1111_1111_1000_0000_0000;   // 8M
+            4'hC    : mask = 20'b1111_1111_0000_0000_0000;   // 16M
+            4'hD    : mask = 20'b1111_1110_0000_0000_0000;   // 32M
+            4'hE    : mask = 20'b1111_1100_0000_0000_0000;   // 64M
             default : mask = 20'b1111_1000_0000_0000_0000;   // 128M
         endcase
 
@@ -75,16 +74,14 @@ always_comb begin
         addr_mask = cpud_addr[31:12] & mask;
 
         hit = addr_base==addr_mask;
-        read_match = csr_dmpu[i][3] && !cpud_write;
-        write_match = csr_dmpu[i][2] && cpud_write;
-        if (hit && csr_dmpu[0] && (read_match || write_match))
+        read_match = csr_dmpu[i][8] && !cpud_write;
+        write_match = csr_dmpu[i][9] && cpud_write;
+        if (hit && (read_match || write_match))
             region_pass[i] = 1'b1;
     end
     access_deny = cpud_request && !supervisor && (region_pass == 8'h00);
 end
 
-// always_ff @(posedge clock) begin
-//     access_deny <= this_access_deny;
-// end
+wire unused_ok = &{1'b0, cpud_addr[11:0]};
 
 endmodule

@@ -13,6 +13,8 @@ static FILE* reg_log;  // log register values to this file
 static FILE* uart_log;
 extern FILE* trace_file;    
 static FILE* blit_log;
+static FILE* uart_input;
+static FILE* mem_log;
 
 
 // ================================================
@@ -266,13 +268,15 @@ static void write_hwregs(unsigned int addr, int value, int mask) {
 // ================================================
 
 static int read_hwregs(unsigned int addr) {
-    
+    int v;
+
     switch(addr & 0xFFFFFFFC) {
         case 0xE0000010:   // UART TX
             return 0x3ff;  // Report the space in the fifo - fake it to always be empty
 
-        case 0xE0000014:
-            return -1;      // UART RX
+        case 0xE0000014:   // UART RX
+            fscanf(uart_input,"%x\n", &v);
+            return v;
 
         case 0xE0000030:   // Simulation flag
             return 1;      // Returns 1 in simulations, zero on real hardware
@@ -347,6 +351,8 @@ static void write_memory(unsigned int addr, int value, int mask) {
         data_mem[a] = (data_mem[a] & ~mask) | (value & mask);
         if (trace_file)
             fprintf(trace_file, "[%08x] = %08x", addr, data_mem[a]);
+        fprintf(mem_log, "[%08x]=%08x %x\n", addr, value, 
+            ((mask&0x01000000)>>21) | ((mask&0x00010000)>>14) | ((mask&0x00000100)>>7) | (mask&0x00000001));
     } else if (addr>=0xE0000000 && addr<0xE000FFFF) {
         write_hwregs(addr, value, mask);
         if (trace_file)
@@ -484,14 +490,14 @@ static void write_cfg(int cfg_reg, int value) {
         case CFG_REG_ISTATUS:  istatus = value & 0xFF; break;
         case CFG_REG_INTVEC:   intvec = value; break;
         case CFG_REG_TIMER:    int_timer = value; break;
-        case CFG_REG_DMPU0:    dmpu[0] = value; printf("DMPU[0] = %08x\n", value); break;
-        case CFG_REG_DMPU1:    dmpu[1] = value; printf("DMPU[1] = %08x\n", value); break;
-        case CFG_REG_DMPU2:    dmpu[2] = value; printf("DMPU[2] = %08x\n", value); break;
-        case CFG_REG_DMPU3:    dmpu[3] = value; printf("DMPU[3] = %08x\n", value); break;
-        case CFG_REG_DMPU4:    dmpu[4] = value; printf("DMPU[4] = %08x\n", value); break;
-        case CFG_REG_DMPU5:    dmpu[5] = value; printf("DMPU[5] = %08x\n", value); break;
-        case CFG_REG_DMPU6:    dmpu[6] = value; printf("DMPU[6] = %08x\n", value); break;
-        case CFG_REG_DMPU7:    dmpu[7] = value; printf("DMPU[7] = %08x\n", value); break;
+        case CFG_REG_DMPU0:    dmpu[0] = value; break; // printf("DMPU[0] = %08x\n", value);
+        case CFG_REG_DMPU1:    dmpu[1] = value; break; // printf("DMPU[1] = %08x\n", value);
+        case CFG_REG_DMPU2:    dmpu[2] = value; break; // printf("DMPU[2] = %08x\n", value);
+        case CFG_REG_DMPU3:    dmpu[3] = value; break; // printf("DMPU[3] = %08x\n", value);
+        case CFG_REG_DMPU4:    dmpu[4] = value; break; // printf("DMPU[4] = %08x\n", value);
+        case CFG_REG_DMPU5:    dmpu[5] = value; break; // printf("DMPU[5] = %08x\n", value);
+        case CFG_REG_DMPU6:    dmpu[6] = value; break; // printf("DMPU[6] = %08x\n", value);
+        case CFG_REG_DMPU7:    dmpu[7] = value; break; // printf("DMPU[7] = %08x\n", value);
 
     }
 }
@@ -575,6 +581,7 @@ static void execute_instruction(int instr) {
 void execute() {
     for(int i=0; i<0x1000000; i++)
         data_mem[i] = 0xBAADF00D;
+    uart_input = fopen("uart_input.hex", "r");
 
     pc = 0xffff0000;
     int timeout = 1000000;
@@ -582,6 +589,7 @@ void execute() {
     reg_log = fopen("sim_reg.log", "w");
     uart_log = fopen("sim_uart.log", "wb");
     blit_log = fopen("sim_blit.log", "wb");
+    mem_log = fopen("sim_mem.log", "wb");
 
     while (timeout>0 && pc!=0) {
         exception = 0;

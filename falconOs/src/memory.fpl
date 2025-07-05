@@ -63,6 +63,8 @@ fun initializeMemorySystem()
     freeList.size = HEAP_END - HEAP_START
     freeList.next = null
 
+extern fun memcpy(dest:Int, src:Int, size:Int)
+
 fun insertBlockIntoFreeList(block:FreeMemBlock, size:Int)
     # Insert the block into the freelist, keeping the list sorted by size
     block.size = size
@@ -89,7 +91,9 @@ fun mallocInternal(sizeReq:Int) -> FreeMemBlock?
     while p!=null and p.size<sizeReq
         prev = p
         p = p.next
-    if p=null then abort ERR_OUT_OF_MEMORY
+    if p=null
+        kprintf("Out of memory")
+        return null
 
     # remove the block from the freelist
     if prev=null
@@ -130,7 +134,9 @@ fun free(ptr:Int)
     if ptr=0 then return        # do nothing for a null pointer
     val block = (ptr - 8) as FreeMemBlock
     val size = block.size
-    if (size & 0xF)=0 then abort ERR_DOUBLE_FREE
+    if (size & 0xF)=0
+        kprintf("Double free")
+        shutdown(ERR_DOUBLE_FREE)
     insertBlockIntoFreeList(block, size & 0xfffffff0)
 
 fun dumpMemorySystem()
@@ -213,7 +219,9 @@ fun allocateBlock(size:Int) -> Int
     var slot = logSize
     while freeBlocks[slot].isEmpty()
         slot += 1
-        if slot=16 then abort ERR_OUT_OF_MEMORY
+        if slot=16 
+            kprintf("BuddyAllocator: ERR_OUT_OF_MEMORY for size=%d\n",size)
+            shutdown(ERR_OUT_OF_MEMORY)
 
     var blk = freeBlocks[slot].take()
 
@@ -228,7 +236,7 @@ fun initializeBuddyAllocator()
     # Initialize the free block lists
     freeBlocks = new Array(16){ new List<Int>() }
     const startOfBuddyAllocator = 0x10000
-    const endOfBuddyAllocator = 0x20000
+    const endOfBuddyAllocator = 0x100000
 #    const endOfBuddyAllocator = 0x3f80000
     var blk = startOfBuddyAllocator
     while blk < endOfBuddyAllocator

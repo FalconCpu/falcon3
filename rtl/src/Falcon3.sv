@@ -90,7 +90,7 @@ logic cpud_ack;
 logic cpui_request;
 logic [31:0] cpui_addr;
 logic [31:0] cpui_rdata;
-logic cpui_ack;
+logic        cpui_ack;
 logic        cpu_dcache_req;
 logic        cpu_dcache_ack;
 logic [31:0] cpu_dcache_rdata;
@@ -167,6 +167,19 @@ logic [3:0]  blit_patram_byte_enable = 4'b0;
 logic [31:0] blit_patram_wdata = 32'bx;
 logic        blit_patram_ack;
 
+logic        cpui_sdram_request;
+logic [25:0] cpui_sdram_addr;
+logic        cpui_sdram_ack;
+logic [31:0] cpui_sdram_rdata;
+logic        cpui_sdram_rdvalid;
+logic        cpui_sdram_complete;
+
+logic        iram_request;
+logic [15:0] iram_addr;    
+logic [31:0] iram_rdata;    
+logic        iram_ack;
+
+
 assign GPIO_0[3:1] = 3'bzzz;
 assign GPIO_0[0] = UART_TX;
 assign UART_RX = GPIO_0[1];
@@ -196,6 +209,25 @@ cpu  cpu_inst (
     .cpui_ack(cpui_ack)
 );
 
+cpu_icache  cpu_icache_inst (
+    .clock(clock),
+    .reset(reset),
+    .cpui_request(cpui_request),
+    .cpui_addr(cpui_addr),
+    .cpui_rdata(cpui_rdata),
+    .cpui_ack(cpui_ack),
+    .iram_request(iram_request),
+    .iram_addr(iram_addr),
+    .iram_rdata(iram_rdata),
+    .iram_ack(iram_ack),
+    .cpui_sdram_request(cpui_sdram_request),
+    .cpui_sdram_addr(cpui_sdram_addr),
+    .cpui_sdram_ack(cpui_sdram_ack),
+    .cpui_sdram_rdata(cpui_sdram_rdata),
+    .cpui_sdram_rdvalid(cpui_sdram_rdvalid),
+    .cpui_sdram_complete(cpui_sdram_complete)
+  );
+
 address_decoder  address_decoder_inst (
     .clock(clock),
     .cpud_request(cpud_request),
@@ -216,13 +248,12 @@ address_decoder  address_decoder_inst (
     .cpu_patram_rdata(cpu_patram_rdata)
   );
 
-cpu_icache  cpu_icache_inst (
+cpu_iram  cpu_iram_inst (
     .clock(clock),
-    .reset(reset),
-    .cpui_request(cpui_request),
-    .cpui_addr(cpui_addr),
-    .cpui_rdata(cpui_rdata),
-    .cpui_ack(cpui_ack),
+    .cpui_request(iram_request),
+    .cpui_addr(iram_addr),
+    .cpui_rdata(iram_rdata),
+    .cpui_ack(iram_ack),
     .cpud_request(cpu_iram_req),
     .cpud_addr(cpud_addr[15:0]),
     .cpud_write(cpud_write),
@@ -343,7 +374,17 @@ sdram_arbiter  sdram_arbiter_inst (
     .bus4_ack(blitw_sdram_ack),
     .bus4_rdata(),
     .bus4_rdvalid(),
-    .bus4_complete()
+    .bus4_complete(),
+    .bus5_request(cpui_sdram_request),     // Master5 = CPU instruction bus
+    .bus5_addr(cpui_sdram_addr),
+    .bus5_write(1'b0),
+    .bus5_burst(1'b1),
+    .bus5_byte_enable(4'b0),
+    .bus5_wdata(32'bx),
+    .bus5_ack(cpui_sdram_ack),
+    .bus5_rdata(cpui_sdram_rdata),
+    .bus5_rdvalid(cpui_sdram_rdvalid),
+    .bus5_complete(cpui_sdram_complete)
   );
 
 sdram_controller  sdram_controller_inst (

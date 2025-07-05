@@ -958,6 +958,11 @@ fun AstStmt.typeCheck(context:AstBlock) : TstStmt {
 
         is AstWhenClause -> error("AstWhenClause outside of when")
         is AstEnum -> TstNullStmt(location) // Do nothing here as enums are handled in the identify Fields stage
+
+        is AstUnsafe -> {
+            val tcBody = body.map { it.typeCheck(this) }
+            TstUnsafe(location, tcBody)
+        }
     }
 }
 

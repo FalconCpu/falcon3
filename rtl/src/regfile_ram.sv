@@ -10,7 +10,7 @@ module regfile_ram (
 );
 
 reg [31:0] mem[0:31];
-
+integer i;
 assign q = mem[rdaddress];
 
 always @(posedge clock) begin
@@ -22,6 +22,8 @@ end
 initial begin
     mem[0] = 0;
 	mem[30] = 0;
+	for(i=0; i<=31; i=i+1)
+	   mem[i]=0;
 end
 
 endmodule

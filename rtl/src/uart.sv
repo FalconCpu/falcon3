@@ -20,7 +20,8 @@ module uart (
 
 //parameter UI_COUNTER = 16'd10416;    // 9600 Baud
 //parameter UI_COUNTER = 16'd868;      // 115200 Baud
-parameter UI_COUNTER = 16'd50;         // 2000000 Baud
+parameter UI_COUNTER = 16'd50;       // 2000000 Baud
+//parameter UI_COUNTER = 16'd16;          // 25 Mbaud
 
 // receiver state machine
 logic        rx_bit, prev_rx_bit;   // registered version of pin to avoid metastability
@@ -93,13 +94,9 @@ always @(posedge clock) begin
             tx_timer <= UI_COUNTER-1'b1;
             tx_index <= tx_index + 1'b1;
             
-            // pulse tx_complete when we finish transmitting the actual message (start of the stop bit)
-            // This gives the fifo time to update ready for the next data
-            if (tx_index==8)
-                tx_complete <= 1'b1;  
-
             // At the end of the stop bit go back to the inactive state waiting for the next data
             if (tx_index==9) begin
+                tx_complete <= 1'b1;  
                 tx_active <= 1'b0;
             end
         end

@@ -8,3 +8,4 @@ src/memory.fpl
 src/tasks.fpl
 src/graphics.fpl
 src/windowManager.fpl
+src/hostInterface.fpl

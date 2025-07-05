@@ -75,6 +75,7 @@ class TstFile(location: Location, val name:String, body:List<TstStmt>) : TstBloc
 class TstTop(location: Location, body:List<TstStmt>) : TstBlock(location, body)
 class TstWhen(location: Location, val expr:TstExpr, body:List<TstWhenClause>) : TstBlock(location, body)
 class TstWhenClause(location: Location, val exprs:List<TstExpr>, body:List<TstStmt>) : TstBlock(location,body)
+class TstUnsafe(location: Location, body:List<TstStmt>) : TstBlock(location, body)
 
 // ================================================
 //                  Pretty Printing
@@ -349,6 +350,12 @@ fun Tst.prettyPrint(sb: StringBuilder, indent:Int) {
         is TstBitwiseNot -> {
             sb.append("bitwise-not\n")
             expr.prettyPrint(sb, indent+1)
+        }
+
+        is TstUnsafe -> {
+            sb.append("unsafe\n")
+            for(stmt in body)
+                stmt.prettyPrint(sb, indent+1)
         }
     }
 }

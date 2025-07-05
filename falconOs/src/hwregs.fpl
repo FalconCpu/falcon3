@@ -19,3 +19,11 @@ class HwRegs
     var sim         : Int  # Reads as 1 in a simulation, 0 on hardware
 
 const hwRegs = 0xE0000000 as HwRegs
+
+# Global errno variable to indicate error conditions
+var errno : Int
+const ERR_OK = 0
+const ERR_TIMEOUT = 0xF00
+const ERR_CRC_MISMATCH = 0xF01
+const ERR_PROTOCOL_ERROR = 0xF02
+

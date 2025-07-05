@@ -2,6 +2,7 @@ private lateinit var currentFunc : Function
 
 private var breakLabel : Label? = null
 private var continueLabel : Label? = null
+private var inUnsafeBlock = false
 
 // ================================================================
 //                         Rvalues
@@ -92,7 +93,11 @@ fun TstExpr.codeGenRvalue() : Reg {
             val indexReg = index.codeGenRvalue()
             val lengthReg = getArrayLength(exprReg, expr.type)
             val size = type.sizeInBytes()
-            val indexScaled = currentFunc.addIndexOp(size, indexReg, lengthReg)
+            val indexScaled = if (inUnsafeBlock)
+                // In unsafe code, we skip the bounds check
+                currentFunc.addAlu(AluOp.MUL_I, indexReg, size)
+            else
+                currentFunc.addIndexOp(size, indexReg, lengthReg)
             val indexAdded = currentFunc.addAlu(AluOp.ADD_I, exprReg, indexScaled)
             currentFunc.addLoadMem(size, indexAdded, 0)
         }
@@ -373,7 +378,10 @@ fun TstExpr.codeGenLvalue(value:Reg, op:AluOp)  {
             val indexReg = index.codeGenRvalue()
             val lengthReg =  getArrayLength(exprReg, expr.type)
             val size = type.sizeInBytes()
-            val indexScaled = currentFunc.addIndexOp(size, indexReg, lengthReg)
+            val indexScaled = if (inUnsafeBlock)
+                currentFunc.addAlu(AluOp.MUL_I, indexReg, size)
+            else
+                currentFunc.addIndexOp(size, indexReg, lengthReg)
             val indexAdded = currentFunc.addAlu(AluOp.ADD_I, exprReg, indexScaled)
             if (op==AluOp.EQ_I)
                 currentFunc.addStoreMem(size, value, indexAdded, 0)
@@ -569,7 +577,7 @@ fun TstStmt.codeGen()  {
             // Load the parameter symbols from the ABI registers
             currentFunc.addInstr(InstrStart())
             var index = 1
-            if (currentFunc.thisSymbol!=null)
+            if (currentFunc.thisSymbol != null)
                 currentFunc.addMov(currentFunc.getVar(currentFunc.thisSymbol!!), allMachineRegs[index++])
             for (param in function.parameters)
                 currentFunc.addMov(currentFunc.getVar(param), allMachineRegs[index++])
@@ -583,7 +591,7 @@ fun TstStmt.codeGen()  {
         }
 
         is TstDecl -> {
-            if (expr!=null) {
+            if (expr != null) {
                 if (symbol is SymbolInlineVar) {
                     symbol.offset = currentFunc.stackAlloc(symbol.type.sizeInBytes())
                     val lhsReg = currentFunc.addAlu(AluOp.ADD_I, regSP, symbol.offset)
@@ -625,7 +633,7 @@ fun TstStmt.codeGen()  {
 
 
             // And run code gen on any methods
-            for(method in methods)
+            for (method in methods)
                 method.codeGen()
         }
 
@@ -640,8 +648,8 @@ fun TstStmt.codeGen()  {
 
                 // Evaluate the start and end values
                 val regIterator = currentFunc.getVar(sym)
-                currentFunc.addMov( regIterator, expr.start.codeGenRvalue() )
-                val regEnd = currentFunc.addMov( expr.end.codeGenRvalue() )
+                currentFunc.addMov(regIterator, expr.start.codeGenRvalue())
+                val regEnd = currentFunc.addMov(expr.end.codeGenRvalue())
 
                 // Generate the loop body
                 val labelStart = currentFunc.newLabel()
@@ -658,7 +666,7 @@ fun TstStmt.codeGen()  {
 
                 // Increment the iterator and check if we are done
                 currentFunc.addLabel(labelContinue)
-                val nextOp = when(expr.op) {
+                val nextOp = when (expr.op) {
                     AluOp.LT_I -> AluOp.ADD_I
                     AluOp.LTE_I -> AluOp.ADD_I
                     AluOp.GT_I -> AluOp.SUB_I
@@ -758,14 +766,14 @@ fun TstStmt.codeGen()  {
         }
 
         is TstIf -> {
-            val clauses = body.map{it as TstIfClause}
+            val clauses = body.map { it as TstIfClause }
             val endLabel = currentFunc.newLabel()
             val clauseLabels = mutableListOf<Label>()
             // Generate the code for each clause condition
             for (clause in clauses) {
                 val clauseLabel = currentFunc.newLabel()
                 clauseLabels.add(clauseLabel)
-                if (clause.cond==null)
+                if (clause.cond == null)
                     currentFunc.addJump(clauseLabel)
                 else {
                     val nextClauseLabel = currentFunc.newLabel()
@@ -774,7 +782,7 @@ fun TstStmt.codeGen()  {
                 }
             }
             // If no else case then jump to endLabel
-            if (clauses.none{it.cond==null})
+            if (clauses.none { it.cond == null })
                 currentFunc.addJump(endLabel)
 
             // Generate the code for each clause body
@@ -817,7 +825,7 @@ fun TstStmt.codeGen()  {
             currentFunc.addLabel(labelStart)
             body.codegen()
             currentFunc.addLabel(labelCond)
-            cond.codeGenBranch(labelStart,labelEnd)
+            cond.codeGenBranch(labelStart, labelEnd)
             currentFunc.addLabel(labelEnd)
             breakLabel = oldBreakLabel
             continueLabel = oldContinueLabel
@@ -835,10 +843,10 @@ fun TstStmt.codeGen()  {
         }
 
         is TstPrint -> {
-            for(arg in exprs) {
+            for (arg in exprs) {
                 val argReg = arg.codeGenRvalue()
                 currentFunc.addMov(allMachineRegs[1], argReg)
-                when(arg.type) {
+                when (arg.type) {
                     is TypeBool -> currentFunc.addCall(Stdlib.printInt)
                     is TypeInt -> currentFunc.addCall(Stdlib.printInt)
                     is TypeChar -> currentFunc.addCall(Stdlib.printChar)
@@ -867,7 +875,7 @@ fun TstStmt.codeGen()  {
             currentFunc.addJump(labelEnd)
 
             // Generate code for the clause bodies
-            for(index in clauses.indices) {
+            for (index in clauses.indices) {
                 currentFunc.addLabel(clauseLabels[index])
                 for (stmt in clauses[index].body)
                     stmt.codeGen()
@@ -897,6 +905,13 @@ fun TstStmt.codeGen()  {
             // Free the memory
             currentFunc.addCall(Stdlib.free, listOf(argReg))
             currentFunc.addLabel(label)
+        }
+
+        is TstUnsafe -> {
+            val oldUnsafe = inUnsafeBlock
+            inUnsafeBlock = true
+            body.codegen()
+            inUnsafeBlock = oldUnsafe
         }
     }
 }

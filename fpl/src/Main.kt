@@ -5,14 +5,15 @@ import java.io.FileWriter
 
 var debug = false
 
-val stdLibFiles = listOf("stdlib/memory.fpl",
-                         "stdlib/stringBuilder.fpl",
-                         "stdlib/list.fpl",
-                         "stdlib/bitVector.fpl",
-                         "stdlib/printf.fpl")
+val stdLibFiles = listOf("memory.fpl",
+                         "stringBuilder.fpl",
+                         "list.fpl",
+                         "bitVector.fpl",
+                         "printf.fpl")
 val osStdLibFiles = listOf("stdlib/stringBuilder.fpl","stdlib/list.fpl","stdlib/bitVector.fpl")
-const val stdLibPath = "C:\\Users\\simon\\falcon3\\fpl\\"
-const val startFile =  "${stdLibPath}stdlib\\start_stdlib.f32"
+const val stdLibPath = "C:\\Users\\simon\\falcon3\\falconos\\stdlib\\"
+const val startFile =  "${stdLibPath}start.f32"
+
 
 fun main(args:Array<String>) {
     Log.clear()
@@ -38,6 +39,7 @@ fun main(args:Array<String>) {
             "-codegen" -> stopAt = StopAt.CODEGEN
             "-execute" -> stopAt = StopAt.EXECUTE
             "-assembly" -> stopAt = StopAt.ASSEMBLY
+            "-bin" -> stopAt = StopAt.BINFILE
             "-noStdlib" -> noStdLib = true
             "-os" -> osProject = true
             else -> if (arg.startsWith("-")) {
@@ -85,8 +87,8 @@ fun parseProjectFile(): List<String> {
     }
 }
 
-fun runAssembler(filenames:List<String>) {
-    val process = ProcessBuilder("f32asm.exe", *filenames.toTypedArray())
+fun runAssembler(filenames:List<String>, format:String) {
+    val process = ProcessBuilder("f32asm.exe", format,  *filenames.toTypedArray())
         .redirectError(ProcessBuilder.Redirect.INHERIT)
         .start()
 
@@ -106,7 +108,7 @@ fun runProgram(stopAtException: Boolean) : String {
 }
 
 
-enum class StopAt{PARSE, TYPECHECK, CODEGEN, REG_ALLOC, ASSEMBLY, HEXFILE, EXECUTE}
+enum class StopAt{PARSE, TYPECHECK, CODEGEN, REG_ALLOC, ASSEMBLY, HEXFILE, BINFILE, EXECUTE}
 
 fun compile(lexers:List<Lexer>, stopAt: StopAt, assemblyFiles:List<String> = emptyList(),
             stopAtException: Boolean=false
@@ -149,11 +151,19 @@ fun compile(lexers:List<Lexer>, stopAt: StopAt, assemblyFiles:List<String> = emp
     if (Log.hasErrors())   return Log.getErrors()
     if (stopAt == StopAt.ASSEMBLY) return sb.toString()
 
-    // Save the assembly code to a file and run the assembler
+    // Save the assembly code to a file
     val asmFile = FileWriter("asm.f32")
     asmFile.write(sb.toString())
     asmFile.close()
-    runAssembler(assemblyFiles + "asm.f32")
+
+    // If target is a binary file - run assembler and stop here
+    if (stopAt == StopAt.BINFILE) {
+        runAssembler(assemblyFiles + "asm.f32", "-bin")
+        if (Log.hasErrors())             return Log.getErrors()
+        return ""
+    }
+
+    runAssembler(assemblyFiles + "asm.f32","-hex")
     if (Log.hasErrors())             return Log.getErrors()
     if (stopAt == StopAt.HEXFILE)   {
         // Check if the hex file was created and get its size

@@ -1,0 +1,206 @@
+# Communication with the host is performed over the UART.
+# Data packets have the following format:
+#   COMMAND: 4 BYTE: Begins with the sequence 0xB002 followed by 2 more bytes to specify the command
+#   LENGTH : 4 BYTE: Length of the data in bytes
+#   DATA    : LENGTH bytes: Data to be sent to/from the host
+#   CRC     : 4 BYTE: Additive CRC of the data
+#
+# Master/slave protocol - the host only ever send packets in response to a command from fpga.
+
+const CMD_READFILE = 0x000102B0       # Request to read a file from the host. DATA = file name
+
+const RESP_DATA    = 0x000202B0       # Host sends data in response to a readfile command
+const RESP_ERROR   = 0x000302B0       # Host sends error message in response to a readfile command
+
+# private variables to pass state between functions
+var packetCommand = 0
+
+
+fun uartSendByte(b:Int)
+    var timeout =  1000000
+    while hwRegs.uart_tx = 0
+        timeout -= 1
+        if timeout = 0
+            errno = ERR_TIMEOUT
+            return
+    hwRegs.uart_tx = b
+
+fun uartSendWord(w:Int)
+    uartSendByte(w>>0 & 0xFF)
+    uartSendByte(w>>8 & 0xFF)
+    uartSendByte(w>>16 & 0xFF)
+    uartSendByte(w>>24 & 0xFF)
+
+fun uartRxByte() -> Int
+    var timeout = 100000
+    repeat
+        val ret = hwRegs.uart_rx
+        if ret != -1
+            return ret & 0xFF
+        timeout -= 1
+    until timeout=0
+    errno = ERR_TIMEOUT
+    return 0
+
+fun uartRxWord() -> Int
+    # inline all this so there are no function calls - to make it easier to compare log files
+    var timeout = 100000
+    var b0 = -1
+    var b1 = -1
+    var b2 = -1
+    var b3 = -1
+    timeout = 100000
+    while b0 = -1
+        b0 = hwRegs.uart_rx
+        timeout -= 1
+        if timeout = 0
+            errno = ERR_TIMEOUT
+            return 0
+    timeout = 100000
+    while b1 = -1
+        b1 = hwRegs.uart_rx
+        timeout -= 1
+        if timeout = 0
+            errno = ERR_TIMEOUT
+            return 0
+    timeout = 100000
+    while b2 = -1
+        b2 = hwRegs.uart_rx
+        timeout -= 1
+        if timeout = 0
+            errno = ERR_TIMEOUT
+            return 0
+    timeout = 100000
+    while b3 = -1
+        b3 = hwRegs.uart_rx
+        timeout -= 1
+        if timeout = 0
+            errno = ERR_TIMEOUT
+            return 0
+    val ret =  b0 | (b1<<8) | (b2<<16) | (b3<<24)
+    return ret
+
+fun uartRxCommandWord() -> Int
+    # Command words begin with the char 0xB0
+    # Allow a few chars to be skipped/ timeouts etc before we give up
+    # inline all this so there are no function calls - to make it easier to compare log files
+    var timeout = 100000
+    var b0 = -1
+    var b1 = -1
+    var b2 = -1
+    var b3 = -1
+    timeout = 100000
+    var repeatCount = 0
+    while b0 != 0xB0
+        b0 = -1
+        timeout = 100000
+        while b0 = -1
+            b0 = hwRegs.uart_rx
+            timeout -= 1
+            if timeout = 0
+                errno = ERR_TIMEOUT
+                return 0
+        repeatCount += 1
+        if repeatCount = 100
+            errno = ERR_TIMEOUT
+            return 0
+    timeout = 100000
+    while b1 = -1
+        b1 = hwRegs.uart_rx
+        timeout -= 1
+        if timeout = 0
+            errno = ERR_TIMEOUT
+            return 0
+    timeout = 100000
+    while b2 = -1
+        b2 = hwRegs.uart_rx
+        timeout -= 1
+        if timeout = 0
+            errno = ERR_TIMEOUT
+            return 0
+    timeout = 100000
+    while b3 = -1
+        b3 = hwRegs.uart_rx
+        timeout -= 1
+        if timeout = 0
+            errno = ERR_TIMEOUT
+            return 0
+    val ret =  b0 | (b1<<8) | (b2<<16) | (b3<<24)
+    return ret
+
+
+fun rxPacket() -> Int
+    # Reads a packet from the host.
+    # On succces: sets 'packetCommand' to the command and returns an Int representing a memoryBlock where the data is stored.
+    # On failure: sets errno and returns ERR_OK
+    errno =  ERR_OK
+    packetCommand = uartRxCommandWord()
+    if errno != ERR_OK 
+        kprintf("failed to read command\n")
+        return 0
+
+    val length = uartRxWord()       # length of the data in words
+    if errno != ERR_OK
+        kprintf("Failed to read length\n")
+        return 0
+
+    kprintf("Length %d\n",length)
+    val data = allocateBlock(length)
+    val dataArray = (data & MASK_ADDRESS_ONLY) as Array<Int>
+    var crc = 0
+    for i in 0..<length
+        val b = uartRxWord()
+        if errno != ERR_OK 
+            kprintf("Failed to read data %d\n",i)
+            return 0
+        unsafe
+            dataArray[i] = b
+        crc += b
+    val crc_rx = uartRxWord()
+    if errno != ERR_OK 
+        kprintf("Failed to read crc\n")
+        return 0
+    if crc != crc_rx
+        kprintf("CRC mismatch calc=%x rx=%x\n",crc,crc_rx)
+        errno = ERR_CRC_MISMATCH
+        return 0
+    return data
+
+fun sendPacketString(command:Int, data:String)
+    val stringLength = data.length
+    val length = (stringLength+4)/4 # add zero termination and round up to 32 bit words
+
+    uartSendWord(command)
+    uartSendWord(length)
+    var i = 0
+    var crc = 0
+    for k in 0..<length
+        val b0 = if i<stringLength then data[i] & 0xff as Int else 0 
+        i += 1
+        val b1 = if i<stringLength then data[i] & 0xff as Int else 0 
+        i += 1
+        val b2 = if i<stringLength then data[i] & 0xff as Int else 0
+        i += 1
+        val b3 = if i<stringLength then data[i] & 0xff as Int else 0
+        i += 1
+        val word = b0 | (b1<<8) | (b2<<16) | (b3<<24)
+        uartSendWord(word)
+        crc += word
+    uartSendWord(crc)
+
+fun readFileFromHost(fileName:String) -> Int
+    # Reads a file from the host
+    # On success: returns an Int representing a memoryBlock where the data is stored.
+    # On failure: sets errno
+    sendPacketString(CMD_READFILE, fileName)
+    val packet = rxPacket()
+    if errno != ERR_OK
+        kprintf("Packet not read\n")
+        return 0
+    if packetCommand != RESP_DATA
+        kprintf("Expected RESP_DATA, got %08x\n", packetCommand)
+        errno = ERR_PROTOCOL_ERROR
+        return 0
+    return packet
+
+

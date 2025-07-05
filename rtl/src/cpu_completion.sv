@@ -42,7 +42,10 @@ always_comb begin
         `OP_JMP,
         `OP_JMPR,
         `OP_LD,
-        `OP_LDPC:
+        `OP_LDPC,
+        `OP_IDX1,
+        `OP_IDX2,
+        `OP_IDX4:
             p4_data_out = p4_alu_out;
 
         `OP_LDB,

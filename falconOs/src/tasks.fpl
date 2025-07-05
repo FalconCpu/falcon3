@@ -11,7 +11,8 @@ const DMPU_EXECUTABLE= 0x0000400
 const DMPU_RW        = 0x0000300
 const DMPU_RX        = 0x0000500
 
-class TaskControlBlock(var pc:Int)
+class TaskControlBlock()
+    var pc = 0
     val regs = inline Array<Int>(32)
     var status = 0
     val memBlocks = inline Array<Int>(8)
@@ -54,8 +55,17 @@ fun startup()
     kprintf("Allocating task\n")
 
     # Create our first task
-    val task = new TaskControlBlock(myFirstTask as Int)
+    val task = new TaskControlBlock()
     kprintf("Allocated task at %08x\n", task)
+
+    # Allocate some space for the new task's code
+    val taskCode = readFileFromHost("myFirstTask.exe")
+    if errno != ERR_OK
+        kprintf("Error reading file\n")
+        shutdown(errno)
+    task.pc = taskCode & MASK_ADDRESS_ONLY
+    task.addMemoryBlock(taskCode | DMPU_RX)
+    kprintf("Allocated code at %08x\n", taskCode)
 
     # Allocate some space for the new task's stack
     val taskStack = allocateBlock(4096)
@@ -66,19 +76,9 @@ fun startup()
     # Allocate some space for the new task's globals area
     val taskGlobals = allocateBlock(4096)
     task.regs[29] = taskGlobals & MASK_ADDRESS_ONLY
-    task.addMemoryBlock(taskGlobals | DMPU_RX)
+    task.addMemoryBlock(taskGlobals | DMPU_RW)
     kprintf("Allocated globals at %08x\n", taskGlobals)
-
-    # Give the task read/execute access to the rom (where it is located)
-    task.addMemoryBlock(0xFFFF0004 | DMPU_RX)
-
-    # Set the task's return address to the endTask routine
-    task.regs[30]= endTask as Int
+    task.regs[30] = endTask as Int
 
     kprintf("Running task\n")
     resumeTask(task)
-
-
-fun myFirstTask()
-    print("Hello from myFirstTask\n")
-

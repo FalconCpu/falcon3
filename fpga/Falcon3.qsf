@@ -6,7 +6,7 @@ set_global_assignment -name FAMILY "Cyclone V"
 set_global_assignment -name DEVICE 5CSEMA5F31C6
 set_global_assignment -name TOP_LEVEL_ENTITY "Falcon3"
 set_global_assignment -name ORIGINAL_QUARTUS_VERSION 15.1.0
-set_global_assignment -name LAST_QUARTUS_VERSION "23.1std.0 Lite Edition"
+set_global_assignment -name LAST_QUARTUS_VERSION "24.1std.0 Lite Edition"
 set_global_assignment -name PROJECT_CREATION_TIME_DATE "21:17:03 JUNE 09,2025"
 set_global_assignment -name DEVICE_FILTER_PACKAGE FBGA
 set_global_assignment -name DEVICE_FILTER_PIN_COUNT 896
@@ -533,6 +533,7 @@ set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to VGA_G[*]
 set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to VGA_B[*]
 set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to VGA_HS
 set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to VGA_VS
+set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/src/cpu_iram.sv
 set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/src/blit_transparency.sv
 set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/src/pattern_memory.sv
 set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/src/blit_mem_read.sv

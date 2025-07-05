@@ -81,6 +81,7 @@ class AstClass(location: Location, val name: String, val astTypeParameters:List<
 class AstWhen(location: Location, val expr:AstExpr, body:List<AstWhenClause>) : AstBlock(location,body)
 class AstWhenClause(location: Location, val clauses:List<AstExpr>, body:List<AstStmt>) : AstBlock(location,body)
 class AstLambda(location: Location, val expr:AstExpr) : AstBlock(location, emptyList())
+class AstUnsafe(location: Location, body:List<AstStmt>) : AstBlock(location, body)
 
 class AstFunction(location: Location, val name: String, val params: AstParameterList, val retType:AstTypeExpr?, body:List<AstStmt>, val extern:Boolean=false)
     : AstBlock(location, body) {
@@ -351,6 +352,12 @@ fun Ast.prettyPrint(sb: StringBuilder, indent:Int) {
         is AstBitwiseNot -> {
             sb.append("BitwiseNot\n")
             expr.prettyPrint(sb, indent+1)
+        }
+
+        is AstUnsafe -> {
+            sb.append("Unsafe\n")
+            for(stmt in body)
+                stmt.prettyPrint(sb, indent+1)
         }
     }
 }

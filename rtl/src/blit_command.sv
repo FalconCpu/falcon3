@@ -59,6 +59,7 @@ logic        p2_idle, p3_idle;
 logic [15:0] src_offset_x, src_offset_y;
 logic [31:0] reg_src_addr;
 logic [15:0] reg_src_bpl;
+logic [7:0] reg_char;
 
 logic [31:0] font_addr;
 logic [7:0]  font_width, font_height, font_byte_per_char, font_offset;
@@ -75,7 +76,6 @@ wire [31:0] arg1 = cmd[63:32];
 wire [31:0] arg2 = cmd[95:64];
 
 // Account for fonts not starting at char 0
-wire [7:0] char_sub_offset = arg2[7:0] - font_offset;  
 
 t_state state;
 
@@ -221,7 +221,7 @@ always_ff @(posedge clock) begin
             end
 
             `BLIT_CHAR: begin
-                src_addr <= font_addr + (char_sub_offset * font_byte_per_char);
+                reg_char <= arg1[7:0] - font_offset;
                 src_bpl  <= {11'b0,font_width[7:3]};
                 dest_x   <= arg1[15:0] + offset_x;
                 dest_y   <= arg1[31:16] + offset_y;
@@ -294,6 +294,7 @@ always_ff @(posedge clock) begin
 
         DRAW_CHAR:
             if (!fifo_full) begin
+                src_addr <= font_addr + (reg_char * font_byte_per_char);
                 p2_dest_x <= dest_x + x;
                 p2_dest_y <= dest_y + y;
                 p2_src_x <= x;

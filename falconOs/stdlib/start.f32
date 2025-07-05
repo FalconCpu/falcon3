@@ -1,0 +1,148 @@
+
+HWREGS_BASE = 0xE0000000
+HWREGS_UART_TX = 0x10
+HWREGS_SIM = 0x44
+HWREGS_LEDR = 0x04
+
+# Entry point for the program
+sub $31,4
+stw $30, $31[0]
+jsr /initializeMemorySystem()
+# jsr /init          # Call the initialization function
+jsr /main()            # Call the main function
+ldw $30, $31[0]
+add $31,4
+ret
+
+
+
+# ################################################################
+#                     Sys Calls
+# ################################################################
+
+SYSCALL_END   = 0
+SYSCALL_PRINT_CHAR = 1          # $1 = char to print
+SYSCALL_PRINT_STRING = 2        # $1 = pointer to string, $2 = length
+SYSCALL_ALLOCATE_MEMORY = 3     # $1 = size
+SYSCALL_FREE_MEMORY = 4         # $1 = pointer to memory
+
+
+
+/printString:
+# Syscall takes $1=string address $2=string length
+ldw $2, $1[-4]          
+sys SYSCALL_PRINT_STRING
+ret
+
+/printChar:
+# $1 = char
+sys SYSCALL_PRINT_CHAR
+ret
+
+/allocateMemory(Int):
+sys SYSCALL_ALLOCATE_MEMORY
+ret
+
+/freeMemory:
+sys SYSCALL_FREE_MEMORY
+ret
+
+# ==========================================================
+#                     strcmp
+# ==========================================================
+# Compare two strings lexicographically
+# $1 = pointer to string 1
+# $2 = pointer to string 2
+# returns:
+# $8 negative if string 1 < string 2, 0 if equal, positive if string 1 > string 2
+
+/strcmp:
+    ldw $3, $1[-4]       # get the length of string 1
+    ldw $4, $2[-4]       # get the length of string 2
+
+    ld $5, $3           # get the length of the shorter string
+    blt $3, $4, .skip1
+    ld $5, $4
+.skip1:
+    add $5, $5, $1       # point to end of shorter string
+    jmp .check_end       # jump to compare point (in case both strings are empty)
+
+.loop:
+    ldb $8, $1[0]        # get a character from string 1
+    ldb $6, $2[0]        # get a character from string 2
+    sub $8, $6           # subtract the characters
+    bne $8, 0, .done     # if they are not equal, we are done
+    add $1, 1            # increment string 1 pointer
+    add $2, 1            # increment string 2 pointer
+.check_end:
+    blt $1, $5, .loop    # if we have not reached the end of shorter string then loop
+
+    sub $8, $3, $4       # set $8 indicate which string is longer
+.done:
+    ret
+
+
+# ==========================================================
+#                     strequal
+# ==========================================================
+# Compare two strings for equality
+# $1 = pointer to string 1
+# $2 = pointer to string 2
+# returns:
+# $8 = 1 if equal, 0 if not equal
+#
+# This makes use of the fact strings are word-aligned, and padded with 0 to a multiple of 4 bytes
+
+/strequal:
+    ldw $3, $1[-4]          # get the length of string 1
+    ldw $4, $2[-4]          # get the length of string 2
+    ld $8, 0               # set $8 to 0 - default return value
+    bne $3, $4, .done      # if the lengths are not equal, we are done
+    add $3, $1             # point to end of string 1  (Note since we know both strings are the same length,
+                           # we don't need to calculate which is shorter
+.loop:
+    ldw $4, $1[0]          # get a word
+    ldw $5, $2[0]          # get a word
+    bne $4, $5, .done      # if the words are not equal, we are done
+    add $1, 4              # increment string 1 pointer
+    add $2, 4              # increment string 2 pointer
+    blt $1, $3, .loop      # if we have not reached the end of the strings then loop
+    ld $8, 1               # set $8 to 1 (true)
+.done:
+    ret
+
+# ==========================================================
+#                     memcpy
+# ==========================================================
+# $1 = pointer to destination
+# $2 = pointer to source
+# $3 = number of bytes to copy
+/memcpy:
+    beq $3, 0, .done        # if $3 is 0, there is nothing to do
+    or $4, $1, $2           # look to see if both pointers are word-aligned
+    and $4, 3               # if so we can copy in words
+    ld $5, 4                # set $5 to 4
+    beq $4, 0, .word_copy
+    jmp .byte_copy
+
+.word_copy_loop:
+    ldw $4, $2[0]           # get a word
+    stw $4, $1[0]           # store a word
+    add $1, 4                # increment destination pointer
+    add $2, 4                # increment source pointer
+    sub $3, 4                # decrement count
+ .word_copy:
+    bge $3, $5, .word_copy_loop # if $3 is greater than or equal to 4, loop
+    jmp .byte_copy
+
+ .byte_copy_loop:
+    ldb $4, $2[0]           # get a byte
+    stb $4, $1[0]           # store a byte
+    add $1, 1                # increment destination pointer
+    add $2, 1                # increment source pointer
+    sub $3, 1                # decrement count
+ .byte_copy:
+    bne $3, 0, .byte_copy_loop
+
+.done:
+    ret

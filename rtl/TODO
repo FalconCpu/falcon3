@@ -1,6 +1,9 @@
-
-Add a BLIT_PIXEL command to plot a single pixel
 ICACHE for cpu
+
+
+
+Memory protection on instruction fetch
+Add a BLIT_PIXEL command to plot a single pixel
 DCACHE for cpu
 Implement write to palette regs and mouse sprite
 Add plot triangle command to blitter

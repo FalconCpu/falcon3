@@ -76,10 +76,6 @@ always_comb begin
     p2_bubble        = 1'b0;
     p2_reg_a         = ins_a;
     p2_reg_b         = ins_b;
-    p2_bypass_3_a    = 1'b0;
-    p2_bypass_3_b    = 1'b0;
-    p2_bypass_4_a    = 1'b0;
-    p2_bypass_4_b    = 1'b0;
     p2_literal_b     = 1'b0;
     p2_reg_d         = 5'b0;
     p2_write_en      = 1'b0;
@@ -228,19 +224,10 @@ always_comb begin
         p2_write_en = 1'b0;
 
     // Register bypassing
-    if (p2_use_a) begin
-        if (p2_reg_a == p3_reg_d && p3_write_en)
-            p2_bypass_3_a = 1'b1;
-        else if (p2_reg_a == p4_reg_d && p4_write_en)
-            p2_bypass_4_a = 1'b1;
-    end
-
-    if (p2_use_b) begin
-        if (p2_reg_b == p3_reg_d && p3_write_en)
-            p2_bypass_3_b = 1'b1;
-        else if (p2_reg_b == p4_reg_d && p4_write_en)
-            p2_bypass_4_b = 1'b1;
-    end
+    p2_bypass_3_a    = p2_use_a && p2_reg_a == p3_reg_d && p3_write_en;
+    p2_bypass_3_b    = p2_use_b && p2_reg_b == p3_reg_d && p3_write_en;
+    p2_bypass_4_a    = p2_use_a && p2_reg_a == p4_reg_d && p4_write_en && !p2_bypass_3_a;
+    p2_bypass_4_b    = p2_use_b && p2_reg_b == p4_reg_d && p4_write_en && !p2_bypass_3_b;
 
     // Hazard detection
     // If the instruction at P3 is latent and this instruction attempts to read from the register it is writing then we have a hazard

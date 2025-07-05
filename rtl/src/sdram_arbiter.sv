@@ -62,7 +62,20 @@ module sdram_arbiter(
     output  logic        bus4_ack,
     output  logic [31:0] bus4_rdata,
     output  logic        bus4_rdvalid,
-    output  logic        bus4_complete
+    output  logic        bus4_complete,
+
+    // Bus master 5
+    input   logic        bus5_request,
+    input   logic [25:0] bus5_addr,
+    input   logic        bus5_write,
+    input   logic        bus5_burst,
+    input   logic [3:0]  bus5_byte_enable,
+    input   logic [31:0] bus5_wdata,
+    output  logic        bus5_ack,
+    output  logic [31:0] bus5_rdata,
+    output  logic        bus5_rdvalid,
+    output  logic        bus5_complete
+
 
 );
 
@@ -72,6 +85,11 @@ logic        next_write;
 logic        next_burst;
 logic [3:0]  next_byte_enable;
 logic [31:0] next_wdata;
+
+// synthesis translate_off
+integer fh;
+initial fh = $fopen("rtl_mem.log");
+// synthesis translate_on
 
 
 always_comb begin
@@ -85,19 +103,7 @@ always_comb begin
     bus2_ack = 1'b0;
     bus3_ack = 1'b0;
     bus4_ack = 1'b0;
-    bus1_rdvalid = 1'b0;
-    bus1_rdata = 32'bx;
-    bus1_complete = 1'b0;
-    bus2_rdvalid = 1'b0;
-    bus2_rdata = 32'bx;
-    bus2_complete = 1'b0;
-    bus3_rdvalid = 1'b0;
-    bus3_rdata = 32'bx;
-    bus3_complete = 1'b0;
-    bus4_rdvalid = 1'b0;
-    bus4_rdata = 32'bx;
-    bus4_complete = 1'b0;
-
+    bus5_ack = 1'b0;
 
     if (sdram_req==3'b000) begin
         if (bus1_request) begin
@@ -116,6 +122,7 @@ always_comb begin
             next_byte_enable = bus2_byte_enable;
             next_wdata = bus2_wdata;
             bus2_ack = 1'b1;
+
         end else if (bus3_request) begin
             next_req = 3'h3;
             next_addr = bus3_addr;
@@ -132,6 +139,14 @@ always_comb begin
             next_byte_enable = bus4_byte_enable;
             next_wdata = bus4_wdata;
             bus4_ack = 1'b1;
+        end else if (bus5_request) begin
+            next_req = 3'h5;
+            next_addr = bus5_addr;
+            next_write = bus5_write;
+            next_burst = bus5_burst;
+            next_byte_enable = bus5_byte_enable;
+            next_wdata = bus5_wdata;
+            bus5_ack = 1'b1;
         end
     end
 
@@ -145,26 +160,21 @@ always_comb begin
     end
 
     // Pass data from the SDRAM controller to the bus master
-    if (sdram_rdvalid==3'h1) begin
-        bus1_rdvalid = 1'b1;
-        bus1_rdata = sdram_rdata;
-        bus1_complete = sdram_complete;
-    end
-    if (sdram_rdvalid==3'h2) begin
-        bus2_rdvalid = 1'b1;
-        bus2_rdata = sdram_rdata;
-        bus2_complete = sdram_complete;
-    end
-    if (sdram_rdvalid==3'h3) begin
-        bus3_rdvalid = 1'b1;
-        bus3_rdata = sdram_rdata;
-        bus3_complete = sdram_complete;
-    end
-    if (sdram_rdvalid==3'h4) begin
-        bus4_rdvalid = 1'b1;
-        bus4_rdata = sdram_rdata;
-        bus4_complete = sdram_complete;
-    end
+    bus1_rdata = (sdram_rdvalid==3'h1) ? sdram_rdata : 32'bx;
+    bus2_rdata = (sdram_rdvalid==3'h2) ? sdram_rdata : 32'bx;
+    bus3_rdata = (sdram_rdvalid==3'h3) ? sdram_rdata : 32'bx;
+    bus4_rdata = (sdram_rdvalid==3'h4) ? sdram_rdata : 32'bx;
+    bus5_rdata = (sdram_rdvalid==3'h5) ? sdram_rdata : 32'bx;
+    bus1_rdvalid = sdram_rdvalid==3'h1;
+    bus2_rdvalid = sdram_rdvalid==3'h2;
+    bus3_rdvalid = sdram_rdvalid==3'h3;
+    bus4_rdvalid = sdram_rdvalid==3'h4;
+    bus5_rdvalid = sdram_rdvalid==3'h5;
+    bus1_complete = sdram_complete && sdram_rdvalid==3'h1;
+    bus2_complete = sdram_complete && sdram_rdvalid==3'h2;
+    bus3_complete = sdram_complete && sdram_rdvalid==3'h3;
+    bus4_complete = sdram_complete && sdram_rdvalid==3'h4;
+    bus5_complete = sdram_complete && sdram_rdvalid==3'h5;
 
     if (reset) begin
         next_req = 3'b000;
@@ -179,8 +189,14 @@ always_ff @(posedge clock) begin
     sdram_byte_enable <= next_byte_enable;
     sdram_wdata <= next_wdata;
 
+    // synthesis translate_off
     if (sdram_req == 3'b000 && sdram_ack)
         $display("Error: %t SDRAM arbiter received ack without a request", $time);
+
+    if (sdram_req==3'h0 && next_req==3'h2 && bus2_write)
+        $fwrite(fh, "[%08x]=%08x %x\n", bus2_addr, bus2_wdata, bus2_byte_enable);
+    // synthesis translate_on
+
 
 end
 

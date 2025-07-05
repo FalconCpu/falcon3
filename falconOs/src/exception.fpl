@@ -13,12 +13,44 @@ enum ExceptionCause[NONE,
 enum SysCall[
     ABORT,
     PRINT_CHAR,
-    PRINT_STRING]
+    PRINT_STRING,
+    ALLOCATE_MEM,
+    FREE_MEM]
 
 
 fun handle_exception(tcb:TaskControlBlock, cause:ExceptionCause, data:Int)
-    kprintf("Exception handler %x %x\n", cause,data)
+    # kprintf("Exception handler %x %x $1=%08x $2=%08x\n", cause,data, tcb.regs[1], tcb.regs[2])
     when cause
+        ExceptionCause.SYSTEM_CALL ->
+            when data as SysCall
+                SysCall.ABORT ->
+                    dumpAndTerminate("Program completed",cause as Int, tcb,data)
+
+                SysCall.PRINT_CHAR ->
+                    printChar(tcb.regs[1] as Char)
+
+                SysCall.PRINT_STRING ->
+                    kPrintBlock(tcb.regs[1] as Array<Char>, tcb.regs[2])
+
+                SysCall.ALLOCATE_MEM ->
+                    kprintf("Allocating %d\n",tcb.regs[1])
+                    dumpBuddyAllocator()
+                    val block = allocateBlock(tcb.regs[1] as Int)
+                    kprintf("Allocated %x\n",block)
+                    if block = 0
+                        dumpAndTerminate("Memory allocation failed",ERR_OUT_OF_MEMORY,tcb,data)
+                    kprintf("Allocated block %08x for task %08x\n", block, tcb)
+                    tcb.addMemoryBlock(block | DMPU_RW)
+                    tcb.regs[8] = block & MASK_ADDRESS_ONLY
+
+                SysCall.FREE_MEM ->
+                    # Need to check that the block is valid to be freed - and extract the size from the block
+                    # before calling freeBlock
+                    kprintf("Not yet implemented: Syscall FREE_MEM\n")
+
+                else ->
+                    dumpAndTerminate("Unknown system call %d",cause as Int, tcb,data)
+
         ExceptionCause.INSTRUCTION_ACCESS_FAULT ->
             dumpAndTerminate("INSTRUCTION_ACCESS_FAULT",cause as Int, tcb, data)
 
@@ -39,20 +71,6 @@ fun handle_exception(tcb:TaskControlBlock, cause:ExceptionCause, data:Int)
 
         ExceptionCause.STORE_ACCESS_FAULT ->
             dumpAndTerminate("STORE ACCESS FAULT",cause as Int, tcb, data)
-
-        ExceptionCause.SYSTEM_CALL ->
-            when data as SysCall
-                SysCall.ABORT ->
-                    dumpAndTerminate("Program completed",cause as Int, tcb,data)
-
-                SysCall.PRINT_CHAR ->
-                    printChar(tcb.regs[1] as Char)
-
-                SysCall.PRINT_STRING ->
-                    kPrintBlock(tcb.regs[1] as Array<Char>, tcb.regs[2])
-
-                else ->
-                    dumpAndTerminate("Unknown system call",cause as Int,tcb, data)
 
         ExceptionCause.INDEX_OVERFLOW ->
             dumpAndTerminate("INDEX OVERFLOW",cause as Int,tcb, data)

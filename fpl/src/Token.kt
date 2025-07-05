@@ -61,6 +61,7 @@ enum class TokenKind(val text:String, val lineContinues:Boolean) {
     RANGE      ("Range", false),
     THEN       ("then", true),
     NEW        ("new", true),
+    UNSAFE     ("unsafe", false),
     INLINE     ("inline", true),
 
     VAL        ("val", false),
