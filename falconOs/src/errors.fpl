@@ -1,0 +1,26 @@
+
+# Assembler routine to perform task switch
+extern fun resumeTask(tcb:TaskControlBlock)
+extern fun endTask()
+extern fun shutdown(code:ErrorCode)
+
+enum ErrorCode [
+    OK,
+    OUT_OF_MEMORY,
+    DOUBLE_FREE,
+    NULL_POINTER,
+    INVALID_ARG,
+    MEM_SLOTS_FULL,
+    TIMEOUT,
+    CRC_MISMATCH,
+    PROTOCOL_ERROR,
+    NO_TASKS]
+
+
+# Global errno variable to indicate error conditions
+var errno : ErrorCode
+
+fun panic(message:String, code:ErrorCode)
+    kprintf("KERNEL PANIC: %s\n",message)
+    shutdown(code)
+    

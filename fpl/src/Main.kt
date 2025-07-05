@@ -13,6 +13,7 @@ val stdLibFiles = listOf("memory.fpl",
 val osStdLibFiles = listOf("stdlib/stringBuilder.fpl","stdlib/list.fpl","stdlib/bitVector.fpl")
 const val stdLibPath = "C:\\Users\\simon\\falcon3\\falconos\\stdlib\\"
 const val startFile =  "${stdLibPath}start.f32"
+var outFile = "asm.hex"
 
 
 fun main(args:Array<String>) {
@@ -42,6 +43,10 @@ fun main(args:Array<String>) {
             "-bin" -> stopAt = StopAt.BINFILE
             "-noStdlib" -> noStdLib = true
             "-os" -> osProject = true
+            "-o" -> if (i+1 < argsx.size) {
+                outFile = argsx[i+1]
+                i++
+            }
             else -> if (arg.startsWith("-")) {
                 println("Unknown option $arg")
                 return
@@ -88,7 +93,7 @@ fun parseProjectFile(): List<String> {
 }
 
 fun runAssembler(filenames:List<String>, format:String) {
-    val process = ProcessBuilder("f32asm.exe", format,  *filenames.toTypedArray())
+    val process = ProcessBuilder("f32asm.exe", format,"-o",outFile,  *filenames.toTypedArray())
         .redirectError(ProcessBuilder.Redirect.INHERIT)
         .start()
 

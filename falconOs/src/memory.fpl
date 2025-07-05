@@ -20,12 +20,6 @@
 const HEAP_START = 0x1000
 const HEAP_END   = 0x10000
 
-const ERR_OUT_OF_MEMORY  = 0xE01
-const ERR_DOUBLE_FREE    = 0xE02
-const ERR_NULL_POINTER   = 0xE03
-const ERR_INVALID_ARG    = 0xE04
-const ERR_MEM_SLOTS_FULL = 0xE05
-
 # FreeMemBlock
 # Blocks are always a multiple of 16 bytes in size - this means the lower 4 bits are always 0
 # hence we can repurpose them to indicate the block status
@@ -135,8 +129,7 @@ fun free(ptr:Int)
     val block = (ptr - 8) as FreeMemBlock
     val size = block.size
     if (size & 0xF)=0
-        kprintf("Double free")
-        shutdown(ERR_DOUBLE_FREE)
+        panic("Double free", ErrorCode.DOUBLE_FREE)
     insertBlockIntoFreeList(block, size & 0xfffffff0)
 
 fun dumpMemorySystem()
@@ -220,8 +213,7 @@ fun allocateBlock(size:Int) -> Int
     while freeBlocks[slot].isEmpty()
         slot += 1
         if slot=16 
-            kprintf("BuddyAllocator: ERR_OUT_OF_MEMORY for size=%d\n",size)
-            shutdown(ERR_OUT_OF_MEMORY)
+            panic("Out of memory", ErrorCode.OUT_OF_MEMORY)
 
     var blk = freeBlocks[slot].take()
 

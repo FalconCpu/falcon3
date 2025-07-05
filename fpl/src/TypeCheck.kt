@@ -106,7 +106,7 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
                     val thisExpr = TstVariable(location, thisSymbol, thisSymbol.type)
                     TstEmbeddedMember(location, thisExpr, symbol, symbol.type)
                 }
-                is SymbolConstant -> symbol.toExpression()
+                is SymbolConstant -> symbol.toExpression(location)
                 is SymbolInlineVar -> TstInlineVariable(location, symbol, symbol.type)
             }
         }
@@ -134,7 +134,16 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
             if (tcRhs.type == TypeError) return tcRhs
             val lhsType = tcLhs.type.defaultPromotions()
             val rhsType = tcRhs.type.defaultPromotions()
-            val op = if (notEq) AluOp.NEQ_I else AluOp.EQ_I
+            val op = if (notEq)
+                when(lhsType) {
+                    TypeReal -> AluOp.NEQ_R
+                    TypeString -> AluOp.NEQ_S
+                    else -> AluOp.NEQ_I
+                } else when(lhsType) {
+                    TypeReal -> AluOp.EQ_R
+                    TypeString -> AluOp.EQ_S
+                    else -> AluOp.EQ_I
+                }
 
             if (lhsType.isAssignableFrom(rhsType) || rhsType.isAssignableFrom(lhsType))
                 TstBinop(location, op, tcLhs, tcRhs, TypeBool)
@@ -250,11 +259,11 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
                         val field = tcExpr.type.lookupSymbol(location, name)
                         when (field) {
                             null -> TstError(location, "Enum ${tcExpr.type} does not have a field named '$name'")
-                            is SymbolConstant -> field.toExpression()
+                            is SymbolConstant -> field.toExpression(location)
                             else -> error("Unexpected Symbol type")
                         }
                     }
-                    else -> TstError(location, "Cannot access static members of type '$tcExpr.type}'")
+                    else -> TstError(location, "Cannot access static members of type '${tcExpr.type}'")
                 }
             } else when (tcExpr.type) {
                 is TypeArray -> {
@@ -421,7 +430,7 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
 }
 
 
-private fun SymbolConstant.toExpression(): TstExpr {
+private fun SymbolConstant.toExpression(location:Location): TstExpr {
     return when(value) {
         is ValueClassDescriptor -> TstError(location, "Cannot use type name '$name' as an expression")
         is ValueInt -> TstIntLit(location, value.value, type)

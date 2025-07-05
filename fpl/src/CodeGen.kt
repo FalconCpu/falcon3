@@ -226,7 +226,7 @@ fun TstExpr.codeGenRvalue() : Reg {
             }
         }
 
-        is TstMethod -> TODO()
+        is TstMethod -> TODO("Method calls without object at $location")
 
         is TstCast -> {
             val ret = expr.codeGenRvalue()

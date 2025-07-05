@@ -1,0 +1,19 @@
+extern fun findTaskByName(name:String) -> Int
+extern fun sendMessage(dest:Int, d0:Int, d1:Int, d2:Int, d3:Int)
+extern fun yield()
+
+fun main()
+    val taskA = findTaskByName("MyFirstTask")
+    if taskA = 0
+        printf("Task A not found\n")
+        return
+    printf("Task B: Found task %08x\n", taskA)
+
+    sendMessage(taskA, 1,2,3,4)
+
+    # simulate some delay
+    for i in 0..1000
+        yield()
+    sendMessage(taskA, 5,6,7,8)
+    sendMessage(taskA, 42, 43, 44, 45)
+    printf("Task B: Messages sent\n")

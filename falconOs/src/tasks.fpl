@@ -11,11 +11,25 @@ const DMPU_EXECUTABLE= 0x0000400
 const DMPU_RW        = 0x0000300
 const DMPU_RX        = 0x0000500
 
+enum TaskStatus[ RUNNING, READY, SLEEPING, TERMINATED ]
+
+var allTasks : List<TaskControlBlock>
+var runningTasks : List<TaskControlBlock>
+var runningTaskIndex : Int
+var lastSwitchTime : Int
+var taskYielded : Bool
+const TIME_SLICE = 1000000
+
+
 class TaskControlBlock()
     var pc = 0
     val regs = inline Array<Int>(32)
     var status = 0
     val memBlocks = inline Array<Int>(8)
+    var name : String
+    var runState = TaskStatus.READY
+    var firstMessage : Message? = null
+    var lastMessage : Message? = null
 
     fun addMemoryBlock(block:Int)
         # Currently we only support max of 8 memory blocks
@@ -23,25 +37,110 @@ class TaskControlBlock()
             if memBlocks[i] = 0
                 memBlocks[i] = block
                 return
-        dumpAndTerminate("memory slots full", ERR_MEM_SLOTS_FULL,this,0)
+        kprintf("ERROR: Task %s has too many memory blocks\n",name)
+        panic("Too many memory blocks", ErrorCode.MEM_SLOTS_FULL)
     end fun
 
-# Assembler routine to perform task switch
-extern fun resumeTask(tcb:TaskControlBlock)
-extern fun endTask()
-extern fun shutdown(code:Int)
+    fun removeMemoryBlock(block:Int) -> Bool
+        val blk = block & MASK_ADDRESS_ONLY
+        for i in 0..<8
+            if (memBlocks[i] & MASK_ADDRESS_ONLY) = blk
+                memBlocks[i] = 0
+                return true
+        return false
 
-fun dumpAndTerminate(message:String, code:Int, tcb:TaskControlBlock, data:Int)
-    kprintf("%s   %08x\n", message,code)
-    kprintf("DATA=%08x PC=%08x\n", data, tcb.pc)
-    for i in 1..31
-        kprintf("$%2d=%08x",i,tcb.regs[i])
-        if (i&7)=7
-            kprintf("\n")
+    fun dump()
+        kprintf("$PC=%08x ", pc)
+        for i in 1..31
+            kprintf("$%2d=%08x",i, regs[i])
+            if (i&7)=7
+                kprintf("\n")
+            else
+                kprintf(" ")
+    end fun
+
+    fun setSleeping()
+        if runState = TaskStatus.READY or runState = TaskStatus.RUNNING
+            runningTasks.remove(this)
+        runState = TaskStatus.SLEEPING
+
+    fun setReady()
+        if runState = TaskStatus.SLEEPING
+            runningTasks.add(this)
+        runState = TaskStatus.READY
+
+    fun receiveMessage(msg:Message)
+        # Add a new message to the end of the message queue.
+        # Wake a task up if it was sleeping
+        val lm = lastMessage
+        if lm = null
+            firstMessage = msg
+            lastMessage = msg
         else
-            kprintf(" ")
-    shutdown(code)
-end fun
+            lm.next = msg
+            lastMessage = msg
+        msg.next = null
+        if runState = TaskStatus.SLEEPING
+            runState = TaskStatus.READY
+            runningTasks.add(this)
+
+    fun getMessage() -> Message?
+        # Return the first message in the queue and remove it from the queue
+        # If the queue is empty, sleep the task
+        val msg = firstMessage
+        if msg = null
+            setSleeping()
+        else
+            firstMessage = msg.next
+            if firstMessage = null
+                lastMessage = null
+        return msg
+
+
+
+# ==========================================================================
+#                      createTask
+# ==========================================================================
+
+fun createTask(name:String, code:Int) -> TaskControlBlock
+    # Allocate a new task control block
+    # argument code is the MemoryAllocBlock containing the code for the task. For now we
+    # assume the entry point is at the start of the block
+    val task = new TaskControlBlock()
+    kprintf("Creating new task %s at %08x\n", name, task)
+    task.name = name
+    task.runState = TaskStatus.READY
+
+    # Setup the task's code section
+    task.pc = code & MASK_ADDRESS_ONLY
+    task.addMemoryBlock(code | DMPU_RX)
+
+    # Allocate some space for the new task's stack
+    val taskStack = allocateBlock(4096)
+    task.regs[31] = (taskStack & MASK_ADDRESS_ONLY) + 4096
+    task.addMemoryBlock(taskStack | DMPU_RW)
+    kprintf("Allocated Stack at %08x\n", taskStack)
+
+    # Allocate some space for the new task's globals area
+    val taskGlobals = allocateBlock(4096)
+    task.regs[29] = taskGlobals & MASK_ADDRESS_ONLY
+    task.addMemoryBlock(taskGlobals | DMPU_RW)
+    kprintf("Allocated globals at %08x\n", taskGlobals)
+    task.regs[30] = endTask as Int
+    allTasks.add(task)
+    runningTasks.add(task)
+    return task
+
+# ==========================================================================
+#                      findTaskByName
+# ==========================================================================
+
+fun findTaskByName(name:String) -> TaskControlBlock?
+    for task in allTasks
+        if task.name = name
+            return task
+    return null
+
 
 # ==========================================================================
 #                      startup
@@ -52,33 +151,50 @@ fun startup()
     kprintf("OS Starting up\n")
     initializeMemorySystem()
     initializeBuddyAllocator()
+    runningTaskIndex = 0
+    lastSwitchTime = 0
+    taskYielded = false
+    allTasks = new List<TaskControlBlock>()
+    runningTasks = new List<TaskControlBlock>()
+
     kprintf("Allocating task\n")
-
-    # Create our first task
-    val task = new TaskControlBlock()
-    kprintf("Allocated task at %08x\n", task)
-
-    # Allocate some space for the new task's code
     val taskCode = readFileFromHost("myFirstTask.exe")
-    if errno != ERR_OK
-        kprintf("Error reading file\n")
-        shutdown(errno)
-    task.pc = taskCode & MASK_ADDRESS_ONLY
-    task.addMemoryBlock(taskCode | DMPU_RX)
-    kprintf("Allocated code at %08x\n", taskCode)
+    val task = createTask("MyFirstTask", taskCode)
 
-    # Allocate some space for the new task's stack
-    val taskStack = allocateBlock(4096)
-    task.regs[31] = (taskStack & MASK_ADDRESS_ONLY) + 4096
-    task.addMemoryBlock(taskStack | DMPU_RW)
-    kprintf("Allocated stack at %08x\n", taskStack)
+    val task2Code = readFileFromHost("mySecondTask.exe")
+    val task2 = createTask("My Second Task", task2Code)
 
-    # Allocate some space for the new task's globals area
-    val taskGlobals = allocateBlock(4096)
-    task.regs[29] = taskGlobals & MASK_ADDRESS_ONLY
-    task.addMemoryBlock(taskGlobals | DMPU_RW)
-    kprintf("Allocated globals at %08x\n", taskGlobals)
-    task.regs[30] = endTask as Int
+    scheduler()
 
-    kprintf("Running task\n")
+# ==========================================================================
+#                      scheduler
+# ==========================================================================
+
+fun scheduler()
+    # Find the next task to run
+    if runningTasks.size = 0
+        kprintf("No tasks to run\n")
+        shutdown(ErrorCode.NO_TASKS)
+    val timeSinceLastSwitch = hwRegs.timer - lastSwitchTime
+    if taskYielded or timeSinceLastSwitch > TIME_SLICE
+        runningTaskIndex += 1
+        lastSwitchTime = hwRegs.timer
+        taskYielded = false
+    if runningTaskIndex >= runningTasks.size
+        runningTaskIndex = 0
+    val task = runningTasks[runningTaskIndex]
+    # Display the running task on the 7-segment display
+    hwRegs.seven_seg = task as Int
+    if task.runState != TaskStatus.READY
+        kprintf("ERROR: Task %08x is on running list, but not ready\n", task)
+    task.runState = TaskStatus.RUNNING
     resumeTask(task)
+
+# ==========================================================================
+#                      terminateTask
+# ==========================================================================
+fun terminateTask(tcb:TaskControlBlock, message:String, data:Int)
+    kprintf("Task %s terminated: %s\n", tcb.name, message)
+    tcb.dump()
+    runningTasks.remove(tcb)
+    

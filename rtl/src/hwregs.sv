@@ -24,6 +24,7 @@
 // E000003C  BLIT_ARG2      W    Second aeg for blitter
 // E0000040  BLIT_STATUS    R    Blitter Status register
 // E0000044  SIM            R    Reads as 1 in a simulation, 0 on hardware
+// E0000048  TIMER          RW   Free-running counter, increments every cycle.
 // E0001XXX  VGA            W    256 words of VGA registers (write only)
 
 // verilator lint_off PINCONNECTEMPTY
@@ -83,7 +84,8 @@ logic [7:0]  fifo_rx_data;
 logic        fifo_rx_not_empty;
 logic [7:0]  uart_rx_data;
 logic        uart_rx_complete;
-logic [2:0] mouse_buttons;
+logic [2:0]  mouse_buttons;
+logic [31:]  timer;
 
 
 // synthesis translate_off
@@ -99,6 +101,7 @@ always_ff @(posedge clock) begin
     hwregs_vga_wdata <= cpud_wdata[25:0];
     hwregs_vga_select <= cpud_request && cpud_write && cpud_addr[15:12] == 4'h1;
     blit_cmd_valid <= 1'b0;
+    timer <= timer + 1;
 
     if (cpud_request && cpud_write) begin
         // Write to hardware registers
@@ -158,6 +161,7 @@ always_ff @(posedge clock) begin
                if (cpud_byte_enable[3])  blit_cmd[95:88] <= cpud_wdata[31:24];
             end
 
+            16'h0048: timer <= cpud_wdata;
 
             default: begin end
         endcase
@@ -185,6 +189,7 @@ always_ff @(posedge clock) begin
                 cpud_rdata <= 1;
                 // synthesis translate_on
             end
+            16'h0048: cpud_rdata <= timer;
             default:  cpud_rdata <= 32'bx;
         endcase
     end
@@ -192,6 +197,7 @@ always_ff @(posedge clock) begin
     if (reset) begin
         seven_seg <= 24'h000000;
         LEDR <= 10'b0;
+        timer <= 0;
     end
 end
 

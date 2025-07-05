@@ -17,13 +17,6 @@ class HwRegs
     var blit_arg2   : Int  # Second aeg for blitter
     var blit_status : Int  # Blitter Status register
     var sim         : Int  # Reads as 1 in a simulation, 0 on hardware
+    var timer       : Int  # Free-running timer, increments every clock cycle.
 
 const hwRegs = 0xE0000000 as HwRegs
-
-# Global errno variable to indicate error conditions
-var errno : Int
-const ERR_OK = 0
-const ERR_TIMEOUT = 0xF00
-const ERR_CRC_MISMATCH = 0xF01
-const ERR_PROTOCOL_ERROR = 0xF02
-

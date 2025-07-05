@@ -1,10 +1,20 @@
-class Cat(val name:String, val age:Int)
-    fun meow()
-        printf("%s says meow\n", name)
+extern fun getMessage(msg:Message)
 
+class Message()
+    var from:Int
+    var data0:Int
+    var data1:Int
+    var data2:Int
+    var data3:Int
 
 fun main()
-    val cat1 = new Cat("Fluffy", 3)
-    val cat2 = new Cat("Tiger", 5)
-    cat1.meow()
-    cat2.meow()
+    val msg = new Message()
+    while (true)
+        getMessage(msg)
+        printf("Task A: Received message from %08x\n", msg.from)
+        printf("Data0 = %d\n", msg.data0)
+        printf("Data1 = %d\n", msg.data1)
+        printf("Data2 = %d\n", msg.data2)
+        printf("Data3 = %d\n", msg.data3)
+        # After receiving one message, go to sleep again waiting for next message
+    end while

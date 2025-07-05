@@ -25,7 +25,10 @@ SYSCALL_PRINT_CHAR = 1          # $1 = char to print
 SYSCALL_PRINT_STRING = 2        # $1 = pointer to string, $2 = length
 SYSCALL_ALLOCATE_MEMORY = 3     # $1 = size
 SYSCALL_FREE_MEMORY = 4         # $1 = pointer to memory
-
+SYSCALL_FIND_TASK_BY_NAME = 5   # $1 = pointer to string
+SYSCALL_SEND_MESSAGE = 6        # $1 = destination task, $2..$5 = message
+SYSCALL_GET_MESSAGE = 7         # $1 = address to store message at
+SYSCALL_YIELD = 8               # No args
 
 
 /printString:
@@ -46,6 +49,23 @@ ret
 /freeMemory:
 sys SYSCALL_FREE_MEMORY
 ret
+
+/findTaskByName(String):
+sys SYSCALL_FIND_TASK_BY_NAME
+ret
+
+/sendMessage(Int,Int,Int,Int,Int):
+sys SYSCALL_SEND_MESSAGE
+ret
+
+/getMessage(Message):
+sys SYSCALL_GET_MESSAGE
+ret
+
+/yield():
+sys SYSCALL_YIELD
+ret
+
 
 # ==========================================================
 #                     strcmp

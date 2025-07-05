@@ -15,16 +15,29 @@ enum SysCall[
     PRINT_CHAR,
     PRINT_STRING,
     ALLOCATE_MEM,
-    FREE_MEM]
+    FREE_MEM,
+    FIND_TASK_BY_NAME,
+    SEND_MESSAGE,
+    GET_MESSAGE,
+    YIELD,
+    OPEN_WINDOW,
+    CLOSE_WINDOW,
+    BLIT_SET_DEST,
+    BLIT_SET_SRC,
+    BLIT_SET_FONT]
 
 
 fun handle_exception(tcb:TaskControlBlock, cause:ExceptionCause, data:Int)
-    # kprintf("Exception handler %x %x $1=%08x $2=%08x\n", cause,data, tcb.regs[1], tcb.regs[2])
+    # kprintf("Task %08x: Exception %x PC=%08x DATA=%x $1=%08x $2=%08x\n", tcb, cause, tcb.pc, data, tcb.regs[1], tcb.regs[2])
+    if (tcb as Int)=0 then panic("Exception in kernel code",ErrorCode.PROTOCOL_ERROR)
+    tcb.runState = TaskStatus.READY
     when cause
         ExceptionCause.SYSTEM_CALL ->
             when data as SysCall
                 SysCall.ABORT ->
-                    dumpAndTerminate("Program completed",cause as Int, tcb,data)
+                    kprintf("Task %s exited with code %d\n", tcb.name, tcb.regs[8])
+                    terminateTask(tcb, "Completed", 0)
+
 
                 SysCall.PRINT_CHAR ->
                     printChar(tcb.regs[1] as Char)
@@ -33,12 +46,10 @@ fun handle_exception(tcb:TaskControlBlock, cause:ExceptionCause, data:Int)
                     kPrintBlock(tcb.regs[1] as Array<Char>, tcb.regs[2])
 
                 SysCall.ALLOCATE_MEM ->
-                    kprintf("Allocating %d\n",tcb.regs[1])
-                    dumpBuddyAllocator()
                     val block = allocateBlock(tcb.regs[1] as Int)
-                    kprintf("Allocated %x\n",block)
                     if block = 0
-                        dumpAndTerminate("Memory allocation failed",ERR_OUT_OF_MEMORY,tcb,data)
+                        tcb.dump()
+                        panic("Memory allocation failed",ErrorCode.OUT_OF_MEMORY)
                     kprintf("Allocated block %08x for task %08x\n", block, tcb)
                     tcb.addMemoryBlock(block | DMPU_RW)
                     tcb.regs[8] = block & MASK_ADDRESS_ONLY
@@ -48,36 +59,77 @@ fun handle_exception(tcb:TaskControlBlock, cause:ExceptionCause, data:Int)
                     # before calling freeBlock
                     kprintf("Not yet implemented: Syscall FREE_MEM\n")
 
+                SysCall.FIND_TASK_BY_NAME ->    
+                    val name = tcb.regs[1] as String
+                    val task = findTaskByName(tcb.regs[1] as String)
+                    tcb.regs[8] = task as Int
+
+                SysCall.SEND_MESSAGE ->
+                    # Arg1 is the destination task
+                    # Args2..5 are the message data
+                    # return 1 for success, 0 for failure
+                    val dest = tcb.regs[1] as TaskControlBlock
+                    if allTasks.contains(dest)
+                        val msg = new Message(tcb, tcb.regs[2], tcb.regs[3], tcb.regs[4], tcb.regs[5])
+                        dest.receiveMessage(msg)
+                        tcb.regs[8] = 1
+                    else
+                        kprintf("Task %s not found\n", dest.name)
+                        tcb.regs[8] = 0
+
+                SysCall.GET_MESSAGE ->
+                    # Arg1 is the location (in user space) to store the message
+                    # TODO - check the location where the message is to be stored is valid
+                    val userMessage = tcb.regs[1] as Message
+                    val msg  = tcb.getMessage()
+                    if msg = null
+                        # If there is no message then the task will go to sleep. Amend the 
+                        # tasks PC to get it to call getMessage() again when it awakes
+                        tcb.pc = tcb.pc - 4
+                    else
+                        userMessage.from = msg.from
+                        userMessage.data0 = msg.data0
+                        userMessage.data1 = msg.data1
+                        userMessage.data2 = msg.data2
+                        userMessage.data3 = msg.data3
+                        free msg
+
+                SysCall.YIELD ->
+                    # Yield the processor to another task
+                    taskYielded = true
+
                 else ->
-                    dumpAndTerminate("Unknown system call %d",cause as Int, tcb,data)
+                    terminateTask(tcb, "Unknown system call",data)
 
         ExceptionCause.INSTRUCTION_ACCESS_FAULT ->
-            dumpAndTerminate("INSTRUCTION_ACCESS_FAULT",cause as Int, tcb, data)
+            terminateTask(tcb, "Instruction Access fault",data)
 
         ExceptionCause.ILLEGAL_INSTRUCTION ->
-            dumpAndTerminate("ILLEGAL INSTRUCTION",cause as Int, tcb, data)
+            terminateTask(tcb, "Illegal Instruction",data)
 
         ExceptionCause.BREAKPOINT ->
-            dumpAndTerminate("BREAKPOINT",cause as Int, tcb, data)
+            terminateTask(tcb, "Breakpoint",data)
 
         ExceptionCause.LOAD_ADDRESS_MISALIGNED ->
-            dumpAndTerminate("LOAD ADDRESS MISALIGNED",cause as Int, tcb, data)
+            terminateTask(tcb, "Load Address Misaligned",data)
 
         ExceptionCause.LOAD_ACCESS_FAULT ->
-            dumpAndTerminate("LOAD ACCESS FAULT",cause as Int, tcb, data)
+            terminateTask(tcb, "Load Address Fault",data)
 
         ExceptionCause.STORE_ADDRESS_MISALIGNED ->
-            dumpAndTerminate("STORE ADDRESS MISALIGNED",cause as Int, tcb, data)
+            terminateTask(tcb, "Store Address Misaligned",data)
 
         ExceptionCause.STORE_ACCESS_FAULT ->
-            dumpAndTerminate("STORE ACCESS FAULT",cause as Int, tcb, data)
+            terminateTask(tcb, "Store Address Fault",data)
 
         ExceptionCause.INDEX_OVERFLOW ->
-            dumpAndTerminate("INDEX OVERFLOW",cause as Int,tcb, data)
+            terminateTask(tcb, "Index Overflow",data)
 
         else ->
-            dumpAndTerminate("Unknown exception",cause as Int,tcb, data)
+            terminateTask(tcb, "Unknown exception",data)
 
     tcb.pc += 4     # resume at the next instruction
-    resumeTask(tcb)
+    scheduler()
+
+
 

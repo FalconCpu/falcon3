@@ -21,7 +21,7 @@ fun uartSendByte(b:Int)
     while hwRegs.uart_tx = 0
         timeout -= 1
         if timeout = 0
-            errno = ERR_TIMEOUT
+            errno = ErrorCode.TIMEOUT
             return
     hwRegs.uart_tx = b
 
@@ -39,7 +39,7 @@ fun uartRxByte() -> Int
             return ret & 0xFF
         timeout -= 1
     until timeout=0
-    errno = ERR_TIMEOUT
+    errno = ErrorCode.TIMEOUT
     return 0
 
 fun uartRxWord() -> Int
@@ -54,28 +54,28 @@ fun uartRxWord() -> Int
         b0 = hwRegs.uart_rx
         timeout -= 1
         if timeout = 0
-            errno = ERR_TIMEOUT
+            errno = ErrorCode.TIMEOUT
             return 0
     timeout = 100000
     while b1 = -1
         b1 = hwRegs.uart_rx
         timeout -= 1
         if timeout = 0
-            errno = ERR_TIMEOUT
+            errno = ErrorCode.TIMEOUT
             return 0
     timeout = 100000
     while b2 = -1
         b2 = hwRegs.uart_rx
         timeout -= 1
         if timeout = 0
-            errno = ERR_TIMEOUT
+            errno = ErrorCode.TIMEOUT
             return 0
     timeout = 100000
     while b3 = -1
         b3 = hwRegs.uart_rx
         timeout -= 1
         if timeout = 0
-            errno = ERR_TIMEOUT
+            errno = ErrorCode.TIMEOUT
             return 0
     val ret =  b0 | (b1<<8) | (b2<<16) | (b3<<24)
     return ret
@@ -98,32 +98,32 @@ fun uartRxCommandWord() -> Int
             b0 = hwRegs.uart_rx
             timeout -= 1
             if timeout = 0
-                errno = ERR_TIMEOUT
+                errno = ErrorCode.TIMEOUT
                 return 0
         repeatCount += 1
         if repeatCount = 100
-            errno = ERR_TIMEOUT
+            errno = ErrorCode.TIMEOUT
             return 0
     timeout = 100000
     while b1 = -1
         b1 = hwRegs.uart_rx
         timeout -= 1
         if timeout = 0
-            errno = ERR_TIMEOUT
+            errno = ErrorCode.TIMEOUT
             return 0
     timeout = 100000
     while b2 = -1
         b2 = hwRegs.uart_rx
         timeout -= 1
         if timeout = 0
-            errno = ERR_TIMEOUT
+            errno = ErrorCode.TIMEOUT
             return 0
     timeout = 100000
     while b3 = -1
         b3 = hwRegs.uart_rx
         timeout -= 1
         if timeout = 0
-            errno = ERR_TIMEOUT
+            errno = ErrorCode.TIMEOUT
             return 0
     val ret =  b0 | (b1<<8) | (b2<<16) | (b3<<24)
     return ret
@@ -133,37 +133,37 @@ fun rxPacket() -> Int
     # Reads a packet from the host.
     # On succces: sets 'packetCommand' to the command and returns an Int representing a memoryBlock where the data is stored.
     # On failure: sets errno and returns ERR_OK
-    errno =  ERR_OK
+    errno =  ErrorCode.OK
     packetCommand = uartRxCommandWord()
-    if errno != ERR_OK 
+    if errno != ErrorCode.OK 
         kprintf("failed to read command\n")
         return 0
 
     val length = uartRxWord()       # length of the data in words
-    if errno != ERR_OK
+    if errno != ErrorCode.OK
         kprintf("Failed to read length\n")
         return 0
 
-    kprintf("Length %d\n",length)
-    val data = allocateBlock(length)
+    val data = allocateBlock(length*4)
     val dataArray = (data & MASK_ADDRESS_ONLY) as Array<Int>
     var crc = 0
     for i in 0..<length
         val b = uartRxWord()
-        if errno != ERR_OK 
+        if errno != ErrorCode.OK 
             kprintf("Failed to read data %d\n",i)
             return 0
         unsafe
             dataArray[i] = b
         crc += b
     val crc_rx = uartRxWord()
-    if errno != ERR_OK 
+    if errno != ErrorCode.OK 
         kprintf("Failed to read crc\n")
         return 0
     if crc != crc_rx
         kprintf("CRC mismatch calc=%x rx=%x\n",crc,crc_rx)
-        errno = ERR_CRC_MISMATCH
+        errno = ErrorCode.CRC_MISMATCH
         return 0
+    kprintf("Read %d words at address %08x\n",length,data)
     return data
 
 fun sendPacketString(command:Int, data:String)
@@ -194,12 +194,12 @@ fun readFileFromHost(fileName:String) -> Int
     # On failure: sets errno
     sendPacketString(CMD_READFILE, fileName)
     val packet = rxPacket()
-    if errno != ERR_OK
+    if errno != ErrorCode.OK
         kprintf("Packet not read\n")
         return 0
     if packetCommand != RESP_DATA
         kprintf("Expected RESP_DATA, got %08x\n", packetCommand)
-        errno = ERR_PROTOCOL_ERROR
+        errno = ErrorCode.PROTOCOL_ERROR
         return 0
     return packet
 

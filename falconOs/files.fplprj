@@ -1,11 +1,13 @@
 -noStdlib
 src/start.f32
-src/exception.fpl
+src/errors.fpl
 src/kprintf.fpl
 stdlib/list.fpl
 src/hwregs.fpl
 src/memory.fpl
 src/tasks.fpl
+src/exception.fpl
+src/message.fpl
 src/graphics.fpl
 src/windowManager.fpl
 src/hostInterface.fpl
