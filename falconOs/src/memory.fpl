@@ -227,13 +227,13 @@ fun allocateBlock(size:Int) -> Int
 fun initializeBuddyAllocator()
     # Initialize the free block lists
     freeBlocks = new Array(16){ new List<Int>() }
-    const startOfBuddyAllocator = 0x10000
-    const endOfBuddyAllocator = 0x100000
-#    const endOfBuddyAllocator = 0x3f80000
+    const startOfBuddyAllocator = 0x10004
+#    const endOfBuddyAllocator = 0x100000
+    const endOfBuddyAllocator = 0x4000000
     var blk = startOfBuddyAllocator
     while blk < endOfBuddyAllocator
         freeBlock(blk)
-        blk += 4096
+        blk = (blk & MASK_ADDRESS_ONLY)*2 + (blk & 0x0f)+1
 
 fun dumpBuddyAllocator()
     kprintf("Buddy allocator dump\n")

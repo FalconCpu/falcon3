@@ -1,117 +1,114 @@
 
-enum BlitCmd [
-    NOP,
-    SET_DEST,    # arg1=bitmap addr, arg2=bytes per line
-    SET_CLIP,    # arg1=y1/x1, arg2=y2/x2
-    SET_OFFSET,  # arg1=x, arg2=y
-    SET_COLOR,   # arg1=foreground, arg2=background
-    RECT,        # arg1=y1/x1, arg2=y2/x2
-    LINE,        # arg1=y1/x1, arg2=y2/x2
-    SET_SRC,     # arg1=bitmap addr, arg2=bytes per line
-    SRC_OFFSET,  # arg1=x, arg2=y
-    IMAGE,       # arg1=y1/x1 arg2=height/width
-    CHAR,        # arg1=y/x, arg2=char
-    FONT,        # arg1=font addr, arg2=Offset/BytePerChar/Height/Width
-    TRANSPARENT] # arg1=color
-
 class Blitter
-    var cmd : BlitCmd   # Write:Send command to blitter, Read:Number of slots free in blitter command fifo
+    var cmd : Int 
     var arg1: Int
     var arg2: Int
+    var arg3: Int
+const blitter  = 0xE0002000 as Blitter
 
-class VgaLayer
-    var addr : Int
-    var x1  : Int
-    var y1  : Int
-    var x2  : Int
-    var y2  : Int
-    var bpl : Int
-    var bpp : Int
+class Font(val bitmap:Int, val width:Int, val height:Int)
+var currentFont : Font? = null
 
-const blitter = 0xE0000034 as Blitter
+var blitDestWindow : Window? = null    # Keep track of the current destination window
+var blitSrcWindow  : Window? = null
+var blitFont : Font? = null
 
-class GraphicsContext(var bitmap : Int, var width : Int, var height : Int)
-    var clipX1 = 0
-    var clipX2 = width
-    var clipY1 = 0
-    var clipY2 = height
-    var fgColor = 255
-    var bgColor = 0
-    var transparentColor = 256
-    var fontAddr = 0xF0000000
-    var fontWidth = 8
-    var fontHeight = 12
 
-    fun ownBlitter()
-        while (blitter.cmd as Int) < 8
-            val dummy = 0
 
-        blitter.arg1 = bitmap
-        blitter.arg2 = width
-        blitter.cmd = BlitCmd.SET_DEST
+# Blitter Commands
+const BLIT_SET_DEST   = 0x81       # arg1=bitmap addr, arg2=offset_y/x arg3=bytes per line
+const BLIT_SET_CLIP   = 0x82       # arg1=y1/x1, arg2=y2/x2
+const BLIT_SET_SRC    = 0x83       # arg1=bitmap addr, arg2=offset_y/x arg3=bytes per line
+const BLIT_FONT       = 0x84       # arg1=font addr, arg2=Offset/BytePerChar/Height/Width 
+const BLIT_RECT       = 0x01       # arg1=y1/x1, arg2=y2/x2 arg3=color
+const BLIT_LINE       = 0x02       # arg1=y1/x1, arg2=y2/x2 arg3=color
+const BLIT_IMAGE      = 0x03       # arg1=desty/x arg2=srcy/x arg3=height/width
+const BLIT_IMAGE_T    = 0x04       # arg1=desty/x arg2=srcy/x arg3=height/width     With transparent color
+const BLIT_CHAR       = 0x05       # arg1=y/x, arg2=char   arg3=bgcolor/fgcolor
+const BLIT_CHAR_T     = 0x06       # arg1=y/x, arg2=char   arg3=fgcolor        
 
-        blitter.arg1 = clipY1<<16 | clipX1
-        blitter.arg2 = clipY2<<16 | clipX2
-        blitter.cmd = BlitCmd.SET_CLIP
+fun setBlitDestWindow(window:Window)
+    blitDestWindow = window
+    blitter.arg1 = window.bitmap
+    blitter.arg2 = window.clip1
+    blitter.arg3 = window.width
+    blitter.cmd = BLIT_SET_DEST
+    
+    blitter.arg1 = window.clip1
+    blitter.arg2 = window.clip2
+    blitter.cmd = BLIT_SET_CLIP
 
-        blitter.arg1 = clipX1
-        blitter.arg2 = clipY1
-        blitter.cmd = BlitCmd.SET_OFFSET
 
-        blitter.arg1 = fgColor
-        blitter.arg2 = bgColor
-        blitter.cmd = BlitCmd.SET_COLOR
+fun drawLine(x1:Int, y1:Int, x2:Int, y2:Int, color:Int)
+    blitter.arg1 = y1<<16 | x1
+    blitter.arg2 = y2<<16 | x2
+    blitter.arg3 = color
+    blitter.cmd = BLIT_LINE
 
-        blitter.arg1 = fontAddr
-        blitter.arg2 = (32<<24) | ((fontWidth*fontHeight/8)<<16) | (fontHeight<<8) | fontWidth
-        blitter.cmd = BlitCmd.FONT
+fun drawRect(x1:Int, y1:Int, x2:Int, y2:Int, color:Int)
+    blitter.arg1 = y1<<16 | x1
+    blitter.arg2 = y2<<16 | x2
+    blitter.arg3 = color
+    blitter.cmd = BLIT_RECT
 
-        blitter.arg1 = transparentColor
-        blitter.cmd = BlitCmd.TRANSPARENT
 
-    fun setColor(fg:Int)
-        fgColor = fg
-        blitter.arg1 = fgColor
-        blitter.arg2 = bgColor
-        while (blitter.cmd as Int) <= 1
-            val dummy = 0
-        blitter.cmd = BlitCmd.SET_COLOR
+# #########################################################################
+#                      GRAPHICS COMMAND BLOCK
+# #########################################################################
+# User code will provide us with blocks of graphics commands to execute.
 
-    fun setColor(fg:Int, bg:Int)
-        fgColor = fg
-        bgColor = bg
-        blitter.arg1 = fgColor
-        blitter.arg2 = bgColor
-        while (blitter.cmd as Int) <= 1
-            val dummy = 0
-        blitter.cmd = BlitCmd.SET_COLOR
+const GFX_DRAW_RECT       = 0x01
+const GFX_DRAW_LINE       = 0x02
+const GFX_DRAW_IMAGE      = 0x03
+const GFX_DRAW_IMAGE_T    = 0x04
+const GFX_DRAW_CHAR       = 0x05
+const GFX_DRAW_TEXT       = 0x06
 
-    fun drawRect(x1:Int, y1:Int, x2:Int, y2:Int)
-        while (blitter.cmd as Int) <= 1
-            val dummy = 0
-        blitter.arg1 = y1<<16 | x1
-        blitter.arg2 = y2<<16 | x2
-        blitter.cmd = BlitCmd.RECT
 
-    fun drawLine(x1:Int, y1:Int, x2:Int, y2:Int)
-        blitter.arg1 = y1<<16 | x1
-        blitter.arg2 = y2<<16 | x2
-        while (blitter.cmd as Int) <= 1
-            val dummy = 0
-        blitter.cmd = BlitCmd.LINE
+class GfxCommandBlock(val task: TaskControlBlock, val destWindow: Window,val commands:Array<Int>, val size:Int)
+    var ptr = 0    # Current location in the array
+    var next : GfxCommandBlock? = null
 
-    fun drawText(x:Int, y:Int, text:String)
-        for i in 0..<text.length
-            blitter.arg1 = (y<<16) | (x+i*fontWidth)
-            blitter.arg2 = text[i] as Int
-            while (blitter.cmd as Int) <= 1
-                val dummy = 0
-            blitter.cmd = BlitCmd.CHAR
+    fun run() ->  Bool
+        # Run the graphics commands in this block. 
+        # Returns true if the block is complete, false if it needs to be re-run
 
-    fun waitVSync()
-        val hwRegs = 0xE0000000 as HwRegs
-        while hwRegs.vga_row >= 480
-            val dummy = 0
-        while hwRegs.vga_row < 480
-            val dummy1 = 0
+        # First check the blitter fifo has space for a few commands.
+        if blitter.cmd < 10
+            return false
+
+        # We have space - so next ensure the blitter is set up to draw to the correct window
+        if blitDestWindow != destWindow
+            setBlitDestWindow(destWindow)
+
+        # Now run the commands
+        while true
+            if ptr >= size
+                return true
+            if blitter.cmd < 2  # If the blitte fifo is nearly full then stop sending commands for now
+                return false
+
+            val cmd = commands[ptr]
+            ptr += 1
+            when cmd
+                GFX_DRAW_RECT ->  # Args = y1/x1, y2/x2, color
+                    if ptr+3 >= size
+                        return false
+                    blitter.arg1 = commands[ptr+0]
+                    blitter.arg2 = commands[ptr+1]
+                    blitter.arg3 = commands[ptr+2]
+                    blitter.cmd = BLIT_RECT
+                    ptr += 3
+
+                GFX_DRAW_LINE ->  # Args = y1/x1, y2/x2, color
+                    if ptr+3 >= commands.size
+                        return false
+                    blitter.arg1 = commands[ptr+0]
+                    blitter.arg2 = commands[ptr+1]
+                    blitter.arg3 = commands[ptr+2]
+                    blitter.cmd = BLIT_LINE
+                    ptr += 3
+
+                # more commands to add here
+                    #
 

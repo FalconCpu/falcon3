@@ -14,6 +14,10 @@ fun Function.rebuildIndex() {
         v.def.clear()
     }
 
+    // Mark the start instruction as a DEF for all the parameter registers
+    for (i in this.parameters.indices)
+        allMachineRegs[i+1].def += code[0]
+
     // And rebuild the indexes
     code.removeIf { it is InstrNop }
     for ((index, instr) in code.withIndex()) {
@@ -34,6 +38,8 @@ fun Function.rebuildIndex() {
         // Check for uses
         instr.getUse().forEach { it.useCount++ }
     }
+
+
 }
 
 private fun Reg.getSmallInt(depth:Int = 0) : Int? {
@@ -122,6 +128,12 @@ private fun Function.peephole() : Boolean {
 
 fun Function.runBackend() {
     // Run the peephole optimizer until it stops changing anything
+    if (debug) {
+        println("Running backend on function $name")
+        val sb = StringBuilder()
+        dump(sb)
+        println(sb.toString())
+    }
     do {
         rebuildIndex()
     } while (peephole())

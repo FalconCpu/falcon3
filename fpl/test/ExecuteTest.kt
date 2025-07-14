@@ -828,4 +828,41 @@ class ExecuteTest {
 
         runTest(prog, expected)
     }
+
+    @Test
+    fun errorTypeTest() {
+        val prog = """
+            class Cat(val name:String, val age:Int)
+            
+            enum Error [
+                INVALID_AGE]
+            
+            fun newCat(name:String, age:Int) -> Cat!
+                if age<0 or age>20
+                    return Error.INVALID_AGE
+                return new Cat(name,age)
+                
+            fun main()
+                val c = newCat("pootle",5)          # the call may or may not fail
+                if c is Cat                         # checks the call was successful
+                    print("Name ",c.name,"\n")           # now we can access fields of the cat
+                else
+                    print("Error generating cat ",c,"\n") # print the error
+                    
+                val d = newCat("mortimer",23)
+                if d is Cat
+                    print("Name ",d.name)
+                else
+                    print("Error generating cat ",d) # print the error
+                
+        """.trimIndent()
+
+        val expected = """
+            Name pootle
+            Error generating cat 0
+        """.trimIndent()
+
+        runTest(prog, expected)
+    }
+
 }

@@ -6,7 +6,7 @@ class Function(val name:String, val parameters:List<SymbolVar>, val thisSymbol :
     val labels = mutableListOf<Label>()
 
     val allTempRegs = mutableListOf<RegTemp>()
-    val allVars = mutableMapOf<Symbol, RegVar>()
+    val allVars = mutableMapOf<Symbol, Reg>()
     val retLabel = newLabel()
     val regAssignComments = mutableListOf<String>()
     var maxRegister = 0
@@ -23,6 +23,10 @@ class Function(val name:String, val parameters:List<SymbolVar>, val thisSymbol :
         allTempRegs.add(new)
         regs.add(new)
         return new
+    }
+
+    fun newUnion() : RegUnion {
+        return RegUnion("£UNION", newTemp(), newTemp())
     }
 
     fun newVar() : RegVar {
@@ -51,13 +55,22 @@ class Function(val name:String, val parameters:List<SymbolVar>, val thisSymbol :
         sb.append("\n")
     }
 
-    fun getVar(sym:Symbol) : RegVar {
+    fun getVar(sym:Symbol) : Reg {
         val ret = allVars[sym]
         if (ret != null)
             return ret
-        val new = RegVar(sym.name)
+        val new : Reg
+        if (sym.type is TypeErrable) {
+            val valReg = RegVar("${sym.name}.value")
+            val typeReg = RegVar("${sym.name}.type")
+            regs.add(valReg)
+            regs.add(typeReg)
+            new = RegUnion(sym.name, typeReg, valReg)
+        } else {
+            new = RegVar(sym.name)
+            regs.add(new)
+        }
         allVars[sym] = new
-        regs.add(new)
         return new
     }
 
@@ -75,13 +88,26 @@ class Function(val name:String, val parameters:List<SymbolVar>, val thisSymbol :
     }
 
     fun addMov(dest:Reg, src:Reg) {
-        addInstr(InstrMov(dest, src))
+        if (src is RegUnion && dest is RegUnion) {
+            addInstr(InstrMov(dest.typeIndex, src.typeIndex))
+            addInstr(InstrMov(dest.value, src.value))
+        } else if (src !is RegUnion && dest !is RegUnion)
+            addInstr(InstrMov(dest, src))
+        else
+            error("Internal error: Mixing Union type to non-union")
     }
 
     fun addMov(src:Reg) : Reg {
-        val dest = newTemp()
-        addInstr(InstrMov(dest, src))
-        return dest
+        if (src is RegUnion) {
+            val dest = newUnion()
+            addInstr(InstrMov(dest.typeIndex, src.typeIndex))
+            addInstr(InstrMov(dest.value, src.value))
+            return dest
+        } else {
+            val dest = newTemp()
+            addInstr(InstrMov(dest, src))
+            return dest
+        }
     }
 
     fun addMov(src:Int) : Reg {

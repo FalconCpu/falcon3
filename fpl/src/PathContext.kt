@@ -19,7 +19,7 @@ data class PathContext(
     fun reassignVar(sym:Symbol) = if (sym !in freedVars) this else
         PathContext(uninitialized, maybeUninitialized, refinedTypes, freedVars-sym, unreachable)
 
-    fun refineType(sym:Symbol, type:Type) = PathContext(uninitialized-sym, maybeUninitialized-sym, refinedTypes + (sym to type), freedVars, unreachable)
+    fun refineType(sym:Symbol?, type:Type) = if (sym==null) this else PathContext(uninitialized-sym, maybeUninitialized-sym, refinedTypes + (sym to type), freedVars, unreachable)
 
     fun getType(sym:Symbol) = refinedTypes.getOrDefault(sym, sym.type)
 }

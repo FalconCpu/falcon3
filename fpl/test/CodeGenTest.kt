@@ -886,5 +886,112 @@ class CodeGenTest {
         runTest(prog, expected)
     }
 
+    @Test
+    fun errorTypeTest2() {
+        val prog = """
+            class Cat(val name:String, val age:Int)
+            
+            enum Error [
+                INVALID_AGE]
+            
+            fun newCat(name:String, age:Int) -> Cat!
+                if age<0 or age>20
+                    return Error.INVALID_AGE
+                return new Cat(name,age)
+                
+            fun main()
+                val c = newCat("pootle",5)          # the call may or may not fail
+                if c is Cat                         # checks the call was successful
+                    print("Name ",c.name)           # now we can access fields of the cat
+                else
+                    print("Error generating cat ",c) # print the error
+        """.trimIndent()
+
+        val expected = """
+            Function newCat(String,Int)
+            start
+            ld name, R1
+            ld age, R2
+            ld T0, 0
+            blt age, T0, L2
+            jmp L4
+            L4:
+            ld T1, 20
+            bgt age, T1, L2
+            jmp L3
+            L3:
+            jmp L1
+            L2:
+            ld T2, 0
+            ld T3, 1
+            ld R7, T3
+            ld R8, T2
+            jmp L0
+            jmp L1
+            L1:
+            ld T4, Cat/class
+            ld R1, T4
+            jsr mallocObject(ClassDescriptor)
+            ld T5, R8
+            ld R1, T5
+            ld R2, name
+            ld R3, age
+            jsr Cat
+            ld T6, 0
+            ld R7, T6
+            ld R8, T5
+            jmp L0
+            L0:
+            ret
+
+            Function main()
+            start
+            ld T0, OBJ0
+            ld T1, 5
+            ld R1, T0
+            ld R2, T1
+            jsr newCat(String,Int)
+            ld T2, R7
+            ld T3, R8
+            ld c.type, T2
+            ld c.value, T3
+            beq c.type, 0, L2
+            jmp L3
+            L3:
+            jmp L4
+            L2:
+            ld T4, OBJ1
+            ld R1, T4
+            jsr printString
+            ldw T5, c.value[name]
+            ld R1, T5
+            jsr printString
+            jmp L1
+            L4:
+            ld T6, OBJ2
+            ld R1, T6
+            jsr printString
+            ld R1, c.value
+            jsr printInt
+            jmp L1
+            L1:
+            L0:
+            ret
+
+            Function Cat
+            start
+            ld this, R1
+            ld name, R2
+            ld age, R3
+            stw name, this[name]
+            stw age, this[age]
+            L0:
+            ret
+
+
+        """.trimIndent()
+
+        runTest(prog, expected)
+    }
 
 }

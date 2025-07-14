@@ -19,13 +19,18 @@
 // E0000028  MOUSE_X        R    Current X position of the mouse
 // E000002C  MOUSE_Y        R    Current Y position of the mouse
 // E0000030  MOUSE_BTN      R    Current button state of the mouse
-// E0000034  BLIT_CMD       W    Command to the blitter, read=number of slots free in fifo
-// E0000038  BLIT_ARG1      W    First arg for blitter
-// E000003C  BLIT_ARG2      W    Second aeg for blitter
-// E0000040  BLIT_STATUS    R    Blitter Status register
+// E0000034
+// E0000038
+// E000003C
+// E0000040
 // E0000044  SIM            R    Reads as 1 in a simulation, 0 on hardware
 // E0000048  TIMER          RW   Free-running counter, increments every cycle.
 // E0001XXX  VGA            W    256 words of VGA registers (write only)
+// E0002000  BLIT_CMD       W    Command to the blitter, read=number of slots free in fifo
+// E0002004  BLIT_ARG1      W    First arg for blitter
+// E0002008  BLIT_ARG2      W    Second aeg for blitter
+// E000200C  BLIT_COLOR     W    Color for operation
+// E0002010  BLIT_STATUS    R    Blitter Status register
 
 // verilator lint_off PINCONNECTEMPTY
 
@@ -50,7 +55,7 @@ module hwregs (
     output logic [9:0]  mouse_x,
     output logic [9:0]  mouse_y,
 
-    output logic [95:0] blit_cmd,
+    output logic [127:0] blit_cmd,
     output logic        blit_cmd_valid,
     input  logic [7:0]  blit_fifo_slots_free,
     input  logic [31:0] blit_status,
@@ -85,7 +90,7 @@ logic        fifo_rx_not_empty;
 logic [7:0]  uart_rx_data;
 logic        uart_rx_complete;
 logic [2:0]  mouse_buttons;
-logic [31:]  timer;
+logic [31:0] timer;
 
 
 // synthesis translate_off
@@ -107,10 +112,11 @@ always_ff @(posedge clock) begin
         // Write to hardware registers
         case(cpud_addr)
             16'h0000: begin
+                if (cpud_wdata[23:0] != seven_seg)
+                    $display("[%t] 7SEG = %06X", $time, cpud_wdata[23:0]);
                 if (cpud_byte_enable[0]) seven_seg[7:0] <= cpud_wdata[7:0];
                 if (cpud_byte_enable[1]) seven_seg[15:8] <= cpud_wdata[15:8];
                 if (cpud_byte_enable[2]) seven_seg[23:16] <= cpud_wdata[23:16];
-                $display("[%t] 7SEG = %06X", $time, cpud_wdata[23:0]);
             end
             16'h0004: begin
                 if (cpud_byte_enable[0])  LEDR[7:0] <= cpud_wdata[7:0];
@@ -142,23 +148,33 @@ always_ff @(posedge clock) begin
                 if (cpud_byte_enable[0])  GPIO_1[35:32] <= cpud_wdata[3:0];
             end
 
-            16'h0034: begin
-                blit_cmd[31:0] <= cpud_wdata;
+            16'h2000: begin
+                if (cpud_byte_enable[0])  blit_cmd[7:0] <= cpud_wdata[7:0];
+                if (cpud_byte_enable[1])  blit_cmd[15:8] <= cpud_wdata[15:8];
+                if (cpud_byte_enable[2])  blit_cmd[23:16] <= cpud_wdata[23:16];
+                if (cpud_byte_enable[3])  blit_cmd[31:24] <= cpud_wdata[31:24];
                 blit_cmd_valid <= 1;
             end
 
-            16'h0038: begin
+            16'h2004: begin
                 if (cpud_byte_enable[0])  blit_cmd[39:32] <= cpud_wdata[7:0];
                 if (cpud_byte_enable[1])  blit_cmd[47:40] <= cpud_wdata[15:8];
                 if (cpud_byte_enable[2])  blit_cmd[55:48] <= cpud_wdata[23:16];
                 if (cpud_byte_enable[3])  blit_cmd[63:56] <= cpud_wdata[31:24];
             end
 
-            16'h003C: begin
+            16'h2008: begin
                if (cpud_byte_enable[0])  blit_cmd[71:64] <= cpud_wdata[7:0];
                if (cpud_byte_enable[1])  blit_cmd[79:72] <= cpud_wdata[15:8];
                if (cpud_byte_enable[2])  blit_cmd[87:80] <= cpud_wdata[23:16];
                if (cpud_byte_enable[3])  blit_cmd[95:88] <= cpud_wdata[31:24];
+            end
+
+            16'h200C: begin
+               if (cpud_byte_enable[0])  blit_cmd[103:96] <= cpud_wdata[7:0];
+               if (cpud_byte_enable[1])  blit_cmd[111:104] <= cpud_wdata[15:8];
+               if (cpud_byte_enable[2])  blit_cmd[119:112] <= cpud_wdata[23:16];
+               if (cpud_byte_enable[3])  blit_cmd[127:120] <= cpud_wdata[31:24];
             end
 
             16'h0048: timer <= cpud_wdata;
@@ -179,10 +195,6 @@ always_ff @(posedge clock) begin
             16'h0028: cpud_rdata <= {22'b0, mouse_x};
             16'h002C: cpud_rdata <= {22'b0, mouse_y};
             16'h0030: cpud_rdata <= {29'b0, mouse_buttons};
-            16'h0034: cpud_rdata <= {24'b0, blit_fifo_slots_free};
-            16'h0038: cpud_rdata <= {blit_cmd[63:32]};
-            16'h003C: cpud_rdata <= {blit_cmd[95:64]};
-            16'h0040: cpud_rdata <= blit_status;
             16'h0044: begin 
                 cpud_rdata <= 0;
                 // synthesis translate_off
@@ -190,6 +202,11 @@ always_ff @(posedge clock) begin
                 // synthesis translate_on
             end
             16'h0048: cpud_rdata <= timer;
+            16'h2000: cpud_rdata <= {24'b0, blit_fifo_slots_free};
+            16'h2004: cpud_rdata <= {blit_cmd[63:32]};
+            16'h2008: cpud_rdata <= {blit_cmd[95:64]};
+            16'h200C: cpud_rdata <= {blit_cmd[127:96]};
+            16'h2010: cpud_rdata <= blit_status;
             default:  cpud_rdata <= 32'bx;
         endcase
     end

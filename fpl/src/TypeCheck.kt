@@ -1,3 +1,6 @@
+import javax.lang.model.type.ErrorType
+import javax.lang.model.type.NullType
+
 // Type checking phase of the compiler. This phase takes the AST built in the parser phase and
 // converts it to a TypeChecked AST (Tst).
 
@@ -46,6 +49,13 @@ fun TstExpr.getSymbol() : Symbol = when(this) {
     else -> error("getSymbol called on $this")
 }
 
+fun TstExpr.mayGetSymbol() : Symbol? = when(this) {
+    is TstVariable -> symbol
+    is TstGlobalVar -> symbol
+    else -> null
+}
+
+
 // ================================================================
 //                            Rvalues
 // ================================================================
@@ -74,7 +84,11 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
                         Log.error(location,"Symbol '$name' may be uninitialized")
                     if (symbol in pathContext.freedVars && !allowFreeUse)
                         Log.warn(location,"Symbol '$name' may point to a freed object")
-                    TstVariable(location, symbol, pathContext.getType(symbol))
+                    val type = pathContext.getType(symbol)
+                    if (symbol.type is TypeErrable && type !is TypeErrable)
+                        TstExtractUnion(location, TstVariable(location, symbol, symbol.type), type)
+                    else
+                        TstVariable(location, symbol, type)
                 }
                 is SymbolGlobal -> TstGlobalVar(location, symbol, pathContext.getType(symbol))
                 is SymbolFunction -> TstFunctionName(location, symbol, symbol.type)
@@ -151,6 +165,19 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
                 TstError(location, "Invalid binary operator '${if (notEq) "!=" else "="}' for types $lhsType and $rhsType")
         }
 
+        is AstIsExpr -> {
+            val tcExpr = expr.typeCheckRvalue(context)
+            val type = typeExpr.resolveType(context)
+            if (tcExpr.type==TypeError || type==TypeError ||
+                (tcExpr.type is TypeErrable && tcExpr.type.elementType==type) ||
+                (tcExpr.type is TypeNullable && tcExpr.type.elementType==type) ||
+                (tcExpr.type is TypeErrable && type==errorEnum) ||
+                (tcExpr.type is TypeNullable && type==TypeNull) )
+                TstIsExpr(location, tcExpr, type)
+            else
+                TstError(location,"Expression can never be '$type'")
+        }
+
         is AstBreak -> {
             if (breakContext==null)
                 Log.error(location,"break not inside a loop")
@@ -180,30 +207,24 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
         }
 
         is AstAnd -> {
-            val tcLhs = lhs.typeCheckRvalue(context)
-            val tcRhs = rhs.typeCheckRvalue(context)
-            TypeBool.checkCompatibleWith(tcLhs)
-            TypeBool.checkCompatibleWith(tcRhs)
+            val tcLhs = lhs.typeCheckRvalue(context).checkType(TypeBool)
+            val tcRhs = rhs.typeCheckRvalue(context).checkType(TypeBool)
             TstAnd(location,tcLhs,tcRhs)
         }
 
         is AstOr -> {
-            val tcLhs = lhs.typeCheckRvalue(context)
-            val tcRhs = rhs.typeCheckRvalue(context)
-            TypeBool.checkCompatibleWith(tcLhs)
-            TypeBool.checkCompatibleWith(tcRhs)
+            val tcLhs = lhs.typeCheckRvalue(context).checkType(TypeBool)
+            val tcRhs = rhs.typeCheckRvalue(context).checkType(TypeBool)
             TstOr(location,tcLhs,tcRhs)
         }
 
         is AstNot -> {
-            val tc = expr.typeCheckRvalue(context)
-            TypeBool.checkCompatibleWith(tc)
+            val tc = expr.typeCheckRvalue(context).checkType(TypeBool)
             TstNot(location,tc)
         }
 
         is AstBitwiseNot -> {
-            val tc = expr.typeCheckRvalue(context)
-            TypeInt.checkCompatibleWith(tc)
+            val tc = expr.typeCheckRvalue(context).checkType(TypeInt)
             TstBitwiseNot(location,tc, TypeInt)
         }
 
@@ -219,9 +240,8 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
 
         is AstIndex -> {
             val tcExpr = expr.typeCheckRvalue(context)
-            val tcIndex = index.typeCheckRvalue(context)
+            val tcIndex = index.typeCheckRvalue(context).checkType(TypeInt)
             if (tcExpr.type == TypeError) return tcExpr
-            TypeInt.checkCompatibleWith(tcIndex)
 
             when (tcExpr.type) {
                 is TypeArray -> TstIndex(location, tcExpr, tcIndex, tcExpr.type.elementType)
@@ -244,9 +264,8 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
             val tcTrue = thenExpr.typeCheckRvalue(context)
             val pathContext1 = pathContext
             pathContext = falsePathContext
-            val tcFalse = elseExpr.typeCheckRvalue(context)
+            val tcFalse = elseExpr.typeCheckRvalue(context).checkType(tcTrue.type)
             pathContext = listOf(pathContext,pathContext1).merge()
-            tcTrue.type.checkCompatibleWith(tcFalse)
             TstIfExpr(location, tcCond, tcTrue, tcFalse, tcTrue.type)
         }
 
@@ -302,6 +321,7 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
 
                 is TypeNullable -> TstError(location, "Cannot access '$name' as expression may be null")
 
+                is TypeErrable -> TstError(location, "Cannot access '$name' as expression may be error")
                 is TypeError -> tcExpr
 
                 else -> TstError(location, "Cannot access field '$name' of expression of type ${tcExpr.type}")
@@ -323,8 +343,7 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
 
         is AstRange -> {
             val tcStart = start.typeCheckRvalue(context)
-            val tcEnd = end.typeCheckRvalue(context)
-            tcStart.type.checkCompatibleWith(tcEnd)
+            val tcEnd = end.typeCheckRvalue(context).checkType(tcStart.type)
             val tcOp = when(op) {
                 TokenKind.LT -> AluOp.LT_I
                 TokenKind.LTE -> AluOp.LTE_I
@@ -342,7 +361,7 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
         }
 
         is AstReturn -> {
-            val tc = expr?.typeCheckRvalue(context)
+            var tc = expr?.typeCheckRvalue(context)
             val cf = currentFunction
             if (cf == null)
                 makeTypeError(location, "Return statement outside of a function")
@@ -350,8 +369,8 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
                 val returnType = cf.returnType
                 if (tc == null)
                     makeTypeError(location, "Return statement with no value in function returning $returnType")
-                else if (!returnType.isAssignableFrom(tc.type))
-                    makeTypeError(location, "Return value of type ${tc.type} when expecting $returnType")
+                else
+                    tc = tc.checkType(returnType)
             } else {
                 if (tc != null)
                     makeTypeError(location, "Return statement with value in function returning Unit")
@@ -367,8 +386,7 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
                 is TypeArray -> {
                     if (tcArgs.size != 1)
                         return TstError(location, "new Array requires exactly one argument, not ${tcArgs.size}")
-                    val tcSize = tcArgs[0]
-                    TypeInt.checkCompatibleWith (tcSize)
+                    val tcSize = tcArgs[0].checkType(TypeInt)
                     val tcLambda = lambda?.typeCheckLambda(context, listOf(SymbolVar(location,"it", TypeInt, false)))
                     if (tcType.elementType==TypeNothing) {
                         if (tcLambda!=null)
@@ -376,8 +394,7 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
                         else
                             Log.error(location,"Cannot determine type for array")
                     }
-                    if (tcLambda!=null)
-                        tcType.elementType.checkCompatibleWith(tcLambda.body)
+                    tcLambda?.body?.checkType(tcType.elementType)
                     if (kind==TokenKind.INLINE) {
                         if (tcSize.isCompileTimeConstant())
                             tcType = TypeInlineArray.create(tcType.elementType, tcSize.getIntegerConstant())
@@ -410,8 +427,8 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
                 elementType = tcInit[0].type
             if (elementType==TypeNothing)
                 Log.error(location,"Cannot determine type for array")
-            tcInit.forEach { elementType.checkCompatibleWith(it) }
-            TstNewArrayInitializer(location, tcInit, kind, TypeArray.create(elementType))
+            val tcInitTc = tcInit.map{ it.checkType(elementType)}
+            TstNewArrayInitializer(location, tcInitTc, kind, TypeArray.create(elementType))
         }
 
         is AstCast -> {
@@ -421,8 +438,7 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
         }
 
         is AstAbort ->{
-            val tcExpr = expr.typeCheckRvalue(context)
-            TypeInt.checkCompatibleWith(tcExpr)
+            val tcExpr = expr.typeCheckRvalue(context).checkType(TypeInt)
             pathContext = pathContext.setUnreachable()
             TstAbort(location, tcExpr)
         }
@@ -439,7 +455,7 @@ private fun SymbolConstant.toExpression(location:Location): TstExpr {
     }
 }
 
-private fun checkParameters(location:Location, parameters:List<Type>, args:List<TstExpr>) {
+private fun checkParameters(location:Location, parameters:List<Type>, args:List<TstExpr>) : List<TstExpr> {
 // TODO : Varargs should be handled here
 //    if (parameters.isNotEmpty() && parameters.last() is TypeVararg) {
 //        if (args.size < parameters.size-1) {
@@ -452,11 +468,11 @@ private fun checkParameters(location:Location, parameters:List<Type>, args:List<
 //        for (index in parameters.size-1..<args.size)
 //            varargType.checkCompatibleWith(args[index])
 //    } else {
-        // Not a vararg
-        if (args.size != parameters.size)
-            Log.error(location, "Got ${args.size} arguments when expecting ${parameters.size}")
-        else for (index in args.indices)
-            parameters[index].checkCompatibleWith(args[index])
+    // Not a vararg
+    return if (args.size != parameters.size)
+        listOf(TstError(location, "Got ${args.size} arguments when expecting ${parameters.size}"))
+    else
+        args.zip(parameters).map{it.first.checkType(it.second)}
 //    }
 }
 
@@ -556,9 +572,8 @@ fun AstExpr.typeCheckLvalue(context:AstBlock) : TstExpr {
 
         is AstIndex -> {
             val tcExpr = expr.typeCheckRvalue(context)
-            val tcIndex = index.typeCheckRvalue(context)
+            val tcIndex = index.typeCheckRvalue(context).checkType(TypeInt)
             if (tcExpr.type == TypeError) return tcExpr
-            TypeInt.checkCompatibleWith(tcIndex)
 
             when (tcExpr.type) {
                 is TypeArray -> TstIndex(location, tcExpr, tcIndex, tcExpr.type.elementType)
@@ -653,13 +668,52 @@ fun AstExpr.typeCheckBool(context:AstBlock) : Triple<TstExpr,PathContext,PathCon
             return Triple(tc.first, tc.third, tc.second)
         }
 
+        is AstIsExpr -> {
+            val tcExpr = expr.typeCheckRvalue(context)
+            val type = typeExpr.resolveType(context)
+            val ret = TstIsExpr(location, tcExpr, type)
+            val sym = tcExpr.mayGetSymbol()
+            var truePath : PathContext
+            var falsePath : PathContext
+            if (tcExpr.type==TypeError || type==TypeError) {
+                truePath = pathContext
+                falsePath = pathContext
+            } else if (tcExpr.type is TypeErrable && tcExpr.type.elementType==type) {
+                truePath = pathContext.refineType(sym, type)
+                falsePath = pathContext.refineType(sym, errorEnum)
+            } else if (tcExpr.type is TypeErrable && type==errorEnum) {
+                truePath = pathContext.refineType(sym, errorEnum)
+                falsePath = pathContext.refineType(sym, tcExpr.type.elementType)
+            } else if (tcExpr.type is TypeNullable && tcExpr.type.elementType==type) {
+                truePath = pathContext.refineType(sym, type)
+                falsePath = pathContext.refineType(sym, TypeNull)
+            } else if (tcExpr.type is TypeNullable && type==TypeNull) {
+                truePath = pathContext.refineType(sym, TypeNull)
+                falsePath = pathContext.refineType(sym, tcExpr.type.elementType)
+            } else {
+                return(Triple(TstError(location,"Expression cannot be '$type'"), pathContext, pathContext) )
+            }
+
+            return Triple(ret, truePath, falsePath)
+        }
+
         else -> {
-            val tc = typeCheckRvalue(context)
-            TypeBool.checkCompatibleWith(tc)
+            val tc = typeCheckRvalue(context).checkType(TypeBool)
             return Triple(tc,pathContext,pathContext)
         }
     }
 }
+
+// ================================================================
+//                        UnionPromotion
+// ================================================================
+
+fun TstExpr.unionPromote(destType:Type) : TstExpr {
+    if (destType is TypeErrable && (type==destType.elementType || type==errorEnum))
+        return TstMakeUnion(location, this, destType)
+    return this;
+}
+
 
 // ================================================================
 //                         Lambda
@@ -726,6 +780,11 @@ fun AstTypeExpr.resolveType(context:AstBlock) : Type = when(this) {
         TypeNullable.create(location, elementType)
     }
 
+    is AstTypeErrable -> {
+        val elementType = base.resolveType(context)
+        TypeErrable.create(location, elementType)
+    }
+
     is AstTypeInlineArray -> {
         val elementType = base.resolveType(context)
         val tcNumElement = numElements.typeCheckRvalue(context)
@@ -772,12 +831,12 @@ fun AstStmt.typeCheck(context:AstBlock) : TstStmt {
             if (!alreadyProcessed) { // Constant symbols get generated early, before main type checking phase
                 val tcExpr = expr.typeCheckRvalue(context)
                 val type = typeExpr?.resolveType(context) ?: tcExpr.type
-                type.checkCompatibleWith(tcExpr)
+                val tcExprTc = tcExpr.checkType(type)
                 val symbol = if (tcExpr.isCompileTimeConstant()) {
-                    val value = tcExpr.getValue()
+                    val value = tcExprTc.getValue()
                     SymbolConstant(location, name, type, value)
                 } else {
-                    Log.error(tcExpr.location, "Expression is not compile time constant")
+                    Log.error(tcExprTc.location, "Expression is not compile time constant")
                     val value = ValueInt(0, TypeError)
                     SymbolConstant(location, name, TypeError, value)
                 }
@@ -799,8 +858,7 @@ fun AstStmt.typeCheck(context:AstBlock) : TstStmt {
 
         is AstAssign -> {
             val tcLhs = lhs.typeCheckLvalue(context)
-            val tcRhs = rhs.typeCheckRvalue(context)
-            tcLhs.type.checkCompatibleWith(tcRhs)
+            val tcRhs = rhs.typeCheckRvalue(context).checkType(tcLhs.type)
             if (tcLhs.isSymbol()) {
                 val sym = tcLhs.getSymbol()
                 pathContext = pathContext.reassignVar(sym).refineType(sym,tcRhs.type)
@@ -939,9 +997,7 @@ fun AstStmt.typeCheck(context:AstBlock) : TstStmt {
                 Log.error(location,"When only supports expressions of type Int or String or Enum")
             val tcClauses = mutableListOf<TstWhenClause>()
             for (clause in body.filterIsInstance<AstWhenClause>()) {
-                val tcArgs = clause.clauses.map{ it.typeCheckRvalue(context)}
-                for(arg in tcArgs)
-                    tcExpr.type.checkCompatibleWith(arg)
+                val tcArgs = clause.clauses.map{ it.typeCheckRvalue(context).checkType(tcExpr.type)}
                 val tcBody = clause.body.map {it.typeCheck(clause)}
                 tcClauses += TstWhenClause(clause.location, tcArgs, tcBody)
             }
@@ -1171,13 +1227,13 @@ private fun AstClass.createFieldSymbols(context: AstBlock) {
         classType.addSymbol(sym)
         addSymbol(sym)
         if (tcExpr!=null) {
-            sym.type.checkCompatibleWith(tcExpr)
+            val tcExprTc = tcExpr.checkType(sym.type)
             val fieldExpr = when(sym) {
                 is SymbolField -> TstMember(sym.location, thisExpr, sym, sym.type)
                 is SymbolInlineField -> TstEmbeddedMember(sym.location, thisExpr, sym, sym.type)
                 else -> error("Invalid symbol")
             }
-            constructorBody += TstAssign(sym.location, fieldExpr, tcExpr, AluOp.EQ_I)
+            constructorBody += TstAssign(sym.location, fieldExpr, tcExprTc, AluOp.EQ_I)
         }
     }
 

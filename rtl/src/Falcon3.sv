@@ -112,7 +112,7 @@ logic [25:0] hwregs_vga_wdata;
 logic        hwregs_vga_select;
 logic [9:0]  mouse_x;
 logic [9:0]  mouse_y;
-logic [95:0] blit_cmd;
+logic [127:0] blit_cmd;
 logic        blit_cmd_valid;
 logic [7:0]  blit_fifo_slots_free;
 logic [31:0] blit_status;

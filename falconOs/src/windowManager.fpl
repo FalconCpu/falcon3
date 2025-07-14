@@ -1,11 +1,23 @@
 const TITLE_BAR_HEIGHT = 16
+const WINDOW_BORDER_WIDTH = 2
+
+class VgaLayerHardware
+    var addr : Int
+    var x1  : Int
+    var y1  : Int
+    var x2  : Int
+    var y2  : Int
+    var bpl : Int
+    var bpp : Int
 
 class Window(var x:Int, var y:Int, var width:Int, var height:Int, var title:String, var layerNumber:Int)
-    var bitmap = new Array<Int>((width*height)/4) as Int
-    val gc = new GraphicsContext(bitmap, width, height)
+    var bitmap = allocateBlock(width*height) & MASK_ADDRESS_ONLY
+    var clip1 = (TITLE_BAR_HEIGHT<<16) | WINDOW_BORDER_WIDTH
+    var clip2 = (height-WINDOW_BORDER_WIDTH)<<16 | (width-WINDOW_BORDER_WIDTH)
 
-    fun updateLayer()
-        val layer = (0xE0001000 + 32*layerNumber) as VgaLayer
+    fun updateLayerHardware()
+        val layer = (0xE0001000 + 32*layerNumber) as VgaLayerHardware
+        kprintf("Updating layer hardware %d to %08x %d,%d %d,%d\n", layerNumber, bitmap,x,y,x+width,y+height)
         layer.addr = bitmap
         layer.x1 = x
         layer.y1 = y
@@ -15,35 +27,26 @@ class Window(var x:Int, var y:Int, var width:Int, var height:Int, var title:Stri
         layer.bpp = 1
 
     fun drawBorders(active:Bool)
-        gc.ownBlitter()
+        # Since the coordinate system is set to interior of the window, the border is drawn to negative coordinates!
+        setBlitDestWindow(this)
         val titleColor = if active then 15 else 0
-        gc.setColor(titleColor,titleColor)
-        gc.drawRect(1,1,width-2,13)
-        gc.setColor(255)
-        gc.drawLine(0,0,width-1,0)
-        gc.drawLine(width-1,0,width-1,height-1)
-        gc.drawLine(width-1,height-1,0,height-1)
-        gc.drawLine(0,height-1,0,0)
-        gc.drawLine(0,14,width-1,14)
-        gc.drawText(2,2,title)
-
-    fun getGraphicsContext() -> GraphicsContext
-        val ret = new GraphicsContext(bitmap, width, height)
-        # Set the clip region to be the contents of the window, to prevent the user drawing over the borders
-        ret.clipX1 = 2
-        ret.clipY1 = 16
-        ret.clipX2 = width-2
-        ret.clipY2 = height-2
-
-        ret.ownBlitter()
-        return ret
+        val borderColor = 255
+        drawRect(0,0,width,TITLE_BAR_HEIGHT,titleColor)
+        drawLine(0,0, width-1,0,borderColor)
+        drawLine(0,0, 0,height-1,borderColor)
+        # drawLine(width-1,height-1,0,height-1,borderColor)
+        # drawLine(width-1,height-1,width-1,0,borderColor)
+        # Restore the clipping window to the interior of the window
+        setBlitDestWindow(this)
 
     fun move(newX:Int, newY:Int)
+        if x=newX and y=newY
+            return
         if newX>0 and newX<640 
             x = newX
         if newY>0 and newY<480
             y = newY
-        updateLayer()
+        updateLayerHardware()
 
 
 class WindowManager
@@ -54,14 +57,14 @@ class WindowManager
     var dragX = 0
     var dragY = 0
 
-    fun newWindow(x:Int, y:Int, width:Int, height:Int, title:String) -> Window
+    fun newWindow(title:String, x:Int, y:Int, width:Int, height:Int) -> Window
         val wdw = new Window(x,y,width,height,title, windows.size)
         windows.add(wdw)
-
+        kprintf("New window at %d,%d\n", x, y)
         # TODO - handle layers properly -> for now let's just count
-        wdw.updateLayer()
+        wdw.updateLayerHardware()
         setActiveWindow(wdw)
-
+        kprintf("Activated window\n")
         return wdw
 
     fun getWindowAt(x:Int, y:Int) -> Window?
@@ -115,7 +118,7 @@ class WindowManager
         windows.add(wdw)
         for i in 0..<windows.size
             windows[i].layerNumber = i
-            windows[i].updateLayer()
+            windows[i].updateLayerHardware()
 
     fun moveToBack(wdw:Window)
         if windows.first()=wdw
@@ -124,4 +127,4 @@ class WindowManager
         windows.addAt(0,wdw)
         for i in 0..<windows.size
             windows[i].layerNumber = i
-            windows[i].updateLayer()
+            windows[i].updateLayerHardware()

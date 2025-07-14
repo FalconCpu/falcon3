@@ -19,9 +19,9 @@ module uart (
 // UART runs max 2M baud ==> 50 clock cycles per bit
 
 //parameter UI_COUNTER = 16'd10416;    // 9600 Baud
-//parameter UI_COUNTER = 16'd868;      // 115200 Baud
+// parameter UI_COUNTER = 16'd868;      // 115200 Baud
 parameter UI_COUNTER = 16'd50;       // 2000000 Baud
-//parameter UI_COUNTER = 16'd16;          // 25 Mbaud
+//parameter UI_COUNTER = 16'd4;          // 25 Mbaud
 
 // receiver state machine
 logic        rx_bit, prev_rx_bit;   // registered version of pin to avoid metastability
@@ -38,9 +38,7 @@ wire  [9:0]  tx_message = {1'b1,tx_data,1'b0};
 always @(posedge clock) begin
     rx_bit <= UART_RX;     // synchronize the input
     prev_rx_bit <= rx_bit;
-    UART_TX <= 1'b1;
     rx_complete <= 1'b0;
-    tx_complete <= 1'b0;
 
     // =========================================
     //                  RX
@@ -75,6 +73,8 @@ always @(posedge clock) begin
     // =========================================
     //                  TX
     // =========================================
+    tx_complete <= 1'b0;
+    UART_TX <= 1'b1;
 
     if (reset) begin
         tx_active <= 1'b0;
@@ -95,10 +95,11 @@ always @(posedge clock) begin
             tx_index <= tx_index + 1'b1;
             
             // At the end of the stop bit go back to the inactive state waiting for the next data
-            if (tx_index==9) begin
+            // Send the complete pulse when we start to transmit the stop pulse. 
+            if (tx_index==4'h8) 
                 tx_complete <= 1'b1;  
+            if (tx_index==9) 
                 tx_active <= 1'b0;
-            end
         end
     end
 end

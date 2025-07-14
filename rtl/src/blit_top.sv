@@ -5,7 +5,7 @@ module blit_top(
     input  logic reset,
 
     // Connection to the HWREGS
-    input  logic [95:0] blit_cmd,
+    input  logic [127:0] blit_cmd,
     input  logic        blit_cmd_valid,
     output logic [7:0]  blit_fifo_slots_free,
     output logic [31:0] blit_status,
@@ -36,7 +36,7 @@ module blit_top(
 // Temporary tie-off for now
 assign blit_status = {30'b0, fifo_overflow, 1'b0};
 
-logic [95:0] p1_cmd;
+logic [127:0] p1_cmd;
 logic        p1_cmd_valid;
 logic        next_cmd;
 logic        fifo_overflow;

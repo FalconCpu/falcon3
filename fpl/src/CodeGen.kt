@@ -64,8 +64,21 @@ fun TstExpr.codeGenRvalue() : Reg {
                 AluOp.LTE_S -> TODO()
                 AluOp.GTE_S -> TODO()
             }
+        }
 
+        is TstIsExpr -> {
+            TODO()
+        }
 
+        is TstExtractUnion -> {
+            val union = expr.codeGenRvalue() as RegUnion
+            union.value
+        }
+
+        is TstMakeUnion -> {
+            val reg = expr.codeGenRvalue()
+            val typeReg = if (expr.type==errorEnum) currentFunc.addMov(1) else currentFunc.addMov(0)
+            RegUnion("£UNION",typeReg,reg)
         }
 
         is TstCall -> {
@@ -160,7 +173,10 @@ fun TstExpr.codeGenRvalue() : Reg {
 
         is TstReturn -> {
             if (expr != null)
-                currentFunc.addMov(regResult, expr.codeGenRvalue())
+                if (expr.type is TypeErrable)
+                    currentFunc.addMov(unionResult, expr.codeGenRvalue())
+                else
+                    currentFunc.addMov(regResult, expr.codeGenRvalue())
             currentFunc.addJump(currentFunc.retLabel)
             regZero   // return value is not used, but we need a value.
         }
@@ -291,8 +307,12 @@ private fun codeGenCall(thisReg:Reg?, args:List<Reg>, func:Function, thisType:Ty
     for (arg in args)
         currentFunc.addMov(allMachineRegs[index++], arg)
     currentFunc.addInstr(InstrCall(func))
+
+    // Extract the return value
     return if (func.returnType == TypeUnit || func.returnType == TypeNothing)
         regZero
+    else if (func.returnType is TypeErrable)
+        currentFunc.addMov(unionResult)
     else
         currentFunc.addMov(regResult)
 }
@@ -366,7 +386,7 @@ fun TstExpr.codeGenLvalue(value:Reg, op:AluOp)  {
     return when (this) {
         is TstVariable -> {
             if (op==AluOp.EQ_I)
-                currentFunc.addMov( currentFunc.getVar(symbol), value)
+                currentFunc.addMov(currentFunc.getVar(symbol), value)
             else {
                 val v1 = currentFunc.addAlu(op,currentFunc.getVar(symbol), value )
                 currentFunc.addMov( currentFunc.getVar(symbol), v1)
@@ -551,6 +571,20 @@ fun TstExpr.codeGenBranch(trueLabel:Label, falseLabel : Label) {
             lhs.codeGenBranch(trueLabel, midLabel)
             currentFunc.addLabel(midLabel)
             rhs.codeGenBranch(trueLabel, falseLabel)
+        }
+
+        is TstIsExpr -> {
+            if (expr.type is TypeErrable) {
+                val union = expr.codeGenRvalue() as RegUnion
+                if (isType==errorEnum) {
+                    currentFunc.addBranch(AluOp.EQ_I, union.typeIndex, regZero, falseLabel)
+                    currentFunc.addJump(trueLabel)
+                } else {
+                    currentFunc.addBranch(AluOp.EQ_I, union.typeIndex, regZero, trueLabel)
+                    currentFunc.addJump(falseLabel)
+                }
+            } else
+                TODO()
         }
 
         is TstNot ->

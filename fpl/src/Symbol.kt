@@ -164,8 +164,8 @@ private fun AstBlock.getAllSymbols(out:MutableSet<Symbol>) {
     for (blk in body.filterIsInstance<AstBlock>())
         blk.getAllSymbols(out)
 
-    for (cls in TypeClassInstance.Companion.allClassInstances)
-        out += cls.symbols.values
+    for (index in TypeClassInstance.Companion.allClassInstances.indices)
+        out += TypeClassInstance.Companion.allClassInstances[index].symbols.values
 
     for (enum in TypeEnum.allEnumTypes)
         out += enum.symbols.values

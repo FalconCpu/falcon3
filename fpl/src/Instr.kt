@@ -151,6 +151,8 @@ sealed class Reg(val name:String) {
 class RegVar(name:String) : Reg(name)           // Represents a user visible symbol
 class RegTemp(name:String) : Reg(name)          // Temporary register
 class RegMachine(name:String) : Reg(name)       // A machine register
+class RegUnion(name:String, val typeIndex:Reg, val value:Reg) : Reg(name)
+
 
 val allMachineRegs = (0..31).map {
     when(it) {
@@ -163,6 +165,7 @@ val allMachineRegs = (0..31).map {
 val regSP = allMachineRegs[31]
 val regZero = allMachineRegs[0]
 val regResult = allMachineRegs[8]
+val unionResult = RegUnion("£UnionResult", allMachineRegs[7], allMachineRegs[8])
 
 
 // =========================================================

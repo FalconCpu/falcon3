@@ -28,6 +28,7 @@ class AstNew(location: Location, val type:AstTypeExpr, val args: List<AstExpr>, 
 class AstNewWithInitialiser(location: Location, val type:AstTypeExpr, val initializer: List<AstExpr>, val kind:TokenKind) : AstExpr(location)
 class AstCast(location: Location, val expr:AstExpr, val typeExpr:AstTypeExpr) : AstExpr(location)
 class AstAbort(location: Location, val expr: AstExpr) : AstExpr(location)
+class AstIsExpr(location: Location, val expr:AstExpr, val typeExpr:AstTypeExpr) : AstExpr(location)
 
 class AstCall(location: Location, val expr: AstExpr, val args: List<AstExpr>) : AstExpr(location)
 
@@ -41,6 +42,8 @@ class AstTypeArray(location: Location, val base: AstTypeExpr?) : AstTypeExpr(loc
 class AstTypeRange(location: Location, val base: AstTypeExpr) : AstTypeExpr(location)
 class AstTypeInlineArray(location: Location, val base: AstTypeExpr, val numElements:AstExpr) : AstTypeExpr(location)
 class AstTypeNullable(location: Location, val base: AstTypeExpr) : AstTypeExpr(location)
+class AstTypeErrable(location: Location, val base: AstTypeExpr) : AstTypeExpr(location)
+
 
 // ================================================
 //                  Statements
@@ -132,6 +135,11 @@ fun Ast.prettyPrint(sb: StringBuilder, indent:Int) {
             sb.append("Index\n")
             expr.prettyPrint(sb, indent+1)
             index.prettyPrint(sb, indent+1)
+        }
+        is AstIsExpr -> {
+            sb.append("Is\n")
+            expr.prettyPrint(sb,indent+1)
+            typeExpr.prettyPrint(sb,indent+1)
         }
 
         is AstParameter -> {
@@ -233,8 +241,14 @@ fun Ast.prettyPrint(sb: StringBuilder, indent:Int) {
 
         is AstTypeId ->
             sb.append("Type $name\n")
+
         is AstTypeNullable -> {
             sb.append("TypeNullable\n")
+            base.prettyPrint(sb, indent+1)
+        }
+
+        is AstTypeErrable -> {
+            sb.append("TypeErrable\n")
             base.prettyPrint(sb, indent+1)
         }
 

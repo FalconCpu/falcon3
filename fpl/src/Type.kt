@@ -50,6 +50,8 @@ class TypeNullable private constructor(name:String, val elementType: Type) : Typ
         fun create(location:Location, elementType: Type) : Type {
             if (elementType is TypeError) return TypeError
             if (elementType is TypeNullable) return elementType
+            if (elementType is TypeErrable)
+                return makeTypeError(location, "Errable types cannot be nullable")
             if (elementType is TypeInt || elementType is TypeReal || elementType is TypeChar || elementType is TypeBool)
                 return elementType // (location, "Primitive types cannot be nullable")
             return allNullableTypes.getOrPut(elementType) {
@@ -59,6 +61,21 @@ class TypeNullable private constructor(name:String, val elementType: Type) : Typ
         }
     }
 }
+
+class TypeErrable private constructor(name:String, val elementType: Type) : Type(name) {
+    companion object {
+        val allErrableTypes = mutableMapOf<Type, TypeErrable>()
+        fun create(location:Location, elementType: Type) : Type {
+            if (elementType is TypeError) return TypeError
+            if (elementType is TypeErrable) return elementType
+            return allErrableTypes.getOrPut(elementType) {
+                val name = "$elementType!"
+                TypeErrable(name, elementType)
+            }
+        }
+    }
+}
+
 
 class TypeFunction private constructor(name:String, val parameters: List<Type>, val returnType: Type) : Type(name) {
     companion object {
@@ -75,8 +92,14 @@ class TypeFunction private constructor(name:String, val parameters: List<Type>, 
     }
 }
 
+lateinit var errorEnum : TypeEnum
+
 class TypeEnum(name:String) : Type(name) {
     val symbols = mutableMapOf<String, Symbol>()
+    init {
+        if (name=="Error")
+            errorEnum = this
+    }
 
     fun addSymbol(symbol:Symbol) {
         val duplicate = symbols[symbol.name]
@@ -176,6 +199,7 @@ fun Type.substitute(typeArgs:Map<TypeParameter, Type>) : Type {
         is TypeClassGeneric -> this
         is TypeFunction -> TypeFunction.create(parameters.map { it.substitute(typeArgs) }, returnType.substitute(typeArgs))
         is TypeNullable -> TypeNullable.create(nullLocation, elementType.substitute(typeArgs))
+        is TypeErrable -> TypeErrable.create(nullLocation, elementType.substitute(typeArgs))
         is TypeParameter -> typeArgs[this] ?: this
         is TypeRange -> TypeRange.create(elementType.substitute(typeArgs))
         is TypeClassInstance -> {
@@ -242,14 +266,28 @@ fun Type.isAssignableFrom(other:Type) : Boolean {
     if (this is TypeClassInstance && other is TypeClassGeneric && this.genericClass == other)
         return true
 
+//    if (this is TypeErrable && elementType.isAssignableFrom(other))
+//        return true
+//    if (this is TypeErrable && errorEnum.isAssignableFrom(other))
+//        return true
+
     // Todo - should we allow for covariance on arrays and functions. For now, no. but maybe consider later.
 
     return false
 }
 
-fun Type.checkCompatibleWith(expr:TstExpr) {
-    if (!isAssignableFrom(expr.type))
-        Log.error(expr.location, "Got type '${expr.type}' when expecting '$this'")
+//fun Type.checkCompatibleWith(expr:TstExpr) {
+//    if (!isAssignableFrom(expr.type))
+//        Log.error(expr.location, "Got type '${expr.type}' when expecting '$this'")
+//}
+
+fun TstExpr.checkType(destType:Type) : TstExpr {
+    return if (destType is TypeErrable && (type==destType.elementType || type==errorEnum))
+        TstMakeUnion(location, this, destType)
+    else if (destType.isAssignableFrom(type))
+        this
+    else
+        TstError(location,"Got type '$type' when expecting '$destType'")
 }
 
 fun Type.defaultPromotions() : Type {
@@ -291,6 +329,7 @@ fun Type.sizeInBytes() : Int {
         is TypeClassInstance -> 4
         is TypeInlineArray-> elementType.sizeInBytes() * numElements
         is TypeInlineInstance -> base.genericClass.sizeInBytes
+        is TypeErrable -> 4 + elementType.sizeInBytes()
     }
 }
 

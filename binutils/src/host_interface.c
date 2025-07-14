@@ -58,16 +58,16 @@ static void open_com_port() {
 
     dcbSerialParams.BaudRate = BAUD_RATE;    // Set your baud rate here
     dcbSerialParams.ByteSize = 8;            // 8-bit data
-    dcbSerialParams.StopBits = TWOSTOPBITS;  // Two stop bit
+    dcbSerialParams.StopBits = ONESTOPBIT;  // Two stop bit
     dcbSerialParams.Parity = NOPARITY;       // No parity
     if (!SetCommState(hSerial, &dcbSerialParams))
         fatal("Error setting serial port state.\n");
 
     // Set timeouts
-    timeouts.ReadIntervalTimeout = 50;
-    timeouts.ReadTotalTimeoutConstant = 50;
-    timeouts.ReadTotalTimeoutMultiplier = 10;
-    timeouts.WriteTotalTimeoutConstant = 50;
+    timeouts.ReadIntervalTimeout = 1000;
+    timeouts.ReadTotalTimeoutConstant = 2000;
+    timeouts.ReadTotalTimeoutMultiplier = 50;
+    timeouts.WriteTotalTimeoutConstant = 500;
     timeouts.WriteTotalTimeoutMultiplier = 10;
     if (!SetCommTimeouts(hSerial, &timeouts))
         fatal("Error setting timeouts.\n");
@@ -84,8 +84,13 @@ static int read_from_com_port() {
     char readBuffer[1];
     DWORD bytesRead = 0;
 
-    if (!ReadFile(hSerial, readBuffer, 1, &bytesRead, NULL))
+    if (!ReadFile(hSerial, readBuffer, 1, &bytesRead, NULL)) {
+        DWORD error = GetLastError();
+        if (error != ERROR_TIMEOUT) {
+            printf("%sRead error: %lu%s\n", RED, error, RESET);
+        }
         return -1;
+    }
 
     if (bytesRead==0)
         return -1;

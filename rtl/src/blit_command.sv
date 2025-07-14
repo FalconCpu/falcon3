@@ -1,18 +1,20 @@
 `timescale 1ns / 1ps
 
 `define BLIT_NOP        8'h00       
-`define BLIT_SET_DEST   8'h01       // arg1=bitmap addr, arg2=bytes per line
-`define BLIT_SET_CLIP   8'h02       // arg1=y1/x1, arg2=y2/x2
-`define BLIT_SET_OFFSET 8'h03       // arg1=x, arg2=y
-`define BLIT_SET_COLOR  8'h04       // arg1=foreground, arg2=background
-`define BLIT_RECT       8'h05       // arg1=y1/x1, arg2=y2/x2
-`define BLIT_LINE       8'h06       // arg1=y1/x1, arg2=y2/x2
-`define BLIT_SET_SRC    8'h07       // arg1=bitmap addr, arg2=bytes per line
-`define BLIT_SRC_OFFSET 8'h08       // arg1=x, arg2=y
-`define BLIT_IMAGE      8'h09       // arg1=y1/x1 arg2=height/width
-`define BLIT_CHAR       8'h0a       // arg1=y/x, arg2=char
-`define BLIT_FONT       8'h0b       // arg1=font addr, arg2=Offset/BytePerChar/Height/Width 
-`define BLIT_TRANSPARENT 8'h0c      // arg1=color
+
+// Supervisor only commands:-
+`define BLIT_SET_DEST   8'h81       // arg1=bitmap addr, arg2=offset_y/x arg3=bytes per line
+`define BLIT_SET_CLIP   8'h82       // arg1=y1/x1, arg2=y2/x2
+`define BLIT_SET_SRC    8'h83       // arg1=bitmap addr, arg2=offset_y/x arg3=bytes per line
+`define BLIT_FONT       8'h84       // arg1=font addr, arg2=Offset/BytePerChar/Height/Width 
+
+// User commands:-
+`define BLIT_RECT       8'h01       // arg1=y1/x1, arg2=y2/x2 arg3=color
+`define BLIT_LINE       8'h02       // arg1=y1/x1, arg2=y2/x2 arg3=color
+`define BLIT_IMAGE      8'h03       // arg1=desty/x arg2=srcy/x arg3=height/width
+`define BLIT_IMAGE_T    8'h04       // arg1=desty/x arg2=srcy/x arg3=height/width     With transparent color
+`define BLIT_CHAR       8'h05       // arg1=y/x, arg2=char   arg3=bgcolor/fgcolor
+`define BLIT_CHAR_T     8'h06       // arg1=y/x, arg2=char   arg3=fgcolor        
 
 `define OP_COLOR        2'h0
 `define OP_SRC          2'h1
@@ -22,7 +24,7 @@ module blit_command(
     input  logic clock,
     input  logic reset,
     input  logic stall,
-    input  logic [95:0] cmd,
+    input  logic [127:0] cmd,
     input  logic        cmd_valid,
     output logic        next_cmd,
     input               fifo_full,
@@ -51,15 +53,16 @@ module blit_command(
 
 typedef enum {WAIT, READY, DRAW_RECT, DRAW_LINE_0, DRAW_LINE, DRAW_IMAGE, DRAW_CHAR} t_state;
 
-logic [15:0] offset_x, offset_y;
 logic [15:0] x,y;
 logic [15:0] width, height;
 logic [15:0] dest_x, dest_y;
-logic        p2_idle, p3_idle;
-logic [15:0] src_offset_x, src_offset_y;
+logic [15:0] dest_ox, dest_oy;
+logic [15:0] src_x, src_y;
+logic [15:0] src_ox, src_oy;
 logic [31:0] reg_src_addr;
 logic [15:0] reg_src_bpl;
-logic [7:0] reg_char;
+logic [7:0]  reg_char;
+logic        p2_idle, p3_idle;
 
 logic [31:0] font_addr;
 logic [7:0]  font_width, font_height, font_byte_per_char, font_offset;
@@ -72,8 +75,10 @@ logic signed [15:0] error;
 wire signed [15:0] e2 = error * 16'h2;
 logic [15:0] end_x, end_y;
 
+wire [31:0] arg0 = cmd[31:0];
 wire [31:0] arg1 = cmd[63:32];
 wire [31:0] arg2 = cmd[95:64];
+wire [31:0] arg3 = cmd[127:96];
 
 // Account for fonts not starting at char 0
 
@@ -104,7 +109,7 @@ always_ff @(posedge clock) begin
             state <= READY;
         end
 
-        READY: if (cmd_valid) case (cmd[7:0])
+        READY: if (cmd_valid) case (arg0[7:0])
             `BLIT_NOP: begin
                 next_cmd <= 1'b1;
                 state <= WAIT;
@@ -112,8 +117,10 @@ always_ff @(posedge clock) begin
 
             `BLIT_SET_DEST: begin
                 dest_addr <= arg1[25:0];
-                dest_bpl <= arg2[15:0];
-                next_cmd <= 1'b1;
+                dest_ox   <= arg2[15:0];
+                dest_oy   <= arg2[31:16];
+                dest_bpl  <= arg3[15:0];
+                next_cmd  <= 1'b1;
                 state <= WAIT;
             end
 
@@ -126,69 +133,49 @@ always_ff @(posedge clock) begin
                 state <= WAIT;
             end
 
-            `BLIT_SET_OFFSET: begin
-                offset_x <= arg1[15:0];
-                offset_y <= arg2[15:0];
-                next_cmd <= 1'b1;
-                state <= WAIT;
-            end
-
-            `BLIT_SET_COLOR: begin
-                fg_color <= arg1[7:0];
-                bg_color <= arg2[7:0];
-                next_cmd <= 1'b1;
-                state <= WAIT;
-            end
-
-            `BLIT_TRANSPARENT: begin
-                transparent_color <= arg1[8:0];
-                next_cmd <= 1'b1;
-                state <= WAIT;
-            end
-
             `BLIT_SET_SRC: begin
                 reg_src_addr <= arg1;
-                reg_src_bpl <= arg2[15:0];
-                next_cmd <= 1'b1;
+                src_ox       <= arg2[31:16];
+                src_oy       <= arg2[15:0];
+                reg_src_bpl  <= arg3[15:0];
+                next_cmd     <= 1'b1;
                 state <= WAIT;
             end
 
             `BLIT_FONT: begin
-                font_addr   <= arg1;
-                font_width  <= arg2[7:0];
-                font_height <= arg2[15:8];
+                font_addr          <= arg1;
+                font_width         <= arg2[7:0];
+                font_height        <= arg2[15:8];
                 font_byte_per_char <= arg2[23:16];
-                font_offset <= arg2[31:24];
-                next_cmd <= 1'b1;
-                state <= WAIT;
-            end
-
-            `BLIT_SRC_OFFSET: begin
-                src_offset_x <= arg1[15:0];
-                src_offset_y <= arg2[15:0];
+                font_offset        <= arg2[31:24];
                 next_cmd <= 1'b1;
                 state <= WAIT;
             end
 
             `BLIT_RECT: begin
-                dest_x <= arg1[15:0] + offset_x;
-                dest_y <= arg1[31:16] + offset_y;
-                width  <= arg2[15:0]-arg1[15:0];
-                height <= arg2[31:16]-arg1[31:16];
-                x      <= 0;
-                y      <= 0;
+                dest_x   <= arg1[15:0] + dest_ox;
+                dest_y   <= arg1[31:16] + dest_oy;
+                width    <= arg2[15:0]-arg1[15:0];
+                height   <= arg2[31:16]-arg1[31:16];
+                fg_color <= arg3[7:0];
+                transparent_color <= 9'h100;
+                x        <= 0;
+                y        <= 0;
                 next_cmd <= 1'b1;
                 if (arg1[15:0]>=arg2[15:0] || arg1[31:16]>=arg2[31:16])
                     state <= WAIT;
                 else
                     state <= DRAW_RECT;
+                $display("BLIT_RECT %d,%d %d,%d", arg1[15:0]+dest_ox, arg1[31:16]+dest_oy, arg2[15:0]+dest_ox, arg2[31:16]+dest_oy);
             end
 
             `BLIT_LINE: begin
-                x <= arg1[15:0] + offset_x;
-                y <= arg1[31:16] + offset_y;
-                end_x <= arg2[15:0] + offset_x;
-                end_y <= arg2[31:16] + offset_y;
+                x        <= arg1[15:0]  + dest_ox;
+                y        <= arg1[31:16] + dest_oy;
+                end_x    <= arg2[15:0]  + dest_ox;
+                end_y    <= arg2[31:16] + dest_oy;
+                fg_color <= arg3[7:0];
+                transparent_color <= 9'h100;
                 if (arg1[15:0]<=arg2[15:0]) begin
                     sx <= 16'h1;
                     dx <= arg2[15:0]-arg1[15:0];
@@ -204,16 +191,36 @@ always_ff @(posedge clock) begin
                     dy <= arg1[31:16]-arg2[31:16];
                 end
                 next_cmd <= 1'b1;
+                $display("BLIT_LINE %d,%d %d,%d", arg1[15:0]+dest_ox, arg1[31:16]+dest_oy, arg2[15:0]+dest_ox, arg2[31:16]+dest_oy);
                 state <= DRAW_LINE_0;
             end
 
             `BLIT_IMAGE: begin
                 src_addr <= reg_src_addr;
                 src_bpl  <= reg_src_bpl;
-                dest_x   <= arg1[15:0] + offset_x;
-                dest_y   <= arg1[31:16] + offset_y;
-                width    <= arg2[15:0];
-                height   <= arg2[31:16];
+                dest_x   <= arg1[15:0]  + dest_ox;
+                dest_y   <= arg1[31:16] + dest_oy;
+                src_x    <= arg2[15:0]  + src_ox;
+                src_y    <= arg2[31:16] + src_oy;
+                width    <= arg3[15:0];
+                height   <= arg3[31:16];
+                transparent_color <= 9'h100;
+                x        <= 0;
+                y        <= 0;
+                next_cmd <= 1'b1;
+                state <= DRAW_IMAGE;
+            end
+
+            `BLIT_IMAGE_T: begin
+                src_addr <= reg_src_addr;
+                src_bpl  <= reg_src_bpl;
+                dest_x   <= arg1[15:0]  + dest_ox;
+                dest_y   <= arg1[31:16] + dest_oy;
+                src_x    <= arg2[15:0]  + src_ox;
+                src_y    <= arg2[31:16] + src_oy;
+                width    <= arg3[15:0];
+                height   <= arg3[31:16];
+                transparent_color <= {1'b0,arg0[23:16]};
                 x        <= 0;
                 y        <= 0;
                 next_cmd <= 1'b1;
@@ -223,15 +230,35 @@ always_ff @(posedge clock) begin
             `BLIT_CHAR: begin
                 reg_char <= arg1[7:0] - font_offset;
                 src_bpl  <= {11'b0,font_width[7:3]};
-                dest_x   <= arg1[15:0] + offset_x;
-                dest_y   <= arg1[31:16] + offset_y;
+                dest_x   <= arg1[15:0]  + dest_ox;
+                dest_y   <= arg1[31:16] + dest_oy;
+                fg_color <= arg3[7:0];
+                bg_color <= arg3[23:16];
                 width    <= {8'b0,font_width};
                 height   <= {8'b0,font_height};
+                transparent_color <= 9'h100;
                 x        <= 0;
                 y        <= 0;
                 next_cmd <= 1'b1;
                 state    <= DRAW_CHAR;
             end 
+
+            `BLIT_CHAR_T: begin
+                reg_char <= arg1[7:0] - font_offset;
+                src_bpl  <= {11'b0,font_width[7:3]};
+                dest_x   <= arg1[15:0]  + dest_ox;
+                dest_y   <= arg1[31:16] + dest_oy;
+                width    <= {8'b0,font_width};
+                height   <= {8'b0,font_height};
+                fg_color <= arg3[7:0];
+                bg_color <= ~arg3[7:0];
+                transparent_color <= {1'b0,~arg3[7:0]};
+                x        <= 0;
+                y        <= 0;
+                next_cmd <= 1'b1;
+                state    <= DRAW_CHAR;
+            end 
+
 
             default: begin
                 $display("Unknown blit command %x", cmd[7:0]);
@@ -279,8 +306,8 @@ always_ff @(posedge clock) begin
             if (!fifo_full) begin
                 p2_dest_x <= dest_x + x;
                 p2_dest_y <= dest_y + y;
-                p2_src_x <= src_offset_x + x;
-                p2_src_y <= src_offset_y + y;
+                p2_src_x <= src_x + x;
+                p2_src_y <= src_y + y;
                 p2_write  <= 1'b1;
                 p2_op     <= `OP_SRC;
                 if (x+1==width) begin

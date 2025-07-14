@@ -234,11 +234,12 @@ class Parser(val lexer: Lexer) {
 
     private fun parseComp() : AstExpr {
         var ret = parseRange()
-        while(currentToken.kind in listOf(LT, GT, LTE, GTE, EQ, NEQ)) {
+        while(currentToken.kind in listOf(LT, GT, LTE, GTE, EQ, NEQ, IS)) {
             val op = match(currentToken.kind)
             ret = when(op.kind) {
                 EQ -> AstEq(op.location, ret, parseRange(), false)
                 NEQ -> AstEq(op.location, ret, parseRange(), true)
+                IS -> AstIsExpr(op.location, ret, parseTypeExpr())
                 else -> AstBinop(op.location, op.kind, ret, parseRange())
             }
         }
@@ -391,6 +392,8 @@ class Parser(val lexer: Lexer) {
 
         if (canTake(QMARK))
             ret = AstTypeNullable(ret.location, ret)
+        if (canTake(EMARK))
+            ret = AstTypeErrable(ret.location, ret)
         return ret
     }
 

@@ -41,6 +41,9 @@ class TstMethod(location: Location, val thisExpr:TstExpr, val func:SymbolFunctio
 class TstCast(location: Location, val expr: TstExpr, type:Type) : TstExpr(location,type)
 class TstAbort(location: Location, val expr: TstExpr) : TstExpr(location, TypeNothing)
 class TstSetCall(location: Location, val func: Function, val args: List<TstExpr>, val thisArg: TstExpr, type:Type) : TstExpr(location,type)   // A call to something.set(args, RVALUE)
+class TstIsExpr(location:Location, val expr:TstExpr, val isType:Type) : TstExpr(location, TypeBool)
+class TstMakeUnion(location:Location, val expr:TstExpr, type:Type) : TstExpr(location, type)
+class TstExtractUnion(location: Location, val expr:TstExpr, type:Type) : TstExpr(location, type)
 
 class TstError(location: Location, val message: String = "") : TstExpr(location, TypeError) {
     init {
@@ -100,6 +103,16 @@ fun Tst.prettyPrint(sb: StringBuilder, indent:Int) {
             sb.append("break ($type)\n")
         }
 
+        is TstMakeUnion -> {
+            sb.append("mkunion ($type)\n")
+            expr.prettyPrint(sb, indent+1)
+        }
+
+        is TstExtractUnion -> {
+            sb.append("extractUnion ($type)\n")
+            expr.prettyPrint(sb, indent+1)
+        }
+
         is TstCall -> {
             sb.append("call $func\n")
             thisArg?.prettyPrint(sb, indent+1)
@@ -112,6 +125,11 @@ fun Tst.prettyPrint(sb: StringBuilder, indent:Int) {
 
         is TstError -> {
             sb.append("error: $message\n")
+        }
+
+        is TstIsExpr -> {
+            sb.append("isExpr $isType ($type)\n")
+            expr.prettyPrint(sb, indent+1)
         }
 
         is TstFunctionName -> {

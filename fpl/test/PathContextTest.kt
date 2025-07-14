@@ -280,5 +280,109 @@ class PathContextTest {
 //        runTest(prog, expected)
 //    }
 
+    @Test
+    fun errorTypeTest() {
+    val prog = """
+            class Cat(val name:String, val age:Int)
+            
+            enum Error [
+                INVALID_AGE]
+            
+            fun newCat(name:String, age:Int) -> Cat!
+                if age<0 or age>20
+                    return Error.INVALID_AGE
+                return new Cat(name,age)
+                
+            fun main()
+                val c = newCat("Fluffy",6)
+                print(c.age)                    # gives an error as c may be error
+        """.trimIndent()
+
+    val expected = """
+        test.fpl:13.13-13.15: Cannot access 'age' as expression may be error
+        """.trimIndent()
+
+    runTest(prog, expected)
+}
+
+    @Test
+    fun errorTypeTest2() {
+        val prog = """
+            class Cat(val name:String, val age:Int)
+            
+            enum Error [
+                INVALID_AGE]
+            
+            fun newCat(name:String, age:Int) -> Cat!
+                if age<0 or age>20
+                    return Error.INVALID_AGE
+                return new Cat(name,age)
+                
+            fun main()
+                val c = newCat("pootle",5)          # the call may or may not fail
+                if c is Cat                         # checks the call was successful
+                    print("Name ",c.name)           # now we can access fields of the cat
+                else
+                    print("Error generating cat ",c) # print the error
+
+        """.trimIndent()
+
+        val expected = """
+            top
+              file: test
+                class: Cat
+                  assign EQ_I
+                    member: name (String)
+                      var: this (Cat)
+                    var: name (String)
+                  assign EQ_I
+                    member: age (Int)
+                      var: this (Cat)
+                    var: age (Int)
+                null-stmt
+                function: newCat(String,Int)
+                  if
+                    if-clause
+                      or (Bool)
+                        LT_I (Bool)
+                          var: age (Int)
+                          int: 0 (Int)
+                        GT_I (Bool)
+                          var: age (Int)
+                          int: 20 (Int)
+                      expr-stmt
+                        return (Nothing)
+                          mkunion (Cat!)
+                            int: 0 (Error)
+                  expr-stmt
+                    return (Nothing)
+                      mkunion (Cat!)
+                        new-object (Cat)
+                          var: name (String)
+                          var: age (Int)
+                function: main()
+                  decl: VAR:c:Cat!
+                    call newCat(String,Int)
+                      string: "pootle" (String)
+                      int: 5 (Int)
+                  if
+                    if-clause
+                      isExpr Cat (Bool)
+                        var: c (Cat!)
+                      print
+                        string: "Name " (String)
+                        member: name (String)
+                          extractUnion (Cat)
+                            var: c (Cat!)
+                    if-clause
+                      print
+                        string: "Error generating cat " (String)
+                        extractUnion (Error)
+                          var: c (Cat!)
+
+        """.trimIndent()
+
+        runTest(prog, expected)
+    }
 
 }

@@ -91,11 +91,14 @@ fun uartRxCommandWord() -> Int
     var b3 = -1
     timeout = 100000
     var repeatCount = 0
+    kprintf("Waiting for command word\n")
     while b0 != 0xB0
         b0 = -1
         timeout = 100000
         while b0 = -1
             b0 = hwRegs.uart_rx
+            if b0!=-1
+                kprintf("Got byte %x\n",b0)
             timeout -= 1
             if timeout = 0
                 errno = ErrorCode.TIMEOUT

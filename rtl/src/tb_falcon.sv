@@ -118,7 +118,7 @@ micron_sdram  micron_sdram_inst (
 
 initial begin
     $dumpfile("dump.vcd");
-    $dumpvars(4, tb_falcon);
+    $dumpvars(6, tb_falcon);
     # 20000000;
     $finish;
 end
@@ -151,12 +151,14 @@ initial begin
   @ (posedge uart_clock);
   uart_reset = 0;
   @ (posedge uart_clock);
+#450000;
   @ (posedge uart_clock);
 
   for(tx_pointer = 0; tx_pointer < 65535; tx_pointer = tx_pointer + 1) begin
     uart_tx_data = tx_data[tx_pointer];
     @ (posedge uart_clock);
     uart_tx_valid = 1;
+    @ (posedge uart_clock);
     @ (posedge uart_clock);
     uart_tx_valid = 0;
     while(!uart_tx_complete) begin

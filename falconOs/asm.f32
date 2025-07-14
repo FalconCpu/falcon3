@@ -8,7 +8,12 @@
 # runningTaskIndex @ 20
 # lastSwitchTime @ 24
 # taskYielded @ 28
-# packetCommand @ 32
+# windowManager @ 32
+# currentFont @ 36
+# blitDestWindow @ 40
+# blitSrcWindow @ 44
+# blitFont @ 48
+# packetCommand @ 52
 /panic(String,ErrorCode):
 # message = R1
 # code = R9
@@ -1456,15 +1461,19 @@ add R12, R12, 4
 .L2:
 blt R11, R9, .L1
 stw R10, R29[8]
-ld R9, 65536
+ld R9, 65540
 jmp .L5
 .L3:
 ld R1, R9
 jsr /freeBlock(Int)
-ld R1, 4096
-add R9, R9, R1
+ld R1, -4096
+and R1, R9, R1
+mul R1, R1, 2
+and R2, R9, 15
+add R1, R1, R2
+add R9, R1, 1
 .L5:
-ld R1, 1048576
+ld R1, 67108864
 blt R9, R1, .L3
 ldw R9, SP[0]
 ldw R10, SP[4]
@@ -1484,6 +1493,7 @@ ret
 # runningTaskIndex = R1
 # lastSwitchTime = R1
 # taskYielded = R1
+# windowManager = R1
 sub SP, SP, 48
 stw R9, SP[24]
 stw R10, SP[28]
@@ -1799,6 +1809,22 @@ ldw R30, SP[4]
 add SP, SP, 8
 ret
 
+/TaskControlBlock/openWindow(String,Int,Int,Int,Int):
+# name = R2
+# x = R3
+# y = R4
+# width = R5
+# height = R6
+# this = R1
+# w = R1
+sub SP, SP, 4
+stw R30, SP[0]
+ldw R1, R29[32]
+jsr /WindowManager/newWindow(String,Int,Int,Int,Int)
+ldw R30, SP[0]
+add SP, SP, 4
+ret
+
 /createTask(String,Int):
 # task = R9
 # taskStack = R10
@@ -1942,12 +1968,10 @@ ret
 
 /startup():
 # taskCode = R8
-# task2Code = R8
-# task = R1
-# task2 = R1
-sub SP, SP, 16
-stw R9, SP[8]
-stw R30, SP[12]
+# wdd = R1
+sub SP, SP, 24
+stw R9, SP[16]
+stw R30, SP[20]
 ld R1, 0
 stw R1, SP[0]
 ld R1, OBJ19
@@ -1973,25 +1997,45 @@ ld R9, R8
 ld R1, R9
 jsr /List
 stw R9, R29[16]
-ld R1, 0
+ld R1, WindowManager/class
+jsr /mallocObject(ClassDescriptor)
+ld R9, R8
+ld R1, R9
+jsr /WindowManager
+stw R9, R29[32]
+ld R1, 1
 stw R1, SP[4]
+ldw R1, R29[32]
+stw R1, SP[8]
 ld R1, OBJ20
 add R2, SP, 8
 jsr /kprintf(String,Any...)
-ld R1, OBJ21
-jsr /readFileFromHost(String)
+ld R2, OBJ21
+ld R3, 0
+ld R4, 0
+ld R5, 320
+ld R6, 200
+ldw R1, R29[32]
+jsr /WindowManager/newWindow(String,Int,Int,Int,Int)
+ld R1, 0
+stw R1, SP[12]
 ld R1, OBJ22
-ld R2, R8
-jsr /createTask(String,Int)
+add R2, SP, 16
+jsr /kprintf(String,Any...)
 ld R1, OBJ23
 jsr /readFileFromHost(String)
+ld R1, 0
+bne R8, R1, .L2
+jmp .L1
+.L2:
 ld R1, OBJ24
 ld R2, R8
 jsr /createTask(String,Int)
+.L1:
 jsr /scheduler()
-ldw R9, SP[8]
-ldw R30, SP[12]
-add SP, SP, 16
+ldw R9, SP[16]
+ldw R30, SP[20]
+add SP, SP, 24
 ret
 
 /scheduler():
@@ -2000,6 +2044,8 @@ ret
 sub SP, SP, 20
 stw R9, SP[12]
 stw R30, SP[16]
+ldw R1, R29[32]
+jsr /WindowManager/checkForEvents()
 ldw R1, R29[16]
 ldw R1, R1[0]
 ld R2, 0
@@ -2011,7 +2057,7 @@ stw R1, SP[0]
 ld R1, OBJ25
 add R2, SP, 4
 jsr /kprintf(String,Any...)
-ld R1, 9
+ld R1, 10
 jsr /shutdown(ErrorCode)
 .L1:
 ld R1, -536870912
@@ -2106,11 +2152,11 @@ ret
 # block = R10
 # userMessage = R10
 # name = R1
-sub SP, SP, 52
-stw R9, SP[36]
-stw R10, SP[40]
-stw R11, SP[44]
-stw R30, SP[48]
+sub SP, SP, 68
+stw R9, SP[52]
+stw R10, SP[56]
+stw R11, SP[60]
+stw R30, SP[64]
 ld R9, R1
 ld R11, R2
 ld R10, R3
@@ -2118,8 +2164,17 @@ ld R1, 0
 beq R9, R1, .L2
 jmp .L1
 .L2:
+ld R1, 3
+stw R1, SP[0]
+ldw R1, R9[0]
+stw R1, SP[4]
+stw R11, SP[8]
+stw R10, SP[12]
 ld R1, OBJ28
-ld R2, 8
+add R2, SP, 4
+jsr /kprintf(String,Any...)
+ld R1, OBJ29
+ld R2, 9
 jsr /panic(String,ErrorCode)
 .L1:
 ld R1, 1
@@ -2167,20 +2222,20 @@ jmp .L25
 jmp .L15
 .L16:
 ld R1, 2
-stw R1, SP[0]
+stw R1, SP[16]
 ldw R1, R9[168]
-stw R1, SP[4]
+stw R1, SP[20]
 add R1, R9, 4
 ld R2, 8
 ld R3, 32
 idx4 R2, R2, R3
 add R1, R1, R2
 ldw R1, R1[0]
-stw R1, SP[8]
-ld R1, OBJ29
-add R2, SP, 4
+stw R1, SP[24]
+ld R1, OBJ30
+add R2, SP, 20
 jsr /kprintf(String,Any...)
-ld R2, OBJ30
+ld R2, OBJ31
 ld R3, 0
 ld R1, R9
 jsr /terminateTask(TaskControlBlock,String,Int)
@@ -2224,16 +2279,16 @@ jmp .L26
 .L27:
 ld R1, R9
 jsr /TaskControlBlock/dump()
-ld R1, OBJ31
+ld R1, OBJ32
 ld R2, 1
 jsr /panic(String,ErrorCode)
 .L26:
 ld R1, 2
-stw R1, SP[12]
-stw R10, SP[16]
-stw R9, SP[20]
-ld R1, OBJ32
-add R2, SP, 16
+stw R1, SP[28]
+stw R10, SP[32]
+stw R9, SP[36]
+ld R1, OBJ33
+add R2, SP, 32
 jsr /kprintf(String,Any...)
 or R2, R10, 768
 ld R1, R9
@@ -2249,9 +2304,9 @@ stw R1, R2[0]
 jmp .L15
 .L20:
 ld R1, 0
-stw R1, SP[24]
-ld R1, OBJ33
-add R2, SP, 28
+stw R1, SP[40]
+ld R1, OBJ34
+add R2, SP, 44
 jsr /kprintf(String,Any...)
 jmp .L15
 .L21:
@@ -2331,11 +2386,11 @@ stw R1, R2[0]
 jmp .L29
 .L32:
 ld R1, 1
-stw R1, SP[28]
+stw R1, SP[44]
 ldw R1, R10[168]
-stw R1, SP[32]
-ld R1, OBJ34
-add R2, SP, 32
+stw R1, SP[48]
+ld R1, OBJ35
+add R2, SP, 48
 jsr /kprintf(String,Any...)
 ld R1, 0
 add R2, R9, 4
@@ -2385,62 +2440,62 @@ ld R1, 1
 stw R1, R29[28]
 jmp .L15
 .L25:
-ld R2, OBJ35
+ld R2, OBJ36
 ld R1, R9
 ld R3, R10
 jsr /terminateTask(TaskControlBlock,String,Int)
 .L15:
 jmp .L4
 .L6:
-ld R2, OBJ36
-ld R1, R9
-ld R3, R10
-jsr /terminateTask(TaskControlBlock,String,Int)
-jmp .L4
-.L7:
 ld R2, OBJ37
 ld R1, R9
 ld R3, R10
 jsr /terminateTask(TaskControlBlock,String,Int)
 jmp .L4
-.L8:
+.L7:
 ld R2, OBJ38
 ld R1, R9
 ld R3, R10
 jsr /terminateTask(TaskControlBlock,String,Int)
 jmp .L4
-.L9:
+.L8:
 ld R2, OBJ39
 ld R1, R9
 ld R3, R10
 jsr /terminateTask(TaskControlBlock,String,Int)
 jmp .L4
-.L10:
+.L9:
 ld R2, OBJ40
 ld R1, R9
 ld R3, R10
 jsr /terminateTask(TaskControlBlock,String,Int)
 jmp .L4
-.L11:
+.L10:
 ld R2, OBJ41
 ld R1, R9
 ld R3, R10
 jsr /terminateTask(TaskControlBlock,String,Int)
 jmp .L4
-.L12:
+.L11:
 ld R2, OBJ42
 ld R1, R9
 ld R3, R10
 jsr /terminateTask(TaskControlBlock,String,Int)
 jmp .L4
-.L13:
+.L12:
 ld R2, OBJ43
 ld R1, R9
 ld R3, R10
 jsr /terminateTask(TaskControlBlock,String,Int)
 jmp .L4
-.L14:
+.L13:
 ld R2, OBJ44
+ld R1, R9
+ld R3, R10
+jsr /terminateTask(TaskControlBlock,String,Int)
+jmp .L4
+.L14:
+ld R2, OBJ45
 ld R1, R9
 ld R3, R10
 jsr /terminateTask(TaskControlBlock,String,Int)
@@ -2449,285 +2504,298 @@ ldw R1, R9[0]
 add R1, R1, 4
 stw R1, R9[0]
 jsr /scheduler()
-ldw R9, SP[36]
-ldw R10, SP[40]
-ldw R11, SP[44]
-ldw R30, SP[48]
-add SP, SP, 52
+ldw R9, SP[52]
+ldw R10, SP[56]
+ldw R11, SP[60]
+ldw R30, SP[64]
+add SP, SP, 68
 ret
 
-/GraphicsContext/ownBlitter():
-# this = R1
-# dummy = R1
-jmp .L3
-.L1:
-.L3:
-ld R2, -536870860
-ldw R2, R2[0]
-ld R3, 8
-blt R2, R3, .L1
-ldw R2, R1[0]
-ld R3, -536870860
-stw R2, R3[4]
-ldw R2, R1[4]
-ld R3, -536870860
-stw R2, R3[8]
-ld R2, 1
-ld R3, -536870860
-stw R2, R3[0]
-ldw R2, R1[20]
-lsl R2, R2, 16
-ldw R3, R1[12]
-or R2, R2, R3
-ld R3, -536870860
-stw R2, R3[4]
+/setBlitDestWindow(Window):
+# window = R1
+stw R1, R29[40]
 ldw R2, R1[24]
+ld R3, -536862720
+stw R2, R3[4]
+ldw R2, R1[28]
+ld R3, -536862720
+stw R2, R3[8]
+ldw R2, R1[8]
+ld R3, -536862720
+stw R2, R3[12]
+ld R2, 129
+ld R3, -536862720
+stw R2, R3[0]
+ldw R2, R1[28]
+ld R3, -536862720
+stw R2, R3[4]
+ldw R1, R1[32]
+ld R2, -536862720
+stw R1, R2[8]
+ld R1, 130
+ld R2, -536862720
+stw R1, R2[0]
+ret
+
+/drawLine(Int,Int,Int,Int,Int):
+# x1 = R1
+# y1 = R2
+# x2 = R3
+# y2 = R4
+# color = R5
 lsl R2, R2, 16
-ldw R3, R1[16]
-or R2, R2, R3
-ld R3, -536870860
-stw R2, R3[8]
-ld R2, 2
-ld R3, -536870860
-stw R2, R3[0]
-ldw R2, R1[12]
-ld R3, -536870860
-stw R2, R3[4]
-ldw R2, R1[20]
-ld R3, -536870860
-stw R2, R3[8]
-ld R2, 3
-ld R3, -536870860
-stw R2, R3[0]
-ldw R2, R1[28]
-ld R3, -536870860
-stw R2, R3[4]
-ldw R2, R1[32]
-ld R3, -536870860
-stw R2, R3[8]
-ld R2, 4
-ld R3, -536870860
-stw R2, R3[0]
-ldw R2, R1[40]
-ld R3, -536870860
-stw R2, R3[4]
-ld R2, 536870912
-ldw R3, R1[44]
-ldw R4, R1[48]
-mul R3, R3, R4
-divs R3, R3, 8
-lsl R3, R3, 16
-or R2, R2, R3
-ldw R3, R1[48]
-lsl R3, R3, 8
-or R2, R2, R3
-ldw R3, R1[44]
-or R2, R2, R3
-ld R3, -536870860
-stw R2, R3[8]
-ld R2, 11
-ld R3, -536870860
-stw R2, R3[0]
-ldw R1, R1[36]
-ld R2, -536870860
+or R1, R2, R1
+ld R2, -536862720
 stw R1, R2[4]
-ld R1, 12
-ld R2, -536870860
-stw R1, R2[0]
-ret
-
-/GraphicsContext/setColor(Int):
-# this = R1
-# fg = R2
-# dummy = R1
-stw R2, R1[28]
-ldw R2, R1[28]
-ld R3, -536870860
-stw R2, R3[4]
-ldw R1, R1[32]
-ld R2, -536870860
+lsl R1, R4, 16
+or R1, R1, R3
+ld R2, -536862720
 stw R1, R2[8]
-jmp .L3
-.L1:
-.L3:
-ld R1, -536870860
-ldw R1, R1[0]
-ld R2, 1
-bge R2, R1, .L1
-ld R1, 4
-ld R2, -536870860
+ld R1, -536862720
+stw R5, R1[12]
+ld R1, 2
+ld R2, -536862720
 stw R1, R2[0]
 ret
 
-/GraphicsContext/setColor(Int,Int):
-# this = R1
-# fg = R2
-# bg = R3
-# dummy = R1
-stw R2, R1[28]
-stw R3, R1[32]
-ldw R2, R1[28]
-ld R3, -536870860
-stw R2, R3[4]
-ldw R1, R1[32]
-ld R2, -536870860
-stw R1, R2[8]
-jmp .L3
-.L1:
-.L3:
-ld R1, -536870860
-ldw R1, R1[0]
-ld R2, 1
-bge R2, R1, .L1
-ld R1, 4
-ld R2, -536870860
-stw R1, R2[0]
-ret
-
-/GraphicsContext/drawRect(Int,Int,Int,Int):
-# x1 = R2
-# y1 = R3
-# x2 = R4
-# y2 = R5
-# this = R1
-# dummy = R1
-jmp .L3
-.L1:
-.L3:
-ld R1, -536870860
-ldw R1, R1[0]
-ld R6, 1
-bge R6, R1, .L1
-lsl R1, R3, 16
-or R1, R1, R2
-ld R2, -536870860
+/drawRect(Int,Int,Int,Int,Int):
+# x1 = R1
+# y1 = R2
+# x2 = R3
+# y2 = R4
+# color = R5
+lsl R2, R2, 16
+or R1, R2, R1
+ld R2, -536862720
 stw R1, R2[4]
-lsl R1, R5, 16
-or R1, R1, R4
-ld R2, -536870860
+lsl R1, R4, 16
+or R1, R1, R3
+ld R2, -536862720
 stw R1, R2[8]
-ld R1, 5
-ld R2, -536870860
-stw R1, R2[0]
-ret
-
-/GraphicsContext/drawLine(Int,Int,Int,Int):
-# x1 = R2
-# y1 = R3
-# x2 = R4
-# y2 = R5
-# this = R1
-# dummy = R1
-lsl R1, R3, 16
-or R1, R1, R2
-ld R2, -536870860
-stw R1, R2[4]
-lsl R1, R5, 16
-or R1, R1, R4
-ld R2, -536870860
-stw R1, R2[8]
-jmp .L3
-.L1:
-.L3:
-ld R1, -536870860
-ldw R1, R1[0]
-ld R2, 1
-bge R2, R1, .L1
-ld R1, 6
-ld R2, -536870860
-stw R1, R2[0]
-ret
-
-/GraphicsContext/drawText(Int,Int,String):
-# this = R1
-# x = R2
-# y = R3
-# text = R4
-# i = R5
-# dummy = R1
-ld R5, 0
-ldw R6, R4[-4]
-jmp .L4
-.L1:
-lsl R7, R3, 16
-ldw R8, R1[44]
-mul R8, R5, R8
-add R8, R2, R8
-or R7, R7, R8
-ld R8, -536870860
-stw R7, R8[4]
-ldw R7, R4[-4]
-idx1 R7, R5, R7
-add R7, R4, R7
-ldb R7, R7[0]
-ld R8, -536870860
-stw R7, R8[8]
-jmp .L7
-.L5:
-.L7:
-ld R7, -536870860
-ldw R7, R7[0]
-ld R8, 1
-bge R8, R7, .L5
-ld R7, 10
-ld R8, -536870860
-stw R7, R8[0]
-add R5, R5, 1
-.L4:
-blt R5, R6, .L1
-ret
-
-/GraphicsContext/waitVSync():
-# hwRegs = R1
-# this = R1
-# dummy = R1
-# dummy1 = R1
-ld R1, -536870912
-jmp .L3
-.L1:
-.L3:
-ldw R2, R1[36]
-ld R3, 480
-bge R2, R3, .L1
-jmp .L6
-.L4:
-.L6:
-ldw R2, R1[36]
-ld R3, 480
-blt R2, R3, .L4
-ret
-
-/Window/updateLayer():
-# this = R1
-# layer = R2
-ld R2, -536866816
-ldw R3, R1[20]
-mul R3, R3, 32
-add R2, R2, R3
-ldw R3, R1[24]
-stw R3, R2[0]
-ldw R3, R1[0]
-stw R3, R2[4]
-ldw R3, R1[4]
-stw R3, R2[8]
-ldw R3, R1[0]
-ldw R4, R1[8]
-add R3, R3, R4
-stw R3, R2[12]
-ldw R3, R1[4]
-ldw R4, R1[12]
-add R3, R3, R4
-stw R3, R2[16]
-ldw R1, R1[8]
-stw R1, R2[20]
+ld R1, -536862720
+stw R5, R1[12]
 ld R1, 1
-stw R1, R2[24]
+ld R2, -536862720
+stw R1, R2[0]
+ret
+
+/GfxCommandBlock/run():
+# this = R9
+# cmd = R1
+sub SP, SP, 8
+stw R9, SP[0]
+stw R30, SP[4]
+ld R9, R1
+ld R1, -536862720
+ldw R1, R1[0]
+ld R2, 10
+blt R1, R2, .L2
+jmp .L1
+.L2:
+ld R8, 0
+jmp .L0
+.L1:
+ldw R1, R29[40]
+ldw R2, R9[4]
+bne R1, R2, .L5
+jmp .L4
+.L5:
+ldw R1, R9[4]
+jsr /setBlitDestWindow(Window)
+.L4:
+jmp .L9
+.L7:
+ldw R1, R9[16]
+ldw R2, R9[12]
+bge R1, R2, .L11
+jmp .L10
+.L11:
+ld R8, 1
+jmp .L0
+.L10:
+ld R1, -536862720
+ldw R1, R1[0]
+ld R2, 2
+blt R1, R2, .L14
+jmp .L13
+.L14:
+ld R8, 0
+jmp .L0
+.L13:
+ldw R1, R9[8]
+ldw R2, R9[16]
+ldw R3, R1[-4]
+idx4 R2, R2, R3
+add R1, R1, R2
+ldw R1, R1[0]
+ldw R2, R9[16]
+add R2, R2, 1
+stw R2, R9[16]
+ld R2, 1
+beq R1, R2, .L17
+ld R2, 2
+beq R1, R2, .L18
+jmp .L16
+.L17:
+ldw R1, R9[16]
+add R1, R1, 3
+ldw R2, R9[12]
+bge R1, R2, .L20
+jmp .L19
+.L20:
+ld R8, 0
+jmp .L0
+.L19:
+ldw R1, R9[8]
+ldw R2, R9[16]
+add R2, R2, 0
+ldw R3, R1[-4]
+idx4 R2, R2, R3
+add R1, R1, R2
+ldw R1, R1[0]
+ld R2, -536862720
+stw R1, R2[4]
+ldw R1, R9[8]
+ldw R2, R9[16]
+add R2, R2, 1
+ldw R3, R1[-4]
+idx4 R2, R2, R3
+add R1, R1, R2
+ldw R1, R1[0]
+ld R2, -536862720
+stw R1, R2[8]
+ldw R1, R9[8]
+ldw R2, R9[16]
+add R2, R2, 2
+ldw R3, R1[-4]
+idx4 R2, R2, R3
+add R1, R1, R2
+ldw R1, R1[0]
+ld R2, -536862720
+stw R1, R2[12]
+ld R1, 1
+ld R2, -536862720
+stw R1, R2[0]
+ldw R1, R9[16]
+add R1, R1, 3
+stw R1, R9[16]
+jmp .L16
+.L18:
+ldw R1, R9[16]
+add R1, R1, 3
+ldw R2, R9[8]
+ldw R2, R2[-4]
+bge R1, R2, .L23
+jmp .L22
+.L23:
+ld R8, 0
+jmp .L0
+.L22:
+ldw R1, R9[8]
+ldw R2, R9[16]
+add R2, R2, 0
+ldw R3, R1[-4]
+idx4 R2, R2, R3
+add R1, R1, R2
+ldw R1, R1[0]
+ld R2, -536862720
+stw R1, R2[4]
+ldw R1, R9[8]
+ldw R2, R9[16]
+add R2, R2, 1
+ldw R3, R1[-4]
+idx4 R2, R2, R3
+add R1, R1, R2
+ldw R1, R1[0]
+ld R2, -536862720
+stw R1, R2[8]
+ldw R1, R9[8]
+ldw R2, R9[16]
+add R2, R2, 2
+ldw R3, R1[-4]
+idx4 R2, R2, R3
+add R1, R1, R2
+ldw R1, R1[0]
+ld R2, -536862720
+stw R1, R2[12]
+ld R1, 2
+ld R2, -536862720
+stw R1, R2[0]
+ldw R1, R9[16]
+add R1, R1, 3
+stw R1, R9[16]
+.L16:
+.L9:
+ld R1, 1
+bne R1, 0, .L7
+.L0:
+ldw R9, SP[0]
+ldw R30, SP[4]
+add SP, SP, 8
+ret
+
+/Window/updateLayerHardware():
+# this = R9
+# layer = R10
+sub SP, SP, 40
+stw R9, SP[28]
+stw R10, SP[32]
+stw R30, SP[36]
+ld R9, R1
+ld R1, -536866816
+ldw R2, R9[20]
+mul R2, R2, 32
+add R10, R1, R2
+ld R1, 6
+stw R1, SP[0]
+ldw R1, R9[20]
+stw R1, SP[4]
+ldw R1, R9[24]
+stw R1, SP[8]
+ldw R1, R9[0]
+stw R1, SP[12]
+ldw R1, R9[4]
+stw R1, SP[16]
+ldw R1, R9[0]
+ldw R2, R9[8]
+add R1, R1, R2
+stw R1, SP[20]
+ldw R1, R9[4]
+ldw R2, R9[12]
+add R1, R1, R2
+stw R1, SP[24]
+ld R1, OBJ46
+add R2, SP, 4
+jsr /kprintf(String,Any...)
+ldw R1, R9[24]
+stw R1, R10[0]
+ldw R1, R9[0]
+stw R1, R10[4]
+ldw R1, R9[4]
+stw R1, R10[8]
+ldw R1, R9[0]
+ldw R2, R9[8]
+add R1, R1, R2
+stw R1, R10[12]
+ldw R1, R9[4]
+ldw R2, R9[12]
+add R1, R1, R2
+stw R1, R10[16]
+ldw R1, R9[8]
+stw R1, R10[20]
+ld R1, 1
+stw R1, R10[24]
+ldw R9, SP[28]
+ldw R10, SP[32]
+ldw R30, SP[36]
+add SP, SP, 40
 ret
 
 /Window/drawBorders(Bool):
-# titleColor = R2
+# titleColor = R5
 # this = R9
-# V36 = R2
+# V35 = R5
+# borderColor = R10
 # active = R10
 sub SP, SP, 12
 stw R9, SP[0]
@@ -2735,108 +2803,38 @@ stw R10, SP[4]
 stw R30, SP[8]
 ld R9, R1
 ld R10, R2
-ldw R1, R9[28]
-jsr /GraphicsContext/ownBlitter()
+ld R1, R9
+jsr /setBlitDestWindow(Window)
 bne R10, 0, .L1
 jmp .L2
 .L1:
-ld R2, 15
+ld R5, 15
 jmp .L3
 .L2:
-ld R2, 0
+ld R5, 0
 .L3:
-ldw R1, R9[28]
-ld R3, R2
-jsr /GraphicsContext/setColor(Int,Int)
-ld R2, 1
-ld R3, 1
-ldw R1, R9[8]
-sub R4, R1, 2
-ld R5, 13
-ldw R1, R9[28]
-jsr /GraphicsContext/drawRect(Int,Int,Int,Int)
-ld R2, 255
-ldw R1, R9[28]
-jsr /GraphicsContext/setColor(Int)
+ld R10, 255
+ld R1, 0
 ld R2, 0
-ld R3, 0
-ldw R1, R9[8]
-sub R4, R1, 1
-ld R5, 0
-ldw R1, R9[28]
-jsr /GraphicsContext/drawLine(Int,Int,Int,Int)
-ldw R1, R9[8]
-sub R2, R1, 1
-ld R3, 0
-ldw R1, R9[8]
-sub R4, R1, 1
-ldw R1, R9[12]
-sub R5, R1, 1
-ldw R1, R9[28]
-jsr /GraphicsContext/drawLine(Int,Int,Int,Int)
-ldw R1, R9[8]
-sub R2, R1, 1
-ldw R1, R9[12]
-sub R3, R1, 1
-ld R4, 0
-ldw R1, R9[12]
-sub R5, R1, 1
-ldw R1, R9[28]
-jsr /GraphicsContext/drawLine(Int,Int,Int,Int)
-ld R2, 0
-ldw R1, R9[12]
-sub R3, R1, 1
-ld R4, 0
-ld R5, 0
-ldw R1, R9[28]
-jsr /GraphicsContext/drawLine(Int,Int,Int,Int)
-ld R2, 0
-ld R3, 14
-ldw R1, R9[8]
-sub R4, R1, 1
-ld R5, 14
-ldw R1, R9[28]
-jsr /GraphicsContext/drawLine(Int,Int,Int,Int)
-ld R2, 2
-ld R3, 2
-ldw R4, R9[16]
-ldw R1, R9[28]
-jsr /GraphicsContext/drawText(Int,Int,String)
-ldw R9, SP[0]
-ldw R10, SP[4]
-ldw R30, SP[8]
-add SP, SP, 12
-ret
-
-/Window/getGraphicsContext():
-# this = R9
-# ret = R10
-sub SP, SP, 12
-stw R9, SP[0]
-stw R10, SP[4]
-stw R30, SP[8]
-ld R9, R1
-ld R1, GraphicsContext/class
-jsr /mallocObject(ClassDescriptor)
-ld R10, R8
-ldw R2, R9[24]
 ldw R3, R9[8]
+ld R4, 16
+jsr /drawRect(Int,Int,Int,Int,Int)
+ld R1, 0
+ld R2, 0
+ldw R3, R9[8]
+sub R3, R3, 1
+ld R4, 0
+ld R5, R10
+jsr /drawLine(Int,Int,Int,Int,Int)
+ld R1, 0
+ld R2, 0
+ld R3, 0
 ldw R4, R9[12]
-ld R1, R10
-jsr /GraphicsContext
-ld R1, 2
-stw R1, R10[12]
-ld R1, 16
-stw R1, R10[20]
-ldw R1, R9[8]
-sub R1, R1, 2
-stw R1, R10[16]
-ldw R1, R9[12]
-sub R1, R1, 2
-stw R1, R10[24]
-ld R1, R10
-jsr /GraphicsContext/ownBlitter()
-ld R8, R10
+sub R4, R4, 1
+ld R5, R10
+jsr /drawLine(Int,Int,Int,Int,Int)
+ld R1, R9
+jsr /setBlitDestWindow(Window)
 ldw R9, SP[0]
 ldw R10, SP[4]
 ldw R30, SP[8]
@@ -2849,86 +2847,110 @@ ret
 # newY = R3
 sub SP, SP, 4
 stw R30, SP[0]
-ld R4, 0
-blt R4, R2, .L4
+ldw R4, R1[0]
+beq R4, R2, .L4
 jmp .L3
 .L4:
-ld R4, 640
-blt R2, R4, .L2
+ldw R4, R1[4]
+beq R4, R3, .L2
 .L3:
 jmp .L1
 .L2:
-stw R2, R1[0]
+jmp .L0
 .L1:
-ld R2, 0
-blt R2, R3, .L8
+ld R4, 0
+blt R4, R2, .L8
 jmp .L7
 .L8:
-ld R2, 480
-blt R3, R2, .L6
+ld R4, 640
+blt R2, R4, .L6
 .L7:
 jmp .L5
 .L6:
-stw R3, R1[4]
+stw R2, R1[0]
 .L5:
-jsr /Window/updateLayer()
+ld R2, 0
+blt R2, R3, .L12
+jmp .L11
+.L12:
+ld R2, 480
+blt R3, R2, .L10
+.L11:
+jmp .L9
+.L10:
+stw R3, R1[4]
+.L9:
+jsr /Window/updateLayerHardware()
+.L0:
 ldw R30, SP[0]
 add SP, SP, 4
 ret
 
-/WindowManager/newWindow(Int,Int,Int,Int,String):
+/WindowManager/newWindow(String,Int,Int,Int,Int):
 # this = R9
 # x = R10
 # y = R11
-# width = R12
-# height = R13
-# title = R14
-# wdw = R15
-sub SP, SP, 32
-stw R9, SP[0]
-stw R10, SP[4]
-stw R11, SP[8]
-stw R12, SP[12]
-stw R13, SP[16]
-stw R14, SP[20]
-stw R15, SP[24]
-stw R30, SP[28]
+# wdw = R12
+# title = R13
+# width = R14
+# height = R15
+sub SP, SP, 48
+stw R9, SP[16]
+stw R10, SP[20]
+stw R11, SP[24]
+stw R12, SP[28]
+stw R13, SP[32]
+stw R14, SP[36]
+stw R15, SP[40]
+stw R30, SP[44]
 ld R9, R1
-ld R10, R2
-ld R11, R3
-ld R12, R4
-ld R13, R5
-ld R14, R6
+ld R13, R2
+ld R10, R3
+ld R11, R4
+ld R14, R5
+ld R15, R6
 ld R1, Window/class
 jsr /mallocObject(ClassDescriptor)
-ld R15, R8
+ld R12, R8
 ldw R1, R9[0]
 ldw R7, R1[0]
-ld R1, R15
+ld R1, R12
 ld R2, R10
 ld R3, R11
-ld R4, R12
-ld R5, R13
-ld R6, R14
+ld R4, R14
+ld R5, R15
+ld R6, R13
 jsr /Window
 ldw R1, R9[0]
-ld R2, R15
+ld R2, R12
 jsr /List/add(T)
-ld R1, R15
-jsr /Window/updateLayer()
+ld R1, 2
+stw R1, SP[0]
+stw R10, SP[4]
+stw R11, SP[8]
+ld R1, OBJ47
+add R2, SP, 4
+jsr /kprintf(String,Any...)
+ld R1, R12
+jsr /Window/updateLayerHardware()
 ld R1, R9
-ld R2, R15
+ld R2, R12
 jsr /WindowManager/setActiveWindow(Window?)
-ld R8, R15
-ldw R9, SP[0]
-ldw R10, SP[4]
-ldw R11, SP[8]
-ldw R12, SP[12]
-ldw R13, SP[16]
-ldw R14, SP[20]
-ldw R15, SP[24]
-ldw R30, SP[28]
-add SP, SP, 32
+ld R1, 0
+stw R1, SP[12]
+ld R1, OBJ48
+add R2, SP, 16
+jsr /kprintf(String,Any...)
+ld R8, R12
+ldw R9, SP[16]
+ldw R10, SP[20]
+ldw R11, SP[24]
+ldw R12, SP[28]
+ldw R13, SP[32]
+ldw R14, SP[36]
+ldw R15, SP[40]
+ldw R30, SP[44]
+add SP, SP, 48
 ret
 
 /WindowManager/getWindowAt(Int,Int):
@@ -3199,7 +3221,7 @@ ldw R1, R9[0]
 ld R2, R10
 jsr /List/get(Int)
 ld R1, R8
-jsr /Window/updateLayer()
+jsr /Window/updateLayerHardware()
 add R10, R10, 1
 .L7:
 blt R10, R11, .L4
@@ -3250,7 +3272,7 @@ ldw R1, R9[0]
 ld R2, R10
 jsr /List/get(Int)
 ld R1, R8
-jsr /Window/updateLayer()
+jsr /Window/updateLayerHardware()
 add R10, R10, 1
 .L7:
 blt R10, R11, .L4
@@ -3430,43 +3452,54 @@ ret
 
 /uartRxCommandWord():
 # ret = R8
-# b3 = R1
-# b0 = R2
-# b2 = R3
-# b1 = R4
-# timeout = R5
-# repeatCount = R6
-ld R5, 100000
-ld R2, -1
-ld R4, -1
-ld R3, -1
-ld R1, -1
-ld R5, 100000
-ld R6, 0
+# b3 = R9
+# b0 = R10
+# b2 = R11
+# b1 = R12
+# timeout = R13
+# repeatCount = R14
+sub SP, SP, 40
+stw R9, SP[12]
+stw R10, SP[16]
+stw R11, SP[20]
+stw R12, SP[24]
+stw R13, SP[28]
+stw R14, SP[32]
+stw R30, SP[36]
+ld R13, 100000
+ld R10, -1
+ld R12, -1
+ld R11, -1
+ld R9, -1
+ld R13, 100000
+ld R14, 0
+ld R1, 0
+stw R1, SP[0]
+ld R1, OBJ49
+add R2, SP, 4
+jsr /kprintf(String,Any...)
 jmp .L3
 .L1:
-ld R2, -1
-ld R5, 100000
+ld R10, -1
+ld R13, 100000
 jmp .L6
 .L4:
-ld R2, -536870912
-ldw R2, R2[20]
-sub R5, R5, 1
-ld R7, 0
-beq R5, R7, .L8
+ld R1, -536870912
+ldw R10, R1[20]
+ld R1, -1
+bne R10, R1, .L8
 jmp .L7
 .L8:
-ld R1, 6
-stw R1, R29[0]
-ld R8, 0
-jmp .L0
+ld R1, 1
+stw R1, SP[4]
+stw R10, SP[8]
+ld R1, OBJ50
+add R2, SP, 8
+jsr /kprintf(String,Any...)
 .L7:
-.L6:
-ld R7, -1
-beq R2, R7, .L4
-add R6, R6, 1
-ld R5, 100
-beq R6, R5, .L11
+sub R13, R13, 1
+ld R1, 0
+beq R13, R1, .L11
 jmp .L10
 .L11:
 ld R1, 6
@@ -3474,70 +3507,91 @@ stw R1, R29[0]
 ld R8, 0
 jmp .L0
 .L10:
-.L3:
-ld R5, 176
-bne R2, R5, .L1
-ld R5, 100000
-jmp .L15
+.L6:
+ld R1, -1
+beq R10, R1, .L4
+add R14, R14, 1
+ld R1, 100
+beq R14, R1, .L14
+jmp .L13
+.L14:
+ld R1, 6
+stw R1, R29[0]
+ld R8, 0
+jmp .L0
 .L13:
-ld R4, -536870912
-ldw R4, R4[20]
-sub R5, R5, 1
-ld R6, 0
-beq R5, R6, .L17
-jmp .L16
-.L17:
-ld R1, 6
-stw R1, R29[0]
-ld R8, 0
-jmp .L0
+.L3:
+ld R1, 176
+bne R10, R1, .L1
+ld R13, 100000
+jmp .L18
 .L16:
-.L15:
-ld R6, -1
-beq R4, R6, .L13
-ld R5, 100000
-jmp .L21
-.L19:
-ld R3, -536870912
-ldw R3, R3[20]
-sub R5, R5, 1
-ld R6, 0
-beq R5, R6, .L23
-jmp .L22
-.L23:
-ld R1, 6
-stw R1, R29[0]
-ld R8, 0
-jmp .L0
-.L22:
-.L21:
-ld R6, -1
-beq R3, R6, .L19
-ld R5, 100000
-jmp .L27
-.L25:
 ld R1, -536870912
-ldw R1, R1[20]
-sub R5, R5, 1
-ld R6, 0
-beq R5, R6, .L29
-jmp .L28
-.L29:
+ldw R12, R1[20]
+sub R13, R13, 1
+ld R1, 0
+beq R13, R1, .L20
+jmp .L19
+.L20:
 ld R1, 6
 stw R1, R29[0]
 ld R8, 0
 jmp .L0
+.L19:
+.L18:
+ld R1, -1
+beq R12, R1, .L16
+ld R13, 100000
+jmp .L24
+.L22:
+ld R1, -536870912
+ldw R11, R1[20]
+sub R13, R13, 1
+ld R1, 0
+beq R13, R1, .L26
+jmp .L25
+.L26:
+ld R1, 6
+stw R1, R29[0]
+ld R8, 0
+jmp .L0
+.L25:
+.L24:
+ld R1, -1
+beq R11, R1, .L22
+ld R13, 100000
+jmp .L30
 .L28:
-.L27:
-ld R6, -1
-beq R1, R6, .L25
-lsl R4, R4, 8
-or R2, R2, R4
-lsl R3, R3, 16
-or R2, R2, R3
-lsl R1, R1, 24
-or R8, R2, R1
+ld R1, -536870912
+ldw R9, R1[20]
+sub R13, R13, 1
+ld R1, 0
+beq R13, R1, .L32
+jmp .L31
+.L32:
+ld R1, 6
+stw R1, R29[0]
+ld R8, 0
+jmp .L0
+.L31:
+.L30:
+ld R1, -1
+beq R9, R1, .L28
+lsl R1, R12, 8
+or R1, R10, R1
+lsl R2, R11, 16
+or R1, R1, R2
+lsl R2, R9, 24
+or R8, R1, R2
 .L0:
+ldw R9, SP[12]
+ldw R10, SP[16]
+ldw R11, SP[20]
+ldw R12, SP[24]
+ldw R13, SP[28]
+ldw R14, SP[32]
+ldw R30, SP[36]
+add SP, SP, 40
 ret
 
 /rxPacket():
@@ -3558,7 +3612,7 @@ stw R30, SP[64]
 ld R1, 0
 stw R1, R29[0]
 jsr /uartRxCommandWord()
-stw R8, R29[32]
+stw R8, R29[52]
 ldw R1, R29[0]
 ld R2, 0
 bne R1, R2, .L2
@@ -3566,7 +3620,7 @@ jmp .L1
 .L2:
 ld R1, 0
 stw R1, SP[0]
-ld R1, OBJ45
+ld R1, OBJ51
 add R2, SP, 4
 jsr /kprintf(String,Any...)
 ld R8, 0
@@ -3581,7 +3635,7 @@ jmp .L4
 .L5:
 ld R1, 0
 stw R1, SP[4]
-ld R1, OBJ46
+ld R1, OBJ52
 add R2, SP, 8
 jsr /kprintf(String,Any...)
 ld R8, 0
@@ -3605,7 +3659,7 @@ jmp .L11
 ld R1, 1
 stw R1, SP[8]
 stw R13, SP[12]
-ld R1, OBJ47
+ld R1, OBJ53
 add R2, SP, 12
 jsr /kprintf(String,Any...)
 ld R8, 0
@@ -3627,7 +3681,7 @@ jmp .L14
 .L15:
 ld R1, 0
 stw R1, SP[16]
-ld R1, OBJ48
+ld R1, OBJ54
 add R2, SP, 20
 jsr /kprintf(String,Any...)
 ld R8, 0
@@ -3640,7 +3694,7 @@ ld R1, 2
 stw R1, SP[20]
 stw R11, SP[24]
 stw R8, SP[28]
-ld R1, OBJ49
+ld R1, OBJ55
 add R2, SP, 24
 jsr /kprintf(String,Any...)
 ld R1, 7
@@ -3652,7 +3706,7 @@ ld R1, 2
 stw R1, SP[32]
 stw R9, SP[36]
 stw R10, SP[40]
-ld R1, OBJ50
+ld R1, OBJ56
 add R2, SP, 36
 jsr /kprintf(String,Any...)
 ld R8, R10
@@ -3797,22 +3851,22 @@ jmp .L1
 .L2:
 ld R1, 0
 stw R1, SP[0]
-ld R1, OBJ51
+ld R1, OBJ57
 add R2, SP, 4
 jsr /kprintf(String,Any...)
 ld R8, 0
 jmp .L0
 .L1:
-ldw R1, R29[32]
+ldw R1, R29[52]
 ld R2, 131760
 bne R1, R2, .L5
 jmp .L4
 .L5:
 ld R1, 1
 stw R1, SP[4]
-ldw R1, R29[32]
+ldw R1, R29[52]
 stw R1, SP[8]
-ld R1, OBJ52
+ld R1, OBJ58
 add R2, SP, 8
 jsr /kprintf(String,Any...)
 ld R1, 8
@@ -3865,31 +3919,46 @@ ret
 ret
 
 /TaskControlBlock:
-# this = R1
-# V36 = R3
-# V42 = R3
-ld R2, 0
-stw R2, R1[0]
-add R3, R1, 4
-add R2, R3, 128
+# this = R9
+# V36 = R2
+# V42 = R2
+sub SP, SP, 12
+stw R9, SP[0]
+stw R10, SP[4]
+stw R30, SP[8]
+ld R9, R1
+ld R1, 0
+stw R1, R9[0]
+add R2, R9, 4
+add R1, R2, 128
 .L1:
-stw 0, R3[0]
-add R3, R3, 4
-blt R3, R2, .L1
-ld R2, 0
-stw R2, R1[132]
-add R3, R1, 136
-add R2, R3, 32
+stw 0, R2[0]
+add R2, R2, 4
+blt R2, R1, .L1
+ld R1, 0
+stw R1, R9[132]
+add R2, R9, 136
+add R1, R2, 32
 .L2:
-stw 0, R3[0]
-add R3, R3, 4
-blt R3, R2, .L2
-ld R2, 1
-stw R2, R1[172]
-ld R2, 0
-stw R2, R1[176]
-ld R2, 0
-stw R2, R1[180]
+stw 0, R2[0]
+add R2, R2, 4
+blt R2, R1, .L2
+ld R1, 1
+stw R1, R9[172]
+ld R1, 0
+stw R1, R9[176]
+ld R1, 0
+stw R1, R9[180]
+ld R1, List/class
+jsr /mallocObject(ClassDescriptor)
+ld R10, R8
+ld R1, R10
+jsr /List
+stw R10, R9[192]
+ldw R9, SP[0]
+ldw R10, SP[4]
+ldw R30, SP[8]
+add SP, SP, 12
 ret
 
 /Message:
@@ -3912,36 +3981,38 @@ ret
 # this = R1
 ret
 
-/VgaLayer:
-# this = R1
-ret
-
-/GraphicsContext:
+/Font:
 # this = R1
 # bitmap = R2
 # width = R3
 # height = R4
+# currentFont = R1
+# blitDestWindow = R1
+# blitSrcWindow = R1
+# blitFont = R1
 stw R2, R1[0]
 stw R3, R1[4]
 stw R4, R1[8]
+ret
+
+/GfxCommandBlock:
+# this = R1
+# task = R2
+# destWindow = R3
+# commands = R4
+# size = R5
+stw R2, R1[0]
+stw R3, R1[4]
+stw R4, R1[8]
+stw R5, R1[12]
 ld R2, 0
-stw R2, R1[12]
-stw R3, R1[16]
+stw R2, R1[16]
 ld R2, 0
 stw R2, R1[20]
-stw R4, R1[24]
-ld R2, 255
-stw R2, R1[28]
-ld R2, 0
-stw R2, R1[32]
-ld R2, 256
-stw R2, R1[36]
-ld R2, -268435456
-stw R2, R1[40]
-ld R2, 8
-stw R2, R1[44]
-ld R2, 12
-stw R2, R1[48]
+ret
+
+/VgaLayerHardware:
+# this = R1
 ret
 
 /Window:
@@ -3952,12 +4023,11 @@ ret
 # this = R9
 # width = R10
 # height = R11
-sub SP, SP, 20
+sub SP, SP, 16
 stw R9, SP[0]
 stw R10, SP[4]
 stw R11, SP[8]
-stw R12, SP[12]
-stw R30, SP[16]
+stw R30, SP[12]
 ld R9, R1
 ld R10, R4
 ld R11, R5
@@ -3968,26 +4038,22 @@ stw R11, R9[12]
 stw R6, R9[16]
 stw R7, R9[20]
 mul R1, R10, R11
-divs R1, R1, 4
-ld R2, 4
-ld R3, 1
-jsr /mallocArray(Int,Int,Bool)
-stw R8, R9[24]
-ld R1, GraphicsContext/class
-jsr /mallocObject(ClassDescriptor)
-ld R12, R8
-ldw R2, R9[24]
-ld R1, R12
-ld R3, R10
-ld R4, R11
-jsr /GraphicsContext
-stw R12, R9[28]
+jsr /allocateBlock(Int)
+ld R1, -4096
+and R1, R8, R1
+stw R1, R9[24]
+ld R1, 1048578
+stw R1, R9[28]
+sub R1, R11, 2
+lsl R1, R1, 16
+sub R2, R10, 2
+or R1, R1, R2
+stw R1, R9[32]
 ldw R9, SP[0]
 ldw R10, SP[4]
 ldw R11, SP[8]
-ldw R12, SP[12]
-ldw R30, SP[16]
-add SP, SP, 20
+ldw R30, SP[12]
+add SP, SP, 16
 ret
 
 /WindowManager:
@@ -4021,55 +4087,59 @@ ret
 
 List/class:
 dcw 8
-dcw OBJ53
+dcw OBJ59
 
 HwRegs/class:
 dcw 76
-dcw OBJ54
+dcw OBJ60
 
 FreeMemBlock/class:
 dcw 8
-dcw OBJ55
+dcw OBJ61
 
 ArrayMemBlock/class:
 dcw 8
-dcw OBJ56
+dcw OBJ62
 
 ObjectMemBlock/class:
 dcw 8
-dcw OBJ57
+dcw OBJ63
 
 ClassDescriptor/class:
 dcw 8
-dcw OBJ58
+dcw OBJ64
 
 TaskControlBlock/class:
-dcw 184
-dcw OBJ59
+dcw 196
+dcw OBJ65
 
 Message/class:
 dcw 24
-dcw OBJ60
+dcw OBJ66
 
 Blitter/class:
+dcw 16
+dcw OBJ67
+
+Font/class:
 dcw 12
-dcw OBJ61
+dcw OBJ68
 
-VgaLayer/class:
+GfxCommandBlock/class:
+dcw 24
+dcw OBJ69
+
+VgaLayerHardware/class:
 dcw 28
-dcw OBJ62
-
-GraphicsContext/class:
-dcw 52
-dcw OBJ63
+dcw OBJ70
 
 Window/class:
-dcw 32
-dcw OBJ64
+dcw 36
+dcw OBJ71
 
 WindowManager/class:
 dcw 24
-dcw OBJ65
+dcw OBJ72
 
 dcw 17
 OBJ0: # KERNEL PANIC: %s
@@ -4230,39 +4300,39 @@ dcw 1953653108
 dcw 543649385
 dcw 684149
 
+dcw 21
+OBJ20: # windowManager = %08x
+dcw 1684957559
+dcw 1632466799
+dcw 1701273966
+dcw 540876914
+dcw 2016948261
+dcw 10
+
+dcw 8
+OBJ21: # MyWindow
+dcw 1767340365
+dcw 2003788910
+
 dcw 16
-OBJ20: # Allocating task
+OBJ22: # Allocating task
 dcw 1869376577
 dcw 1769234787
 dcw 1948280686
 dcw 174814049
 
 dcw 15
-OBJ21: # myFirstTask.exe
+OBJ23: # myFirstTask.exe
 dcw 1766226285
 dcw 1416917874
 dcw 778793825
 dcw 6649957
 
 dcw 11
-OBJ22: # MyFirstTask
+OBJ24: # MyFirstTask
 dcw 1766226253
 dcw 1416917874
 dcw 7041889
-
-dcw 16
-OBJ23: # mySecondTask.exe
-dcw 1699969389
-dcw 1684959075
-dcw 1802723668
-dcw 1702389038
-
-dcw 14
-OBJ24: # My Second Task
-dcw 1394637133
-dcw 1852793701
-dcw 1632903268
-dcw 27507
 
 dcw 16
 OBJ25: # No tasks to run
@@ -4296,8 +4366,24 @@ dcw 1952542313
 dcw 540697701
 dcw 684837
 
-dcw 24
+dcw 51
 OBJ28: # Exception in kernel 
+dcw 1701017669
+dcw 1869182064
+dcw 1852383342
+dcw 1919249184
+dcw 543974766
+dcw 1701080931
+dcw 1027821600
+dcw 2016948261
+dcw 1969308448
+dcw 624780659
+dcw 1631854712
+dcw 624779636
+dcw 7878704
+
+dcw 24
+OBJ29: # Exception in kernel 
 dcw 1701017669
 dcw 1869182064
 dcw 1852383342
@@ -4306,7 +4392,7 @@ dcw 543974766
 dcw 1701080931
 
 dcw 28
-OBJ29: # Task %s exited with 
+OBJ30: # Task %s exited with 
 dcw 1802723668
 dcw 544417056
 dcw 1953069157
@@ -4316,13 +4402,13 @@ dcw 1701080931
 dcw 174335264
 
 dcw 9
-OBJ30: # Completed
+OBJ31: # Completed
 dcw 1886220099
 dcw 1702126956
 dcw 100
 
 dcw 24
-OBJ31: # Memory allocation fa
+OBJ32: # Memory allocation fa
 dcw 1869440333
 dcw 1629518194
 dcw 1668246636
@@ -4331,7 +4417,7 @@ dcw 1634082926
 dcw 1684368489
 
 dcw 35
-OBJ32: # Allocated block %08x
+OBJ33: # Allocated block %08x
 dcw 1869376577
 dcw 1702125923
 dcw 1818370148
@@ -4343,7 +4429,7 @@ dcw 807739499
 dcw 686136
 
 dcw 38
-OBJ33: # Not yet implemented:
+OBJ34: # Not yet implemented:
 dcw 544501582
 dcw 544499065
 dcw 1819307369
@@ -4356,7 +4442,7 @@ dcw 1162698565
 dcw 2637
 
 dcw 18
-OBJ34: # Task %s not found
+OBJ35: # Task %s not found
 dcw 1802723668
 dcw 544417056
 dcw 544501614
@@ -4364,7 +4450,7 @@ dcw 1853189990
 dcw 2660
 
 dcw 19
-OBJ35: # Unknown system call
+OBJ36: # Unknown system call
 dcw 1852534357
 dcw 544110447
 dcw 1953724787
@@ -4372,7 +4458,7 @@ dcw 1663069541
 dcw 7105633
 
 dcw 24
-OBJ36: # Instruction Access f
+OBJ37: # Instruction Access f
 dcw 1953721929
 dcw 1952675186
 dcw 544108393
@@ -4381,7 +4467,7 @@ dcw 1713402739
 dcw 1953264993
 
 dcw 19
-OBJ37: # Illegal Instruction
+OBJ38: # Illegal Instruction
 dcw 1701604425
 dcw 543973735
 dcw 1953721929
@@ -4389,13 +4475,13 @@ dcw 1952675186
 dcw 7237481
 
 dcw 10
-OBJ38: # Breakpoint
+OBJ39: # Breakpoint
 dcw 1634038338
 dcw 1768910955
 dcw 29806
 
 dcw 23
-OBJ39: # Load Address Misalig
+OBJ40: # Load Address Misalig
 dcw 1684107084
 dcw 1684291872
 dcw 1936942450
@@ -4404,7 +4490,7 @@ dcw 1734962273
 dcw 6579566
 
 dcw 18
-OBJ40: # Load Address Fault
+OBJ41: # Load Address Fault
 dcw 1684107084
 dcw 1684291872
 dcw 1936942450
@@ -4412,7 +4498,7 @@ dcw 1969309216
 dcw 29804
 
 dcw 24
-OBJ41: # Store Address Misali
+OBJ42: # Store Address Misali
 dcw 1919906899
 dcw 1681989733
 dcw 1936028260
@@ -4421,7 +4507,7 @@ dcw 1768710515
 dcw 1684368999
 
 dcw 19
-OBJ42: # Store Address Fault
+OBJ43: # Store Address Fault
 dcw 1919906899
 dcw 1681989733
 dcw 1936028260
@@ -4429,22 +4515,69 @@ dcw 1631985779
 dcw 7629941
 
 dcw 14
-OBJ43: # Index Overflow
+OBJ44: # Index Overflow
 dcw 1701080649
 dcw 1984897144
 dcw 1818653285
 dcw 30575
 
 dcw 17
-OBJ44: # Unknown exception
+OBJ45: # Unknown exception
 dcw 1852534357
 dcw 544110447
 dcw 1701017701
 dcw 1869182064
 dcw 110
 
+dcw 47
+OBJ46: # Updating layer hardw
+dcw 1633972309
+dcw 1735289204
+dcw 2036427808
+dcw 1746956901
+dcw 2003071585
+dcw 543519329
+dcw 1948279845
+dcw 807739503
+dcw 622884920
+dcw 1680157796
+dcw 744760608
+dcw 680997
+
+dcw 20
+OBJ47: # New window at %d,%d
+dcw 544695630
+dcw 1684957559
+dcw 1629517679
+dcw 1680154740
+dcw 174335276
+
+dcw 17
+OBJ48: # Activated window
+dcw 1769235265
+dcw 1702125942
+dcw 1769414756
+dcw 2003788910
+dcw 10
+
+dcw 25
+OBJ49: # Waiting for command 
+dcw 1953063255
+dcw 543649385
+dcw 544370534
+dcw 1835888483
+dcw 543452769
+dcw 1685221239
+dcw 10
+
+dcw 12
+OBJ50: # Got byte %x
+dcw 544501575
+dcw 1702132066
+dcw 175645984
+
 dcw 23
-OBJ45: # failed to read comma
+OBJ51: # failed to read comma
 dcw 1818845542
 dcw 1948279909
 dcw 1701978223
@@ -4453,7 +4586,7 @@ dcw 1634561391
 dcw 681070
 
 dcw 22
-OBJ46: # Failed to read lengt
+OBJ52: # Failed to read lengt
 dcw 1818845510
 dcw 1948279909
 dcw 1701978223
@@ -4462,7 +4595,7 @@ dcw 1952935525
 dcw 2664
 
 dcw 23
-OBJ47: # Failed to read data 
+OBJ53: # Failed to read data 
 dcw 1818845510
 dcw 1948279909
 dcw 1701978223
@@ -4471,7 +4604,7 @@ dcw 543257697
 dcw 680997
 
 dcw 19
-OBJ48: # Failed to read crc
+OBJ54: # Failed to read crc
 dcw 1818845510
 dcw 1948279909
 dcw 1701978223
@@ -4479,7 +4612,7 @@ dcw 1663067233
 dcw 680818
 
 dcw 27
-OBJ49: # CRC mismatch calc=%x
+OBJ55: # CRC mismatch calc=%x
 dcw 541282883
 dcw 1836280173
 dcw 1751348321
@@ -4489,7 +4622,7 @@ dcw 1031303712
 dcw 686117
 
 dcw 30
-OBJ50: # Read %d words at add
+OBJ56: # Read %d words at add
 dcw 1684104530
 dcw 543434016
 dcw 1685221239
@@ -4500,14 +4633,14 @@ dcw 942679328
 dcw 2680
 
 dcw 16
-OBJ51: # Packet not read
+OBJ57: # Packet not read
 dcw 1801675088
 dcw 1847620709
 dcw 1914729583
 dcw 174350693
 
 dcw 29
-OBJ52: # Expected RESP_DATA, 
+OBJ58: # Expected RESP_DATA, 
 dcw 1701869637
 dcw 1684370531
 dcw 1397051936
@@ -4518,77 +4651,83 @@ dcw 2016948261
 dcw 10
 
 dcw 4
-OBJ53: # List
+OBJ59: # List
 dcw 1953720652
 
 dcw 6
-OBJ54: # HwRegs
+OBJ60: # HwRegs
 dcw 1699903304
 dcw 29543
 
 dcw 12
-OBJ55: # FreeMemBlock
+OBJ61: # FreeMemBlock
 dcw 1701147206
 dcw 1114465613
 dcw 1801678700
 
 dcw 13
-OBJ56: # ArrayMemBlock
+OBJ62: # ArrayMemBlock
 dcw 1634890305
 dcw 1835355513
 dcw 1668246594
 dcw 107
 
 dcw 14
-OBJ57: # ObjectMemBlock
+OBJ63: # ObjectMemBlock
 dcw 1701470799
 dcw 1699574883
 dcw 1869365869
 dcw 27491
 
 dcw 15
-OBJ58: # ClassDescriptor
+OBJ64: # ClassDescriptor
 dcw 1935764547
 dcw 1936016499
 dcw 1885958755
 dcw 7499636
 
 dcw 16
-OBJ59: # TaskControlBlock
+OBJ65: # TaskControlBlock
 dcw 1802723668
 dcw 1953394499
 dcw 1114402674
 dcw 1801678700
 
 dcw 7
-OBJ60: # Message
+OBJ66: # Message
 dcw 1936942413
 dcw 6645601
 
 dcw 7
-OBJ61: # Blitter
+OBJ67: # Blitter
 dcw 1953066050
 dcw 7497076
 
-dcw 8
-OBJ62: # VgaLayer
-dcw 1281451862
-dcw 1919252833
+dcw 4
+OBJ68: # Font
+dcw 1953394502
 
 dcw 15
-OBJ63: # GraphicsContext
-dcw 1885434439
-dcw 1935894888
-dcw 1953394499
-dcw 7632997
+OBJ69: # GfxCommandBlock
+dcw 1131963975
+dcw 1634561391
+dcw 1816290414
+dcw 7037807
+
+dcw 16
+OBJ70: # VgaLayerHardware
+dcw 1281451862
+dcw 1919252833
+dcw 1685217608
+dcw 1701994871
 
 dcw 6
-OBJ64: # Window
+OBJ71: # Window
 dcw 1684957527
 dcw 30575
 
 dcw 13
-OBJ65: # WindowManager
+OBJ72: # WindowManager
 dcw 1684957527
 dcw 1632466799
 dcw 1701273966

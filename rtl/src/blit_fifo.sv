@@ -3,16 +3,16 @@
 module blit_fifo(
     input  logic clock,
     input  logic reset,
-    input  logic [95:0] cmd_in,
+    input  logic [127:0] cmd_in,
     input  logic        cmd_in_valid,
-    output logic [95:0] cmd_out,
+    output logic [127:0] cmd_out,
     output logic        cmd_out_valid,
     output logic [7:0]  fifo_slots_free,
     output logic        fifo_overflow,
     input  logic        next_cmd
 );
 
-logic [95:0] ram[0:255];
+logic [127:0] ram[0:255];
 logic [7:0] read_ptr;
 logic [7:0] write_ptr;
 

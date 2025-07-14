@@ -20,6 +20,7 @@ var lastSwitchTime : Int
 var taskYielded : Bool
 const TIME_SLICE = 1000000
 
+var windowManager : WindowManager
 
 class TaskControlBlock()
     var pc = 0
@@ -30,6 +31,9 @@ class TaskControlBlock()
     var runState = TaskStatus.READY
     var firstMessage : Message? = null
     var lastMessage : Message? = null
+    var blitDestWindow : Window?
+    var blitSrcWindow : Window?
+    val windows = new List<Window?>
 
     fun addMemoryBlock(block:Int)
         # Currently we only support max of 8 memory blocks
@@ -96,6 +100,10 @@ class TaskControlBlock()
                 lastMessage = null
         return msg
 
+    fun openWindow(name:String, x:Int, y:Int, width:Int, height:Int) -> Window
+        # Allocate a new window for this task
+        val w = windowManager.newWindow(name, x, y, width, height)
+
 
 
 # ==========================================================================
@@ -156,13 +164,19 @@ fun startup()
     taskYielded = false
     allTasks = new List<TaskControlBlock>()
     runningTasks = new List<TaskControlBlock>()
+    windowManager = new WindowManager()
+    kprintf("windowManager = %08x\n", windowManager)
+
+    val wdd = windowManager.newWindow("MyWindow", 0, 0, 320, 200)
+
 
     kprintf("Allocating task\n")
     val taskCode = readFileFromHost("myFirstTask.exe")
-    val task = createTask("MyFirstTask", taskCode)
+    if taskCode !=0
+        createTask("MyFirstTask", taskCode)
 
-    val task2Code = readFileFromHost("mySecondTask.exe")
-    val task2 = createTask("My Second Task", task2Code)
+    # val task2Code = readFileFromHost("mySecondTask.exe")
+    # val task2 = createTask("My Second Task", task2Code)
 
     scheduler()
 
@@ -171,6 +185,8 @@ fun startup()
 # ==========================================================================
 
 fun scheduler()
+    windowManager.checkForEvents()
+
     # Find the next task to run
     if runningTasks.size = 0
         kprintf("No tasks to run\n")

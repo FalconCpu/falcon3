@@ -29,7 +29,9 @@ enum SysCall[
 
 fun handle_exception(tcb:TaskControlBlock, cause:ExceptionCause, data:Int)
     # kprintf("Task %08x: Exception %x PC=%08x DATA=%x $1=%08x $2=%08x\n", tcb, cause, tcb.pc, data, tcb.regs[1], tcb.regs[2])
-    if (tcb as Int)=0 then panic("Exception in kernel code",ErrorCode.PROTOCOL_ERROR)
+    if (tcb as Int)=0 
+        kprintf("Exception in kernel code PC=%08x Cause=%x Data=%08x",tcb.pc, cause, data)
+        panic("Exception in kernel code", ErrorCode.KERNEL_PANIC)
     tcb.runState = TaskStatus.READY
     when cause
         ExceptionCause.SYSTEM_CALL ->
