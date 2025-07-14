@@ -265,6 +265,15 @@ fun TstExpr.codeGenRvalue() : Reg {
             val exprReg = expr.codeGenRvalue()
             currentFunc.addAlu(AluOp.XOR_I, exprReg, -1)
         }
+
+        is TstGetEnumData -> {
+            val index = expr.codeGenRvalue()
+            val enum = expr.type as TypeEnum
+            val array = currentFunc.addLea(enum.enumData[field.name]!!)
+            val shifted = currentFunc.addAlu(AluOp.SHL_I, index, 2)
+            val add = currentFunc.addAlu(AluOp.ADD_I, array, shifted)
+            currentFunc.addLoadMem(4, add, 0)
+        }
     }
 }
 

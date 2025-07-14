@@ -994,4 +994,41 @@ class CodeGenTest {
         runTest(prog, expected)
     }
 
+    @Test
+    fun enumEntriesTest() {
+        val prog = """
+            enum Color(name:String) [
+                RED("red"),
+                GREEN("green"),
+                BLUE("blue")]
+               
+            fun main()
+                val c = Color.RED
+                print(c.name,"\n")
+        """.trimIndent()
+
+        val expected = """
+            Function main()
+            start
+            ld T0, 0
+            ld c, T0
+            ld T1, ARRAY3
+            SHL_I T2, c, 2
+            ADD_I T3, T1, T2
+            ldw T4, T3[0]
+            ld R1, T4
+            jsr printString
+            ld T5, OBJ3
+            ld R1, T5
+            jsr printString
+            L0:
+            ret
+
+
+        """.trimIndent()
+
+        runTest(prog, expected)
+    }
+
+
 }

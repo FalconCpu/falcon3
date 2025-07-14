@@ -62,6 +62,31 @@ class ValueFunctionName(val value:SymbolFunction) : Value(-1, value.type) {
     }
 }
 
+class ValueArray private constructor (index:Int, type:Type, val values:List<Value>) : Value(index, type) {
+    override fun toString(): String = "ARRAY$index"
+
+    override fun emit(sb:StringBuilder) {
+        sb.append("ARRAY$index:\n")
+        for (c in values) {
+            sb.append("dcw $c\n")
+        }
+        sb.append("\n")
+    }
+
+    companion object {
+        val allArrays = mutableListOf<ValueArray>()
+        fun create(type:Type, values:List<Value>) : ValueArray {
+            val new = ValueArray(allArrays.size, type, values)
+            allArrays += new
+            allValues += new
+            return new
+        }
+    }
+
+}
+
+
+
 fun List<Value>.emit(sb: StringBuilder) {
     for(value in this)
         value.emit(sb)

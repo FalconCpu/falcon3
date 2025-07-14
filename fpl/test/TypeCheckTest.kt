@@ -892,4 +892,57 @@ class TypeCheckTest {
         runTest(prog, expected)
     }
 
+    @Test
+    fun enumEntriesTest() {
+        val prog = """
+            enum Color(name:String) [
+                RED("red"),
+                GREEN("green"),
+                BLUE("blue")]
+               
+            fun main()
+                val c = Color.RED
+                print(c.name,"\n")
+        """.trimIndent()
+
+        val expected = """
+            top
+              file: test
+                null-stmt
+                function: main()
+                  decl: VAR:c:Color
+                    int: 0 (Color)
+                  print
+                    get-enum-data name (String)
+                      var: c (Color)
+                    string: "
+            " (String)
+
+        """.trimIndent()
+
+        runTest(prog, expected)
+    }
+
+    @Test
+    fun enumEntriesBadTypeTest() {
+        val prog = """
+            enum Color(name:String) [
+                RED("red"),
+                GREEN("green"),
+                BLUE(3)]
+               
+            fun main()
+                print("Hello")
+        """.trimIndent()
+
+        val expected = """
+            test.fpl:4.10-4.10: Got type 'Int' when expecting 'String'
+        """.trimIndent()
+
+        runTest(prog, expected)
+    }
+
+
+
+
 }

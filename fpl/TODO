@@ -24,6 +24,7 @@ enums
 function overloading
 unsafe blocks
 errable types
+enums with data values
 
 
 Short term:
@@ -35,7 +36,7 @@ default arguments to functions
 fallthrough in function with return type should be error
 errable values as fields or func args
 try expressions
-enums with data values
+for over enum entries
 
 
 Longer term:

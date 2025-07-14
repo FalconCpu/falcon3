@@ -57,7 +57,7 @@ class AstConst(location: Location, val name:String, val typeExpr:AstTypeExpr?, v
 { var alreadyProcessed = false }
 class AstPrint(location: Location, val exprs: List<AstExpr>) : AstStmt(location)
 class AstFree(location: Location, val expr: AstExpr) : AstStmt(location)
-class AstEnum(location: Location, val name:String, val values: List<AstId>) : AstStmt(location) {
+class AstEnum(location: Location, val name:String, val params:AstParameterList, val entries: List<AstEnumEntry>) : AstStmt(location) {
     val enumType = TypeEnum(name)
 }
 
@@ -100,6 +100,7 @@ class AstTop(location: Location, body:List<AstStmt>) : AstBlock(location, body)
 class AstParameter(location: Location, val kind:TokenKind, val name: String, val type: AstTypeExpr) : Ast(location)
 class AstParameterList(val params:List<AstParameter>, val isVararg:Boolean)
 class AstTypeParameter(val location: Location, val name:String)
+class AstEnumEntry(location: Location, val name:String, val args:List<AstExpr>) : Ast(location)
 
 
 // ================================================
@@ -359,8 +360,14 @@ fun Ast.prettyPrint(sb: StringBuilder, indent:Int) {
 
         is AstEnum -> {
             sb.append("Enum $name\n")
-            for (field in values)
+            for (field in entries)
                 field.prettyPrint(sb, indent+1)
+        }
+
+        is AstEnumEntry -> {
+            sb.append("EnumEntry $name\n")
+            for(arg in args)
+                arg.prettyPrint(sb, indent+1)
         }
 
         is AstBitwiseNot -> {

@@ -1,4 +1,5 @@
 import TokenKind.*
+import kotlin.enums.EnumEntries
 
 class Parser(val lexer: Lexer) {
     private var currentToken = lexer.nextToken()
@@ -469,6 +470,21 @@ class Parser(val lexer: Lexer) {
         return AstParameterList(ret,varargs)
     }
 
+    private fun parseEnumParamList() : AstParameterList {
+        val ret = mutableListOf<AstParameter>()
+        if (currentToken.kind != OPENB)
+            return AstParameterList(ret,false)
+        match(OPENB)
+        if (canTake(CLOSEB))
+            return AstParameterList(ret,false)
+        do {
+            ret.add(parseParam(false))
+        } while (canTake(COMMA))
+        match(CLOSEB)
+        return AstParameterList(ret,false)
+    }
+
+
     private fun checkEnd(kind:TokenKind) {
         // End statements are optional - they can be infered from indentation. But if they are present,
         // they must be correct.
@@ -646,17 +662,20 @@ class Parser(val lexer: Lexer) {
     }
 
     private fun parseEnum(): AstEnum {
-        val values = mutableListOf<AstId>()
+        val values = mutableListOf<AstEnumEntry>()
         match(ENUM)
         val name = match(ID)
+        val params = parseEnumParamList()
         match(OPENSQ)
         do {
             val id = match(ID)
-            values.add(AstId(id.location, id.text))
+            val arg = if (currentToken.kind==OPENB) parseExpressionList() else emptyList()
+            val entry = AstEnumEntry(id.location, id.text, arg)
+            values.add(entry)
         } while (canTake(COMMA))
         match(CLOSESQ)
         expectEol()
-        return AstEnum(name.location, name.text, values)
+        return AstEnum(name.location, name.text, params,values)
     }
 
     private fun parseStatement() : AstStmt {

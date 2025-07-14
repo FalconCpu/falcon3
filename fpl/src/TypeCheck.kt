@@ -1,6 +1,3 @@
-import javax.lang.model.type.ErrorType
-import javax.lang.model.type.NullType
-
 // Type checking phase of the compiler. This phase takes the AST built in the parser phase and
 // converts it to a TypeChecked AST (Tst).
 
@@ -319,6 +316,15 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
                     }
                 }
 
+                is TypeEnum -> {
+                    val field = tcExpr.type.parameters.find{it.name==name}
+                    if (field==null)
+                        TstError(location, "Enum ${tcExpr.type} does not have a field named '$name'")
+                    else
+                        TstGetEnumData(location, tcExpr, field)
+                }
+
+
                 is TypeNullable -> TstError(location, "Cannot access '$name' as expression may be null")
 
                 is TypeErrable -> TstError(location, "Cannot access '$name' as expression may be error")
@@ -452,6 +458,7 @@ private fun SymbolConstant.toExpression(location:Location): TstExpr {
         is ValueInt -> TstIntLit(location, value.value, type)
         is ValueString -> TstStringlit(location, value.value, type)
         is ValueFunctionName -> TstFunctionName(location, value.value, type )
+        is ValueArray -> TODO()
     }
 }
 
@@ -1247,12 +1254,30 @@ private fun AstEnum.createEnumSymbol(context: AstBlock) {
 }
 
 private fun AstEnum.createFieldSymbols(context: AstBlock) {
+    // Identify the parameters of the enum
+    enumType.parameters = params.createSymbols(context)
+
+    val data = enumType.parameters.associateWith { mutableListOf<Value>() }
+
     // Create a symbol for each enum value
-    for ((index,name) in values.withIndex()) {
+    for ((index,name) in this.entries.withIndex()) {
         val value = ValueInt(index, enumType)
+        if (name.args.size != enumType.parameters.size)
+            Log.error(location, "Enum value '$name' has got ${name.args.size} parameters, but expected ${enumType.parameters.size}")
+        else {
+            for (argIndex in enumType.parameters.indices) {
+                val tcArg = name.args[argIndex].typeCheckRvalue(context).checkType(enumType.parameters[argIndex].type)
+                if (!tcArg.isCompileTimeConstant())
+                    Log.error(name.args[argIndex].location, "Enum value parameter is not a compile-time constant")
+                else
+                    data[enumType.parameters[argIndex]] ?.add(tcArg.getValue())
+            }
+        }
+
         val symbol = SymbolConstant(location, name.name, enumType, value)
         enumType.addSymbol(symbol)
     }
+    enumType.enumData = data.entries.associate { (sym,values) -> sym.name to ValueArray.create(sym.type, values) }
 }
 
 

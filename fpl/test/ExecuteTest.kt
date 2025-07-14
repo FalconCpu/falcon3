@@ -865,4 +865,26 @@ class ExecuteTest {
         runTest(prog, expected)
     }
 
+    @Test
+    fun enumEntriesTest() {
+        val prog = """
+            enum Color(name:String) [
+                RED("red"),
+                GREEN("green"),
+                BLUE("blue")]
+               
+            fun main()
+                val c = Color.RED
+                print(c.name,"\n")
+        """.trimIndent()
+
+        val expected = """
+            red
+
+        """.trimIndent()
+
+        runTest(prog, expected)
+    }
+
+
 }

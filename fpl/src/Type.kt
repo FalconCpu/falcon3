@@ -95,7 +95,9 @@ class TypeFunction private constructor(name:String, val parameters: List<Type>, 
 lateinit var errorEnum : TypeEnum
 
 class TypeEnum(name:String) : Type(name) {
+    lateinit var parameters : List<Symbol>
     val symbols = mutableMapOf<String, Symbol>()
+    lateinit var enumData : Map<String,ValueArray>
     init {
         if (name=="Error")
             errorEnum = this

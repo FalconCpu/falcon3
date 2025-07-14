@@ -44,6 +44,7 @@ class TstSetCall(location: Location, val func: Function, val args: List<TstExpr>
 class TstIsExpr(location:Location, val expr:TstExpr, val isType:Type) : TstExpr(location, TypeBool)
 class TstMakeUnion(location:Location, val expr:TstExpr, type:Type) : TstExpr(location, type)
 class TstExtractUnion(location: Location, val expr:TstExpr, type:Type) : TstExpr(location, type)
+class TstGetEnumData(location: Location, val expr:TstExpr, val field:Symbol) : TstExpr(location, field.type)
 
 class TstError(location: Location, val message: String = "") : TstExpr(location, TypeError) {
     init {
@@ -375,6 +376,11 @@ fun Tst.prettyPrint(sb: StringBuilder, indent:Int) {
             for(stmt in body)
                 stmt.prettyPrint(sb, indent+1)
         }
+
+        is TstGetEnumData -> {
+            sb.append("get-enum-data $field ($type)\n")
+            expr.prettyPrint(sb, indent+1)
+        }
     }
 }
 
@@ -391,6 +397,7 @@ fun TstExpr.getValue() : Value = when(this) {
     is TstStringlit -> ValueString.create(value, type)
     is TstCast -> expr.getValue()
     is TstReallit -> TODO()
+    is TstError -> ValueInt(0, type)
     else -> error("Invalid type in AstConst $this")
 }
 
