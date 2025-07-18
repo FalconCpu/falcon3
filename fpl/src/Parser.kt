@@ -1,5 +1,4 @@
 import TokenKind.*
-import kotlin.enums.EnumEntries
 
 class Parser(val lexer: Lexer) {
     private var currentToken = lexer.nextToken()
@@ -199,6 +198,10 @@ class Parser(val lexer: Lexer) {
             TILDE -> {
                 val tok = match(TILDE)
                 AstBitwiseNot(tok.location, parsePostfixExpression())
+            }
+            TRY -> {
+                val tok = match(TRY)
+                AstTry(tok.location, parsePrefixExpression())
             }
             else ->
                 parsePostfixExpression()
@@ -617,7 +620,7 @@ class Parser(val lexer: Lexer) {
     }
 
     private fun parseFor() : AstFor {
-        val loc = match(FOR).location
+        match(FOR).location
         val name = match(ID)
         match(IN)
         val expr = parseExpression()

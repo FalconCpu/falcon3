@@ -25,6 +25,8 @@ function overloading
 unsafe blocks
 errable types
 enums with data values
+try expressions
+fallthrough in function with return type should be error
 
 
 Short term:
@@ -33,9 +35,7 @@ public/private
 static class fields
 static methods
 default arguments to functions
-fallthrough in function with return type should be error
 errable values as fields or func args
-try expressions
 for over enum entries
 
 

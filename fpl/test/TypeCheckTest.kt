@@ -943,6 +943,139 @@ class TypeCheckTest {
     }
 
 
+    @Test
+    fun tryTest() {
+        val prog = """
+            enum Error(name:String) [
+                ERROR_1("error 1"),
+                ERROR_2("error 2"),
+                ERROR_3("error 3")]
+
+            fun doSomething(a:Int) -> Int!
+                if a = 1
+                    return Error.ERROR_1
+                else if a = 2
+                    return Error.ERROR_2
+                else
+                    return a
+                    
+            fun doSomething2(a:Int) -> Int!
+                val x = try doSomething(a)
+                return x+1
+                
+            fun main()
+                val x = doSomething2(1)
+                if x is Error
+                    print("Error ",x.name,"\n")
+                else
+                    print("Value ",x,"\n")
+        """.trimIndent()
+
+        val expected = """
+            top
+              file: test
+                null-stmt
+                function: doSomething(Int)
+                  if
+                    if-clause
+                      EQ_I (Bool)
+                        var: a (Int)
+                        int: 1 (Int)
+                      expr-stmt
+                        return (Nothing)
+                          mkunion (Int!)
+                            int: 0 (Error)
+                    if-clause
+                      if
+                        if-clause
+                          EQ_I (Bool)
+                            var: a (Int)
+                            int: 2 (Int)
+                          expr-stmt
+                            return (Nothing)
+                              mkunion (Int!)
+                                int: 1 (Error)
+                        if-clause
+                          expr-stmt
+                            return (Nothing)
+                              mkunion (Int!)
+                                var: a (Int)
+                function: doSomething2(Int)
+                  decl: VAR:x:Int
+                    try (Int)
+                      call doSomething(Int)
+                        var: a (Int)
+                  expr-stmt
+                    return (Nothing)
+                      mkunion (Int!)
+                        ADD_I (Int)
+                          var: x (Int)
+                          int: 1 (Int)
+                function: main()
+                  decl: VAR:x:Int!
+                    call doSomething2(Int)
+                      int: 1 (Int)
+                  if
+                    if-clause
+                      isExpr Error (Bool)
+                        var: x (Int!)
+                      print
+                        string: "Error " (String)
+                        get-enum-data name (String)
+                          extractUnion (Error)
+                            var: x (Int!)
+                        string: "
+            " (String)
+                    if-clause
+                      print
+                        string: "Value " (String)
+                        extractUnion (Int)
+                          var: x (Int!)
+                        string: "
+            " (String)
+
+        """.trimIndent()
+
+        runTest(prog, expected)
+    }
+
+    @Test
+    fun funcNoReturn() {
+        val prog = """
+            fun doSomething(a:Int) -> Int
+                val b = a + 1  
+                # Error as we don't return anything
+        """.trimIndent()
+
+        val expected = """
+            test.fpl:1.5-1.15: Function should return a value of type 'Int'
+        """.trimIndent()
+
+        runTest(prog, expected)
+    }
+
+    @Test
+    fun inheritanceTest1() {
+        val prog = """
+            class Animal(val name:String)
+                fun greet()
+                    print(name, " says hello\n")
+            
+            class Dog(name:String) : Animal(name)
+                fun bark()
+                    print(name, " Woof\n")
+                    
+            fun main()
+                val dog : Animal = Dog("Fido")
+                dog.bark()
+        """.trimIndent()
+
+        val expected = """
+        """.trimIndent()
+
+        runTest(prog, expected)
+    }
+
 
 
 }

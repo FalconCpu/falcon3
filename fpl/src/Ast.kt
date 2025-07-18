@@ -29,6 +29,7 @@ class AstNewWithInitialiser(location: Location, val type:AstTypeExpr, val initia
 class AstCast(location: Location, val expr:AstExpr, val typeExpr:AstTypeExpr) : AstExpr(location)
 class AstAbort(location: Location, val expr: AstExpr) : AstExpr(location)
 class AstIsExpr(location: Location, val expr:AstExpr, val typeExpr:AstTypeExpr) : AstExpr(location)
+class AstTry(location: Location, val expr: AstExpr) : AstExpr(location)
 
 class AstCall(location: Location, val expr: AstExpr, val args: List<AstExpr>) : AstExpr(location)
 
@@ -379,6 +380,11 @@ fun Ast.prettyPrint(sb: StringBuilder, indent:Int) {
             sb.append("Unsafe\n")
             for(stmt in body)
                 stmt.prettyPrint(sb, indent+1)
+        }
+
+        is AstTry -> {
+            sb.append("Try\n")
+            expr.prettyPrint(sb, indent+1)
         }
     }
 }

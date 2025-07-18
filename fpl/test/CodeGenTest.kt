@@ -1012,7 +1012,7 @@ class CodeGenTest {
             start
             ld T0, 0
             ld c, T0
-            ld T1, ARRAY3
+            ld T1, ARRAY5
             SHL_I T2, c, 2
             ADD_I T3, T1, T2
             ldw T4, T3[0]
@@ -1029,6 +1029,146 @@ class CodeGenTest {
 
         runTest(prog, expected)
     }
+
+
+    @Test
+    fun tryTest() {
+        val prog = """
+            enum Error(name:String) [
+                ERROR_1("error 1"),
+                ERROR_2("error 2"),
+                ERROR_3("error 3")]
+
+            fun doSomething(a:Int) -> Int!
+                if a = 1
+                    return Error.ERROR_1
+                else if a = 2
+                    return Error.ERROR_2
+                else
+                    return a
+                    
+            fun doSomething2(a:Int) -> Int!
+                val x = try doSomething(a)
+                return x+1
+                
+            fun main()
+                val x = doSomething2(1)
+                if x is Error
+                    print("Error ",x.name,"\n")
+                else
+                    print("Value ",x,"\n")
+        """.trimIndent()
+
+        val expected = """
+            Function doSomething(Int)
+            start
+            ld a, R1
+            ld T0, 1
+            beq a, T0, L2
+            jmp L3
+            L3:
+            jmp L4
+            L2:
+            ld T1, 0
+            ld T2, 1
+            ld R7, T2
+            ld R8, T1
+            jmp L0
+            jmp L1
+            L4:
+            ld T3, 2
+            beq a, T3, L6
+            jmp L7
+            L7:
+            jmp L8
+            L6:
+            ld T4, 1
+            ld T5, 1
+            ld R7, T5
+            ld R8, T4
+            jmp L0
+            jmp L5
+            L8:
+            ld T6, 0
+            ld R7, T6
+            ld R8, a
+            jmp L0
+            jmp L5
+            L5:
+            jmp L1
+            L1:
+            L0:
+            ret
+
+            Function doSomething2(Int)
+            start
+            ld a, R1
+            ld R1, a
+            jsr doSomething(Int)
+            ld T0, R7
+            ld T1, R8
+            beq T0, 0, L1
+            ld R7, T0
+            ld R8, T1
+            jmp L0
+            L1:
+            ld x, T1
+            ld T2, 1
+            ADD_I T3, x, T2
+            ld T4, 0
+            ld R7, T4
+            ld R8, T3
+            jmp L0
+            L0:
+            ret
+
+            Function main()
+            start
+            ld T0, 1
+            ld R1, T0
+            jsr doSomething2(Int)
+            ld T1, R7
+            ld T2, R8
+            ld x.type, T1
+            ld x.value, T2
+            beq x.type, 0, L3
+            jmp L2
+            L3:
+            jmp L4
+            L2:
+            ld T3, OBJ3
+            ld R1, T3
+            jsr printString
+            ld T4, ARRAY6
+            SHL_I T5, x.value, 2
+            ADD_I T6, T4, T5
+            ldw T7, T6[0]
+            ld R1, T7
+            jsr printString
+            ld T8, OBJ4
+            ld R1, T8
+            jsr printString
+            jmp L1
+            L4:
+            ld T9, OBJ5
+            ld R1, T9
+            jsr printString
+            ld R1, x.value
+            jsr printInt
+            ld T10, OBJ4
+            ld R1, T10
+            jsr printString
+            jmp L1
+            L1:
+            L0:
+            ret
+
+
+        """.trimIndent()
+
+        runTest(prog, expected)
+    }
+
 
 
 }

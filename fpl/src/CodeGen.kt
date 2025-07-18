@@ -274,6 +274,16 @@ fun TstExpr.codeGenRvalue() : Reg {
             val add = currentFunc.addAlu(AluOp.ADD_I, array, shifted)
             currentFunc.addLoadMem(4, add, 0)
         }
+
+        is TstTry -> {
+            val reg = expr.codeGenRvalue() as RegUnion
+            val label = currentFunc.newLabel()
+            currentFunc.addBranch(AluOp.EQ_I, reg.typeIndex, regZero, label)  // If no error, continue
+            currentFunc.addMov(unionResult, reg)
+            currentFunc.addJump(currentFunc.retLabel)
+            currentFunc.addLabel(label)
+            reg.value
+        }
     }
 }
 

@@ -448,6 +448,19 @@ fun AstExpr.typeCheckRvalue(context:AstBlock, allowFreeUse:Boolean=false, allowT
             pathContext = pathContext.setUnreachable()
             TstAbort(location, tcExpr)
         }
+
+        is AstTry -> {
+            val tcExpr = expr.typeCheckRvalue(context)
+            if (tcExpr.type is TypeError)
+                return tcExpr
+            if (tcExpr.type !is TypeErrable)
+                return TstError(location, "Try expression must be of type Errable")
+            if (currentFunction==null)
+                return TstError(location, "Try expression must be in a function")
+            if (currentFunction?.returnType !is TypeErrable)
+                return TstError(location, "Try expression must be in a function returning Errable")
+            TstTry(location, tcExpr, tcExpr.type.elementType)
+        }
     }
 }
 
@@ -712,17 +725,6 @@ fun AstExpr.typeCheckBool(context:AstBlock) : Triple<TstExpr,PathContext,PathCon
 }
 
 // ================================================================
-//                        UnionPromotion
-// ================================================================
-
-fun TstExpr.unionPromote(destType:Type) : TstExpr {
-    if (destType is TypeErrable && (type==destType.elementType || type==errorEnum))
-        return TstMakeUnion(location, this, destType)
-    return this;
-}
-
-
-// ================================================================
 //                         Lambda
 // ================================================================
 
@@ -859,6 +861,8 @@ fun AstStmt.typeCheck(context:AstBlock) : TstStmt {
             val oldFunction = currentFunction
             currentFunction = this.function
             val tcBody = body.map { it.typeCheck(this) }
+            if (!pathContext.unreachable && currentFunction?.returnType !is TypeUnit)
+                Log.error(location, "Function should return a value of type '${currentFunction?.returnType}'")
             currentFunction = oldFunction
             TstFunction(location, function, tcBody)
         }
@@ -1131,6 +1135,11 @@ private fun AstFunction.createFunctionSymbol(context:AstBlock) {
     val retType = this.retType?.resolveType(context) ?: TypeUnit
     for (param in paramSymbols)
         addSymbol(param)
+
+    // For now assert that we don't have any Errable arguments
+    val err = paramSymbols.firstOrNull { it.type is TypeErrable }
+    if (err!=null)
+        Log.error(err.location, "Errable arguments are not supported")
 
     // Build the mangled name for the function
 

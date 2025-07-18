@@ -52,6 +52,7 @@ enum class TokenKind(val text:String, val lineContinues:Boolean) {
     IN         ("in",true),
     AS         ("as",true),
     IS         ("is",true),
+    TRY        ("try", true),
     OPENB      ("(", true),
     OPENSQ     ("[", true),
     OPENCL     ("{", true),

@@ -886,5 +886,54 @@ class ExecuteTest {
         runTest(prog, expected)
     }
 
+    @Test
+    fun tryTest() {
+        val prog = """
+            enum Error(name:String) [
+                ERROR_1("error 1"),
+                ERROR_2("error 2"),
+                ERROR_3("error 3")]
+
+            fun doSomething(a:Int) -> Int!
+                if a = 1
+                    return Error.ERROR_1
+                else if a = 2
+                    return Error.ERROR_2
+                else if a = 3
+                    return Error.ERROR_3
+                else
+                    return a
+                    
+            fun doSomething2(a:Int) -> Int!
+                val x = try doSomething(a)
+                return x+1
+                
+            fun main()
+                for i in 0..<10
+                    val x = doSomething2(i)
+                    if x is Error
+                        print("Error ",x.name,"\n")
+                    else
+                        print("Value ",x,"\n")
+        """.trimIndent()
+
+        val expected = """
+            Value 1
+            Error error 1
+            Error error 2
+            Error error 3
+            Value 5
+            Value 6
+            Value 7
+            Value 8
+            Value 9
+            Value 10
+
+        """.trimIndent()
+
+        runTest(prog, expected)
+    }
+
+
 
 }

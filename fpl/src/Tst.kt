@@ -45,6 +45,7 @@ class TstIsExpr(location:Location, val expr:TstExpr, val isType:Type) : TstExpr(
 class TstMakeUnion(location:Location, val expr:TstExpr, type:Type) : TstExpr(location, type)
 class TstExtractUnion(location: Location, val expr:TstExpr, type:Type) : TstExpr(location, type)
 class TstGetEnumData(location: Location, val expr:TstExpr, val field:Symbol) : TstExpr(location, field.type)
+class TstTry(location: Location, val expr:TstExpr, type:Type) : TstExpr(location, type)
 
 class TstError(location: Location, val message: String = "") : TstExpr(location, TypeError) {
     init {
@@ -379,6 +380,11 @@ fun Tst.prettyPrint(sb: StringBuilder, indent:Int) {
 
         is TstGetEnumData -> {
             sb.append("get-enum-data $field ($type)\n")
+            expr.prettyPrint(sb, indent+1)
+        }
+
+        is TstTry -> {
+            sb.append("try ($type)\n")
             expr.prettyPrint(sb, indent+1)
         }
     }
